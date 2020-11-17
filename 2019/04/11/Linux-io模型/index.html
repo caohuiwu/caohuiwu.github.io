@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.8.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="前言先了解一下同步、异步、阻塞、非阻塞的相关概念。  同步：一般指的是程序的顺序执行123456789101112131415161718public class TestClass&amp;#123;    public static void main(String[] args) &amp;#123;        A();    &amp;#125;    public static void A() &amp;#123">
+<meta name="keywords" content="Linux IO">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux-io模型">
+<meta property="og:url" content="http://yoursite.com/2019/04/11/Linux-io模型/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="前言先了解一下同步、异步、阻塞、非阻塞的相关概念。  同步：一般指的是程序的顺序执行123456789101112131415161718public class TestClass&amp;#123;    public static void main(String[] args) &amp;#123;        A();    &amp;#125;    public static void A() &amp;#123">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2019/04/11/Linux-io模型/sync-block.png">
+<meta property="og:image" content="http://yoursite.com/2019/04/11/Linux-io模型/sync-nonblock.png">
+<meta property="og:image" content="http://yoursite.com/2019/04/11/Linux-io模型/async-block.png">
+<meta property="og:updated_time" content="2020-11-17T07:24:54.880Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux-io模型">
+<meta name="twitter:description" content="前言先了解一下同步、异步、阻塞、非阻塞的相关概念。  同步：一般指的是程序的顺序执行123456789101112131415161718public class TestClass&amp;#123;    public static void main(String[] args) &amp;#123;        A();    &amp;#125;    public static void A() &amp;#123">
+<meta name="twitter:image" content="http://yoursite.com/2019/04/11/Linux-io模型/sync-block.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/04/11/Linux-io模型/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux-io模型 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/04/11/Linux-io模型/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux-io模型
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-04-11 15:43:10" itemprop="dateCreated datePublished" datetime="2019-04-11T15:43:10+08:00">2019-04-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-11-17 15:24:54" itemprop="dateModified" datetime="2020-11-17T15:24:54+08:00">2020-11-17</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h3><p>先了解一下同步、异步、阻塞、非阻塞的相关概念。</p>
+<ul>
+<li>同步：一般指的是程序的顺序执行<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">public class TestClass&#123;</span><br><span class="line">    public static void main(String[] args) &#123;</span><br><span class="line">        A();</span><br><span class="line">    &#125;</span><br><span class="line">    public static void A() &#123;</span><br><span class="line">        System.out.println(&quot;A执行&quot;);</span><br><span class="line">        B();</span><br><span class="line">        System.out.println(&quot;A执行完成&quot;);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    public static void B() &#123;</span><br><span class="line">        System.out.println(&quot;B执行&quot;);</span><br><span class="line">        while(true) &#123;</span><br><span class="line">            ....</span><br><span class="line">        &#125;</span><br><span class="line">        System.out.println(&quot;B执行完成&quot;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p>从该例子中，只有当B()执行完成后，A()方法才会输出”A执行完成”，这就是同步。<br>    整个处理过程顺序执行，当各个过程都执行完毕，并返回结果。是一种线性执行的方式，执行的流程不能跨越</p>
+<a id="more"></a>      
+
+<ul>
+<li>异步：ajax就是最好的例子<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">function ajaxTest() &#123;</span><br><span class="line">    console.log(&quot;方法开始执行&quot;);</span><br><span class="line">    $.ajax(&#123;</span><br><span class="line">        url: &quot;/A/remoteCall&quot;,</span><br><span class="line">        type: &quot;post&quot;,</span><br><span class="line">        success: function (data) &#123;</span><br><span class="line">            while(true) &#123;</span><br><span class="line">                console.log(&quot;方法开始执行&quot;);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    console.log(&quot;方法执行结束&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p>方法执行，不需要等待ajax的返回结果。</p>
+<ul>
+<li>阻塞：一般指的是线程的状态<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">public Result export) &#123;</span><br><span class="line">        try &#123;</span><br><span class="line">            InputStream inputStream = new ByteArrayInputStream(ExcelUtil.getInstance().export(excelDataList, map, groupIdNameMap).toByteArray());</span><br><span class="line">            FileCopyUtils.copy(inputStream, outputStream);</span><br><span class="line">        &#125; catch (Exception e) &#123;</span><br><span class="line">            log.error(&quot;导出Excel出错了&quot;, e);</span><br><span class="line">            result.setMessage(&quot;操作失败!&quot;);</span><br><span class="line">            result.setStatus(REST_STATUS.FAILD_EXCEPTION);</span><br><span class="line">        &#125;</span><br><span class="line">        return result;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<blockquote>
+<p>例如导出中，操作系统读取文件返回花较长时间，程序不会往下执行，进入阻塞状态。    </p>
+</blockquote>
+<p>More info: <a href="https://www.jianshu.com/p/aed6067eeac9" target="_blank" rel="noopener">参考文章</a>    </p>
+<h3 id="Linux-IO模型"><a href="#Linux-IO模型" class="headerlink" title="Linux IO模型"></a>Linux IO模型</h3><ol>
+<li>阻塞IO（bloking IO）</li>
+<li>非阻塞IO（non-blocking IO）</li>
+<li>多路复用IO（multiplexing IO）</li>
+<li>信号驱动式IO（signal-driven IO）</li>
+<li>异步IO（asynchronous IO）                </li>
+</ol>
+<h4 id="一-同步阻塞IO"><a href="#一-同步阻塞IO" class="headerlink" title="一. 同步阻塞IO"></a>一. 同步阻塞IO</h4><p><img src="/2019/04/11/Linux-io模型/sync-block.png" alt="Linux-io模型"></p>
+<ul>
+<li><p>两个步骤：</p>
+<ol>
+<li>步骤一：用户空间的应用程序执行一个系统调用（recvform），linux kernel开始IO的第一阶段：准备数据。这会导致应用程序阻塞（进程自己选择的阻塞），什么也不干，直到数据准备好。</li>
+<li>步骤二：当kernel一直等到数据准备好了，它就会将数据从kernel中拷贝到用户内存，然后kernel返回结果，用户进程才解除block的状态，重新运行起来。数据从内核复制到用户进程，最后进程再处理数据，在等待数据到处理数据的两个阶段，整个进程都被阻塞。</li>
+</ol>
+</li>
+</ul>
+<h4 id="二-同步非阻塞IO"><a href="#二-同步非阻塞IO" class="headerlink" title="二. 同步非阻塞IO"></a>二. 同步非阻塞IO</h4><p><img src="/2019/04/11/Linux-io模型/sync-nonblock.png" alt="Linux-io模型"></p>
+<blockquote>
+<p>同步非阻塞就是通过轮训的方式（轮训执行系统调用），去判断数据是否准备好（轮训者：程序进程）<br>需要注意，拷贝数据整个过程，进程仍然是属于阻塞的状态。</p>
+</blockquote>
+<h4 id="三-IO多路复用"><a href="#三-IO多路复用" class="headerlink" title="三. IO多路复用"></a>三. IO多路复用</h4><p><img src="/2019/04/11/Linux-io模型/async-block.png" alt="Linux-io模型"></p>
+<blockquote>
+<p>强调一点就是，IO多路复用模型并没有涉及到非阻塞，进程在发出select后，要一直阻塞等待其监听的所有IO操作至少有一个数据准备好才返回，强调阻塞状态，不存在非阻塞。<br>而在 Java NIO中也可以实现多路复用，主要是利用多路复用器 Selector，与这里的 select函数类型，Selector会不断轮询注册在其上的通道Channel，如果有某一个Channel上面发生读或写事件，这个Channel处于就绪状态，就会被Selector轮询出来。关于Java NIO实现多路复用更多的介绍请查询相关文章。</p>
+</blockquote>
+<p>More info:<a href="https://www.jianshu.com/p/486b0965c296" target="_blank" rel="noopener">参考文章</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux-IO/" rel="tag"># Linux IO</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/03/22/单点登录优化方案二/" rel="prev" title="单点登录优化方案二">
+      <i class="fa fa-chevron-left"></i> 单点登录优化方案二
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/05/18/bio/" rel="next" title="bio">
+      bio <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Linux-IO模型"><span class="nav-number">2.</span> <span class="nav-text">Linux IO模型</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#一-同步阻塞IO"><span class="nav-number">2.1.</span> <span class="nav-text">一. 同步阻塞IO</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#二-同步非阻塞IO"><span class="nav-number">2.2.</span> <span class="nav-text">二. 同步非阻塞IO</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#三-IO多路复用"><span class="nav-number">2.3.</span> <span class="nav-text">三. IO多路复用</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw" src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">11</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">6</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

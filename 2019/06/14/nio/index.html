@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.8.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="从上篇bio文章，我们了解了传统socket连接为阻塞IO，然后了解了bio的多线程优化方式及其缺点。多路复用则是另外一种优化方式。 一、nio的设计思想">
+<meta name="keywords" content="nio">
+<meta property="og:type" content="article">
+<meta property="og:title" content="nio">
+<meta property="og:url" content="http://yoursite.com/2019/06/14/nio/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="从上篇bio文章，我们了解了传统socket连接为阻塞IO，然后了解了bio的多线程优化方式及其缺点。多路复用则是另外一种优化方式。 一、nio的设计思想">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2019/06/14/nio/nio-common.png">
+<meta property="og:updated_time" content="2020-11-17T08:14:33.536Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="nio">
+<meta name="twitter:description" content="从上篇bio文章，我们了解了传统socket连接为阻塞IO，然后了解了bio的多线程优化方式及其缺点。多路复用则是另外一种优化方式。 一、nio的设计思想">
+<meta name="twitter:image" content="http://yoursite.com/2019/06/14/nio/nio-common.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/06/14/nio/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>nio | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/06/14/nio/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          nio
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-06-14 23:00:42" itemprop="dateCreated datePublished" datetime="2019-06-14T23:00:42+08:00">2019-06-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-11-17 16:14:33" itemprop="dateModified" datetime="2020-11-17T16:14:33+08:00">2020-11-17</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/io/" itemprop="url" rel="index"><span itemprop="name">io</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>从上篇bio文章，我们了解了传统socket连接为阻塞IO，然后了解了bio的多线程优化方式及其缺点。多路复用则是另外一种优化方式。</p>
+<p>一、nio的设计思想</p>
+<p><img src="/2019/06/14/nio/nio-common.png" alt="nio-1"></p>
+<a id="more"></a>    
+
+<p>以下是代码设计思想</p>
+<pre><code>//服务端
+public class BioServer {
+
+    public static void main(String[] args) {
+        List&lt;Socket&gt; socketList = Lists.newArrayList();
+
+        byte[] bs = new byte[1024];
+        try {
+            //服务端的监听socket，只负责监听连接，监听的端口是：9878
+            ServerSocket serverSocket = new ServerSocket();
+            serverSocket.bind(new InetSocketAddress(9878));
+            serverSocket.setBlock(false);//伪代码，表示设置serverSocket为非阻塞
+
+            while (true) {//可以进行下一次的通信
+                Socket accept = serverSocket.accept();
+                if (accept == null) {
+                    //表示该次while中，无新连接
+                    socketList.forEach(socket -&gt; {
+                        //遍历socket，看是否有数据发过来
+                        int readCount = socket.getInputStream().read(bs);
+                        if(readCount &gt; 0) {
+                            //输出
+                        }
+                    });
+                } else {
+                    accept.setBlock(false);//伪代码，表示socket.read为非阻塞
+                    socketList.add(accept);                            
+                    socketList.forEach(socket -&gt; {
+                        int readCount = socket.getInputStream().read(bs);
+                        if(readCount &gt; 0) {
+                            //输出
+                        }
+                    });
+
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+//服务端
+    ServerSocketChannel serverChannel = ServerSocketChannel.open();
+    serverChannel.configureBlocking(false);
+    serverChannel.socket().bind(new InetSocketAddress(port));
+    Selector selector = Selector.open();
+    serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+    while(true){
+        int n = selector.select();
+        if (n == 0) continue;
+        Iterator ite = this.selector.selectedKeys().iterator();
+        while(ite.hasNext()){
+            SelectionKey key = (SelectionKey)ite.next();
+            if (key.isAcceptable()){
+                SocketChannel clntChan = ((ServerSocketChannel) key.channel()).accept();
+                clntChan.configureBlocking(false);
+                //将选择器注册到连接到的客户端信道，
+                //并指定该信道key值的属性为OP_READ，
+                //同时为该信道指定关联的附件
+                clntChan.register(key.selector(), SelectionKey.OP_READ, ByteBuffer.allocate(bufSize));
+            }
+            if (key.isReadable()){
+                handleRead(key);
+            }
+            if (key.isWritable() &amp;&amp; key.isValid()){
+                handleWrite(key);
+            }
+            if (key.isConnectable()){
+                System.out.println(&quot;isConnectable = true&quot;);
+            }
+          ite.remove();
+        }
+    }</code></pre><p>More info:<a href="https://www.bilibili.com/video/av54147951/" target="_blank" rel="noopener">参考文章</a></p>
+<h3 id="二、多路复用具体实现"><a href="#二、多路复用具体实现" class="headerlink" title="二、多路复用具体实现"></a>二、多路复用具体实现</h3><pre><code>多路复用是nio模型的一个升级，将由应用程序循环遍历的socket列表交给了内核，由内核去通知应用程序socket是否OK。</code></pre><ol>
+<li>首先先了解Linux的select,poll,epoll三种多路复用模式。<br>More info:<a href="https://jeff.wtf/2017/02/IO-multiplexing/" target="_blank" rel="noopener">参考文章</a>        </li>
+</ol>
+<ol start="2">
+<li>再了解Java中的多路复用的实现<br>More info:<a href="https://juejin.im/entry/599f971af265da247d728531" target="_blank" rel="noopener">参考文章</a></li>
+</ol>
+<h3 id="三、多路复用模式"><a href="#三、多路复用模式" class="headerlink" title="三、多路复用模式"></a>三、多路复用模式</h3><pre><code>Reactor和proactor</code></pre><p>More info:<a href="https://tech.meituan.com/2016/11/04/nio.html" target="_blank" rel="noopener">参考文章</a>            </p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/nio/" rel="tag"># nio</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/05/18/bio/" rel="prev" title="bio">
+      <i class="fa fa-chevron-left"></i> bio
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/07/24/DMQ/" rel="next" title="DMQ">
+      DMQ <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#二、多路复用具体实现"><span class="nav-number">1.</span> <span class="nav-text">二、多路复用具体实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#三、多路复用模式"><span class="nav-number">2.</span> <span class="nav-text">三、多路复用模式</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw" src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">11</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">6</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
