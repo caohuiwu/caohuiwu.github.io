@@ -20,18 +20,18 @@
     var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="针对现有单点登录问题，进行了一些尝试，这篇文章是尝试过程中使用的方案一。 开始针对现有cas单点部署情况及会遇到的问题，进行了分布式集群部署的尝试，以下将列出详细的实施步骤。">
-<meta name="keywords" content="CAS tomcat session">
+  <meta name="description" content="针对现有统一登录系统问题，进行了一些尝试，这篇文章是尝试过程中使用的方案一。 一、针对cas server单点问题cas交互流程大致如下：   拦截到web应用的请求，验证登录状态，若未登录则跳转到登录页 登录成功，web应用的tomcat存储session，cas-server保存TGT信息，cas-client-core保存ST和session的对应关系 登出时由cas-server返回ST信">
+<meta name="keywords" content="SSO CAS tomcat session">
 <meta property="og:type" content="article">
 <meta property="og:title" content="单点登录优化方案一">
 <meta property="og:url" content="http://yoursite.com/2019/03/15/单点登录优化方案一/index.html">
 <meta property="og:site_name" content="CHW&#39;s Notes">
-<meta property="og:description" content="针对现有单点登录问题，进行了一些尝试，这篇文章是尝试过程中使用的方案一。 开始针对现有cas单点部署情况及会遇到的问题，进行了分布式集群部署的尝试，以下将列出详细的实施步骤。">
+<meta property="og:description" content="针对现有统一登录系统问题，进行了一些尝试，这篇文章是尝试过程中使用的方案一。 一、针对cas server单点问题cas交互流程大致如下：   拦截到web应用的请求，验证登录状态，若未登录则跳转到登录页 登录成功，web应用的tomcat存储session，cas-server保存TGT信息，cas-client-core保存ST和session的对应关系 登出时由cas-server返回ST信">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-11-17T07:37:20.936Z">
+<meta property="og:updated_time" content="2020-11-22T08:06:10.095Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="单点登录优化方案一">
-<meta name="twitter:description" content="针对现有单点登录问题，进行了一些尝试，这篇文章是尝试过程中使用的方案一。 开始针对现有cas单点部署情况及会遇到的问题，进行了分布式集群部署的尝试，以下将列出详细的实施步骤。">
+<meta name="twitter:description" content="针对现有统一登录系统问题，进行了一些尝试，这篇文章是尝试过程中使用的方案一。 一、针对cas server单点问题cas交互流程大致如下：   拦截到web应用的请求，验证登录状态，若未登录则跳转到登录页 登录成功，web应用的tomcat存储session，cas-server保存TGT信息，cas-client-core保存ST和session的对应关系 登出时由cas-server返回ST信">
 
 <link rel="canonical" href="http://yoursite.com/2019/03/15/单点登录优化方案一/">
 
@@ -184,14 +184,14 @@
               </span>
               <span class="post-meta-item-text">发表于</span>
 
-              <time title="创建时间：2019-03-15 14:25:22" itemprop="dateCreated datePublished" datetime="2019-03-15T14:25:22+08:00">2019-03-15</time>
+              <time title="创建时间：2019-03-15 19:54:22" itemprop="dateCreated datePublished" datetime="2019-03-15T19:54:22+08:00">2019-03-15</time>
             </span>
               <span class="post-meta-item">
                 <span class="post-meta-item-icon">
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020-11-17 15:37:20" itemprop="dateModified" datetime="2020-11-17T15:37:20+08:00">2020-11-17</time>
+                <time title="修改时间：2020-11-22 16:06:10" itemprop="dateModified" datetime="2020-11-22T16:06:10+08:00">2020-11-22</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -214,9 +214,132 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>针对现有单点登录问题，进行了一些尝试，这篇文章是尝试过程中使用的方案一。</p>
-<h2 id="开始"><a href="#开始" class="headerlink" title="开始"></a>开始</h2><p>针对现有cas单点部署情况及会遇到的问题，进行了分布式集群部署的尝试，以下将列出详细的实施步骤。</p>
+        <p>针对现有统一登录系统问题，进行了一些尝试，这篇文章是尝试过程中使用的方案一。</p>
+<h2 id="一、针对cas-server单点问题"><a href="#一、针对cas-server单点问题" class="headerlink" title="一、针对cas server单点问题"></a>一、针对cas server单点问题</h2><p>cas交互流程大致如下：</p>
+<blockquote>
+<ul>
+<li>拦截到web应用的请求，验证登录状态，若未登录则跳转到登录页</li>
+<li>登录成功，web应用的tomcat存储session，cas-server保存TGT信息，cas-client-core保存ST和session的对应关系</li>
+<li>登出时由cas-server返回ST信息，cas-client-core根据ST删除自己存储在内存的ST和session信息。（web应用在接入cas的时候需要继承cas-client-core）</li>
+</ul>
+</blockquote>
+<p>针对现有cas单点部署情况及会遇到的问题，进行了分布式集群部署的尝试。</p>
+<p>》》解决分布式，主要是解决session共享</p>
+<pre><code>1、Tomcat的session共享。
+2、CAS的ST、TGT的共享。
+3、cas-client-core共享ST和session的对应关系</code></pre><h5 id="1-1、tomcat-session-redis-共享"><a href="#1-1、tomcat-session-redis-共享" class="headerlink" title="1.1、tomcat-session-redis 共享"></a>1.1、tomcat-session-redis 共享</h5><p>1、引入tomcat-redis-session-manager插件。</p>
+<p>2、修改tomcat的 context.xml 配置文件，添加如下配置：</p>
+<pre><code>&lt;!-- tomcat-redis-session共享配置 --&gt;
+&lt;Valve className=&quot;com.orangefunction.tomcat.redissessions.RedisSessionHandlerValve&quot; /&gt;
+&lt;Manager className=&quot;com.orangefunction.tomcat.redissessions.RedisSessionManager&quot;
+sentinels=&quot;jzztsentienl01.redis.djdns.cn:58783,jzztsentienl02.redis.djdns.cn:58783,jzztsentienl03.redis.djdns.cn:58783&quot;
+sentinelMaster=&quot;my58783master&quot;
+timeout=&quot;3000&quot;
+maxInactiveInterval=&quot;60&quot; /&gt;</code></pre><p>3、在tomcat 的lib下添加以下包</p>
+<pre><code>tomcat-redis-cache-manager.jar
+注意:tomcat8,与tomcat7包有所不同,请按版本添加，详细查看官网。</code></pre><h5 id="1-2、CAS的ST、TGT的共享"><a href="#1-2、CAS的ST、TGT的共享" class="headerlink" title="1.2、CAS的ST、TGT的共享"></a>1.2、CAS的ST、TGT的共享</h5><p>1、ST根据TGT生成，然后保存</p>
+<pre><code>public ServiceTicket grantServiceTicket(
+        final String ticketGrantingTicketId,
+        final Service service, final Credential... credentials)
+        throws AuthenticationException, TicketException {
 
+    final TicketGrantingTicket ticketGrantingTicket = getTicket(ticketGrantingTicketId, TicketGrantingTicket.class);
+    final RegisteredService registeredService = this.servicesManager.findServiceBy(service);
+
+    ............省略代码
+
+    final String ticketPrefix = authentications.size() == 1 ? ServiceTicket.PREFIX : ServiceTicket.PROXY_TICKET_PREFIX;
+    final String ticketId = serviceTicketUniqueTicketIdGenerator.getNewTicketId(ticketPrefix);
+    final ServiceTicket serviceTicket = ticketGrantingTicket.grantServiceTicket(
+            ticketId,
+            service,
+            this.serviceTicketExpirationPolicy,
+            currentAuthentication != null);
+
+    this.ticketRegistry.addTicket(serviceTicket);//查看2中的DbTicketRegistry
+
+    logger.info(&quot;Granted ticket [{}] for service [{}] for user [{}]&quot;,
+            serviceTicket.getId(), service.getId(), principal.getId());
+
+    return serviceTicket;
+}</code></pre><p>2、实现自定义的TicketRegistry，以下为简略代码。</p>
+<pre><code>public final class DbTicketRegistry extends AbstractDistributedTicketRegistry implements DisposableBean {
+    private int tgtTimeout;
+    private int stTimeout;
+    @Override
+    public void addTicket(final Ticket ticket) {
+        logger.debug(&quot;Adding ticket {}&quot;, ticket);
+        try {
+            this.saveTicket(ticket);
+        } catch (final Exception e) {
+            logger.error(&quot;Failed adding {} ，error:{} 。&quot;, ticket,e);
+        }
+    }
+
+    private void saveTicket(final Ticket ticket) throws Exception{
+         try {
+            ITicketGrantingTicketService ticketGrantingTicketService =  UumUtil.getApplicationContext().getBean(ITicketGrantingTicketService.class); 
+            if(ticket instanceof ServiceTicketImpl){
+                //st采用了Redis存储
+                RedisCacheClientUtil.syncAdd(ticket.getId(), ticket, 1000, RedisCacheClientUtil.DEFAULT_TIMEOUT);
+             }
+            if(ticket instanceof TicketGrantingTicketImpl){
+                //TGT采用了DB存储
+                TicketGrantingTicketDTO ticketGrantingTicketDTO = getDbTicket((TicketGrantingTicketImpl)ticket,ticketGrantingTicketService);
+                ticketGrantingTicketService.save(ticketGrantingTicketDTO);
+             }
+         } catch (final Exception e) {
+             logger.error(&quot;Failed save {} ，error:{} 。&quot;, ticket,e);
+         }
+    }
+}</code></pre><p>3、cas-client-core共享ST和session的对应关系，退出票据删除</p>
+<p>cas-client-core利用HashMapBackedSessionMappingStorage实现了ST和session的内存存储</p>
+<pre><code>//添加
+@Override
+public void addSessionById(String mappingId, HttpSession session) {
+    String STKey = getKey(mappingId);
+    StandardSessionFacade standardSessionFacade = (StandardSessionFacade) session;
+    RedisSession redisSession = null;
+    try {
+        redisSession = (RedisSession) getValue(standardSessionFacade, &quot;session&quot;);
+    } catch (IllegalAccessException e) {
+        e.printStackTrace();
+    } catch (NoSuchFieldException e) {
+        e.printStackTrace();
+    }
+    if (null == redisSession) {
+        log.error(&quot;get redisSession fail&quot;);
+        return;
+    }
+
+    sessionRedisTemplate.opsForValue().set(STKey, jdkSerializer.serialize(redisSession));
+    String sessionKey = getKey(session.getId());
+    stringRedisTemplate.opsForValue().set(sessionKey, STKey);
+    log.debug(&quot;cas-client add session, mappingId:&quot; + mappingId + &quot; sessionId:&quot; + session.getId());
+}
+
+//删除
+private void destroySession(final HttpServletRequest request) {
+    final String logoutMessage;
+    final String token = XmlUtils.getTextForElement(logoutMessage, &quot;SessionIndex&quot;);
+    if (CommonUtils.isNotBlank(token)) {
+        final HttpSession session = this.sessionMappingStorage.removeSessionByMappingId(token);
+        if (session != null) {
+            final String sessionID = session.getId();
+            logger.debug(&quot;Invalidating session [{}] for token [{}]&quot;, sessionID, token);
+            try {
+                session.invalidate();
+            } catch (final IllegalStateException e) {
+                logger.debug(&quot;Error invalidating session.&quot;, e);
+            }
+            this.logoutStrategy.logout(request);
+        }
+    }
+}</code></pre><p><a href="https://blog.csdn.net/dodolzg/article/details/43833545" target="_blank" rel="noopener">参考文档</a>    </p>
+<h2 id="二、针对RPC接口"><a href="#二、针对RPC接口" class="headerlink" title="二、针对RPC接口"></a>二、针对RPC接口</h2><pre><code>1、高耦合问题：确定接口的职责，例如只获取用户信息，只返回用户基本信息，但是改造成本高，业务改动大，不建议做。
+2、数据量大问题：加入分页限制，不全部返回。</code></pre><h2 id="三、成果"><a href="#三、成果" class="headerlink" title="三、成果"></a>三、成果</h2><pre><code>1、分布式改造后，解决了单点节点崩溃服务不可用问题。
+2、加入分页限制后，解决了RPC调用造成的超时问题。
+3、即使分布式+分页改造，依然没有解决登录耗时问题，主要是单点登录设计缺陷，需要获取的用户信息过多。</code></pre>
     </div>
 
     
@@ -225,7 +348,7 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/CAS-tomcat-session/" rel="tag"># CAS tomcat session</a>
+              <a href="/tags/SSO-CAS-tomcat-session/" rel="tag"># SSO CAS tomcat session</a>
           </div>
 
         
@@ -299,7 +422,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#开始"><span class="nav-number">1.</span> <span class="nav-text">开始</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#一、针对cas-server单点问题"><span class="nav-number">1.</span> <span class="nav-text">一、针对cas server单点问题</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-1、tomcat-session-redis-共享"><span class="nav-number">1.0.0.1.</span> <span class="nav-text">1.1、tomcat-session-redis 共享</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-2、CAS的ST、TGT的共享"><span class="nav-number">1.0.0.2.</span> <span class="nav-text">1.2、CAS的ST、TGT的共享</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#二、针对RPC接口"><span class="nav-number">2.</span> <span class="nav-text">二、针对RPC接口</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#三、成果"><span class="nav-number">3.</span> <span class="nav-text">三、成果</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -314,7 +437,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">11</span>
+          <span class="site-state-item-count">12</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -327,7 +450,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-count">8</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

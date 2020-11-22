@@ -30,7 +30,8 @@
 <meta property="og:locale" content="zh-CN">
 <meta property="og:image" content="http://yoursite.com/2019/03/05/单点登录现状/cas-login.svg">
 <meta property="og:image" content="http://yoursite.com/2019/03/05/单点登录现状/cas-logout.svg">
-<meta property="og:updated_time" content="2020-11-17T08:14:33.541Z">
+<meta property="og:image" content="http://yoursite.com/2019/03/05/单点登录现状/uum%E7%8E%B0%E7%8A%B6.png">
+<meta property="og:updated_time" content="2020-11-21T08:35:34.618Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="单点登录现状">
 <meta name="twitter:description" content="这篇文章，将从登陆、登出流程，详细讲解CAS+Shiro的执行过程。 一、开始uum：一个基于RBAC（Role-Based Access Control ）的权限系统（CAS client + shiro）sso：CAS server，负责认证授权  1、登陆流程: 这里将以时序图的方式展现。">
@@ -194,7 +195,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020-11-17 16:14:33" itemprop="dateModified" datetime="2020-11-17T16:14:33+08:00">2020-11-17</time>
+                <time title="修改时间：2020-11-21 16:35:34" itemprop="dateModified" datetime="2020-11-21T16:35:34+08:00">2020-11-21</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -227,27 +228,16 @@
 <blockquote>
 <h3 id="2、登出流程"><a href="#2、登出流程" class="headerlink" title="2、登出流程:"></a>2、登出流程:</h3></blockquote>
 <p>这里将以时序图的方式展现。<br><img src="/2019/03/05/单点登录现状/cas-logout.svg" alt="单点登录现状"></p>
-<h2 id="二、使用现状"><a href="#二、使用现状" class="headerlink" title="二、使用现状"></a>二、使用现状</h2><blockquote>
-<ul>
-<li>部署方式：cas server主备方式部署，采用nginx配置负载均衡，当主节点挂掉后，启动备用节点。</li>
-<li>问题：单节点方式，服务压力大，响应慢，若主节点挂掉，此时所有登录的用户session将丢失，用户需重新登录，并且在备用节点启动完成之前造成服务不可用，造成的影响范围大。</li>
-</ul>
-</blockquote>
-<h2 id="三、局限性"><a href="#三、局限性" class="headerlink" title="三、局限性"></a>三、局限性</h2><blockquote>
-<ul>
-<li>采用shiro，各业务系统保存了用户信息，无统一保存用户信息容器，当用户改变，无法立即全局生效；并且退出时，需要发送MQ去清空各业务系统的信息，将导致MQ压力增大。</li>
-<li>若设计不合理，SSO认证过程会很长，并且用户授权信息将很大，增加SSO服务压力。</li>
-</ul>
-</blockquote>
-<h2 id="四、个人感悟"><a href="#四、个人感悟" class="headerlink" title="四、个人感悟"></a>四、个人感悟</h2><p>针对上面现阶段系统的局限性，以下是个人优化想法：</p>
-<blockquote>
-<ul>
-<li>认证过程，只验证用户的登录名密码。CAS client根据需要，再调用服务去获取用户授权信息，并将信息统一存放至Redis。</li>
-<li>用户退出，清空Redis中的用户信息，</li>
-</ul>
-</blockquote>
-<p>参考博客：<br><a href="https://my.oschina.net/u/2415799/blog/865526" target="_blank" rel="noopener">shiro 登录授权过程详细解析</a><br><a href="https://www.codetw.com/lyxepf.html" target="_blank" rel="noopener">CAS 4.1.10 版本服務端原始碼解讀</a><br><a href="https://www.jianshu.com/p/5ef9407c71af" target="_blank" rel="noopener">从http验证流程解析CAS单点登录</a><br><a href="https://blog.csdn.net/qq_34246546/article/details/79493208" target="_blank" rel="noopener">CAS的详细登录流程</a><br><a href="https://juejin.im/post/5b8116afe51d4538d23db11e" target="_blank" rel="noopener">前端关于单点登录SSO的知识</a></p>
-<!--more-->
+<h2 id="二、使用现状及局限性"><a href="#二、使用现状及局限性" class="headerlink" title="二、使用现状及局限性"></a>二、使用现状及局限性</h2><p><img src="/2019/03/05/单点登录现状/uum%E7%8E%B0%E7%8A%B6.png" alt="uum"></p>
+<h5 id="2-1、部署方式：cas-server主备方式部署，采用nginx配置负载均衡，当主节点挂掉后，启动备用节点。"><a href="#2-1、部署方式：cas-server主备方式部署，采用nginx配置负载均衡，当主节点挂掉后，启动备用节点。" class="headerlink" title="2.1、部署方式：cas server主备方式部署，采用nginx配置负载均衡，当主节点挂掉后，启动备用节点。"></a>2.1、部署方式：cas server主备方式部署，采用nginx配置负载均衡，当主节点挂掉后，启动备用节点。</h5><pre><code>问题一：单节点方式，服务压力大，响应慢，若主节点挂掉，此时所有登录的用户session将丢失，用户需重新登录，并且在备用节点启动完成之前造成服务不可用，造成的影响范围大。
+问题二：cas server中获取用户的个人信息太多，如角色、菜单、归属城市、机构等数据都获取出来，多次DB查询耗时（6次），大数据传输耗带宽（多达1M），导致登录时间长，用户体验差。</code></pre><h5 id="2-2、权限控制采用shiro，各业务系统都缓存了权限及登陆信息，若退出登陆，通过发送MQ通知其他系统进行登录信息清除。"><a href="#2-2、权限控制采用shiro，各业务系统都缓存了权限及登陆信息，若退出登陆，通过发送MQ通知其他系统进行登录信息清除。" class="headerlink" title="2.2、权限控制采用shiro，各业务系统都缓存了权限及登陆信息，若退出登陆，通过发送MQ通知其他系统进行登录信息清除。"></a>2.2、权限控制采用shiro，各业务系统都缓存了权限及登陆信息，若退出登陆，通过发送MQ通知其他系统进行登录信息清除。</h5><pre><code>问题一：为客户端提供了三种缓存策略（redis、memcache、local cache），各业务系统保存了用户信息，无统一保存用户信息容器，当用户改变，无法立即全局生效。
+问题二：采用MQ通知其他业务系统退出清理登录信息，达到了一定的解耦，但是clientId多达65个，增大MQ压力并且亦产生死信消息。
+问题三：接入方式繁杂，未做到服务的简易性、高内聚、低耦合。</code></pre><h5 id="2-3、底层RPC服务臃肿，模块职责不清晰，查询基本信息时查询的其他信息过多，未做到接口的单一职责、高性能。"><a href="#2-3、底层RPC服务臃肿，模块职责不清晰，查询基本信息时查询的其他信息过多，未做到接口的单一职责、高性能。" class="headerlink" title="2.3、底层RPC服务臃肿，模块职责不清晰，查询基本信息时查询的其他信息过多，未做到接口的单一职责、高性能。"></a>2.3、底层RPC服务臃肿，模块职责不清晰，查询基本信息时查询的其他信息过多，未做到接口的单一职责、高性能。</h5><h2 id="三、个人感悟"><a href="#三、个人感悟" class="headerlink" title="三、个人感悟"></a>三、个人感悟</h2><p>针对上面现阶段系统的局限性，以下是个人优化想法：</p>
+<pre><code>1、认证过程，要做到耗时少，只验证用户的登录名密码，也只传输登录状态信息。
+2、CAS client根据需要，再调用服务去获取用户授权信息，并将信息统一存放至Redis。
+3、用户退出，清空Redis中的用户信息，不再依赖MQ逐一通知各业务系统。
+4、RPC接口设计，要做到单一职责、高性能，让调用方接入方便快捷，做到高内聚、低耦合。</code></pre><p>参考博客：<br><a href="https://my.oschina.net/u/2415799/blog/865526" target="_blank" rel="noopener">shiro 登录授权过程详细解析</a><br><a href="https://www.codetw.com/lyxepf.html" target="_blank" rel="noopener">CAS 4.1.10 版本服務端原始碼解讀</a><br><a href="https://www.jianshu.com/p/5ef9407c71af" target="_blank" rel="noopener">从http验证流程解析CAS单点登录</a><br><a href="https://blog.csdn.net/qq_34246546/article/details/79493208" target="_blank" rel="noopener">CAS的详细登录流程</a><br><a href="https://juejin.im/post/5b8116afe51d4538d23db11e" target="_blank" rel="noopener">前端关于单点登录SSO的知识</a></p>
+
     </div>
 
     
@@ -330,7 +320,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#一、开始"><span class="nav-number">1.</span> <span class="nav-text">一、开始</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1、登陆流程"><span class="nav-number">1.1.</span> <span class="nav-text">1、登陆流程:</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2、登出流程"><span class="nav-number">1.2.</span> <span class="nav-text">2、登出流程:</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#二、使用现状"><span class="nav-number">2.</span> <span class="nav-text">二、使用现状</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#三、局限性"><span class="nav-number">3.</span> <span class="nav-text">三、局限性</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#四、个人感悟"><span class="nav-number">4.</span> <span class="nav-text">四、个人感悟</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#一、开始"><span class="nav-number">1.</span> <span class="nav-text">一、开始</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1、登陆流程"><span class="nav-number">1.1.</span> <span class="nav-text">1、登陆流程:</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2、登出流程"><span class="nav-number">1.2.</span> <span class="nav-text">2、登出流程:</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#二、使用现状及局限性"><span class="nav-number">2.</span> <span class="nav-text">二、使用现状及局限性</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#2-1、部署方式：cas-server主备方式部署，采用nginx配置负载均衡，当主节点挂掉后，启动备用节点。"><span class="nav-number">2.0.0.1.</span> <span class="nav-text">2.1、部署方式：cas server主备方式部署，采用nginx配置负载均衡，当主节点挂掉后，启动备用节点。</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-2、权限控制采用shiro，各业务系统都缓存了权限及登陆信息，若退出登陆，通过发送MQ通知其他系统进行登录信息清除。"><span class="nav-number">2.0.0.2.</span> <span class="nav-text">2.2、权限控制采用shiro，各业务系统都缓存了权限及登陆信息，若退出登陆，通过发送MQ通知其他系统进行登录信息清除。</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-3、底层RPC服务臃肿，模块职责不清晰，查询基本信息时查询的其他信息过多，未做到接口的单一职责、高性能。"><span class="nav-number">2.0.0.3.</span> <span class="nav-text">2.3、底层RPC服务臃肿，模块职责不清晰，查询基本信息时查询的其他信息过多，未做到接口的单一职责、高性能。</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#三、个人感悟"><span class="nav-number">3.</span> <span class="nav-text">三、个人感悟</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -345,7 +335,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">11</span>
+          <span class="site-state-item-count">12</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -358,7 +348,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-count">8</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
