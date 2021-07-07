@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.8.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、什么是进程，进程和线程的区别 进程：是操作系统进行资源分配的基本单位 线程：是操作系统进行任务执行调度的基本单位 纤程（协程）：运行在用户空间，不与内核进行交互。（不会创建内核进程）  区别： 进程和线程在操作系统中都是一个进程，线程共享进程的内存空间，没有独立的内存空间。 进程空间天然独立，不会互相篡改数据，但是对共享数据的操作时，还是需要进行加锁处理；">
+<meta name="keywords" content="Linux Thread">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux-thread">
+<meta property="og:url" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、什么是进程，进程和线程的区别 进程：是操作系统进行资源分配的基本单位 线程：是操作系统进行任务执行调度的基本单位 纤程（协程）：运行在用户空间，不与内核进行交互。（不会创建内核进程）  区别： 进程和线程在操作系统中都是一个进程，线程共享进程的内存空间，没有独立的内存空间。 进程空间天然独立，不会互相篡改数据，但是对共享数据的操作时，还是需要进行加锁处理；">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/task_struct.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/piepline.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/slab.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/thread-info.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/stack.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/vm.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/vm-%E5%AE%9E%E7%8E%B0.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/internal.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/%E7%BC%BA%E9%A1%B5.png">
+<meta property="og:updated_time" content="2021-07-07T03:11:51.777Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux-thread">
+<meta name="twitter:description" content="一、什么是进程，进程和线程的区别 进程：是操作系统进行资源分配的基本单位 线程：是操作系统进行任务执行调度的基本单位 纤程（协程）：运行在用户空间，不与内核进行交互。（不会创建内核进程）  区别： 进程和线程在操作系统中都是一个进程，线程共享进程的内存空间，没有独立的内存空间。 进程空间天然独立，不会互相篡改数据，但是对共享数据的操作时，还是需要进行加锁处理；">
+<meta name="twitter:image" content="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/task_struct.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux-thread | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/09/2020-04-09-Linux-thread/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux-thread
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-09 18:19:15" itemprop="dateCreated datePublished" datetime="2020-04-09T18:19:15+08:00">2020-04-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-07 11:11:51" itemprop="dateModified" datetime="2021-07-07T11:11:51+08:00">2021-07-07</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、什么是进程，进程和线程的区别"><a href="#一、什么是进程，进程和线程的区别" class="headerlink" title="一、什么是进程，进程和线程的区别"></a>一、什么是进程，进程和线程的区别</h1><ul>
+<li>进程：是操作系统进行资源分配的基本单位</li>
+<li>线程：是操作系统进行任务执行调度的基本单位</li>
+<li>纤程（协程）：运行在用户空间，不与内核进行交互。（不会创建内核进程）</li>
+</ul>
+<p><strong>区别：</strong> 进程和线程在操作系统中都是一个进程，线程共享进程的内存空间，没有独立的内存空间。</p>
+<p>进程空间天然独立，不会互相篡改数据，但是对共享数据的操作时，还是需要进行加锁处理；</p>
+<a id="more"></a>  
+
+<h1 id="二、进程实现"><a href="#二、进程实现" class="headerlink" title="二、进程实现"></a>二、进程实现</h1><p>进程结构、进程创建、thread_info、task_list、虚拟内存、Linux内核架构等内容进行描述</p>
+<h2 id="1、进程结构"><a href="#1、进程结构" class="headerlink" title="1、进程结构"></a>1、进程结构</h2><p>进程描述符（PCB=process control block），task_struct是PCB的具体实现。进程的执行，对于CPU来说，也是代码段。<br><img src="/2020/04/09/2020-04-09-Linux-thread/task_struct.png" alt="task_struct"></p>
+<p>代码实现   </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">sched.sh文件 </span><br><span class="line">struct task_struct &#123; </span><br><span class="line">    long state; // 进程状态 </span><br><span class="line">    struct mm_struct *mm; // 虚拟内存结构体 </span><br><span class="line">    pid_t pid; // 进程号 </span><br><span class="line">    struct task_struct *parent; // 指向父进程的指针</span><br><span class="line">    struct list_head children; // 子进程列表 </span><br><span class="line">    struct fs_struct *fs; // 存放文件系统信息的指针 </span><br><span class="line">    struct files_struct *files;// 一个数组，包含该进程打开的文件指针 </span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><strong>files：</strong> 每个进程创建时，都会默认填充前三个值：   </p>
+<ul>
+<li>files[0]：代表标准输入流</li>
+<li>files[1]：代表标准输出流</li>
+<li>files[2]：代表标准错误输出流</li>
+</ul>
+<p><strong>理解管道：</strong> 一个进程的输出是另外一个进程的输入<br><img src="/2020/04/09/2020-04-09-Linux-thread/piepline.png" alt="task_struct"></p>
+<h2 id="2、进程创建"><a href="#2、进程创建" class="headerlink" title="2、进程创建"></a>2、进程创建</h2><h3 id="2-1、内核创建方式"><a href="#2-1、内核创建方式" class="headerlink" title="2.1、内核创建方式"></a>2.1、内核创建方式</h3><p>task_struct的创建，Linux2.6之后，通过slab分配器动态生成task_struct。<br><img src="/2020/04/09/2020-04-09-Linux-thread/slab.png" alt="task_struct"></p>
+<p>1、高速缓存会被划分为slab。<br>2、task_struct的创建，会先从未满的slab中申请，直到满了才会去空的slab中申请创建。</p>
+<h3 id="2-2、对外暴露接口创建方式"><a href="#2-2、对外暴露接口创建方式" class="headerlink" title="2.2、对外暴露接口创建方式"></a>2.2、对外暴露接口创建方式</h3><p>fork()、exec()等函数进行创建</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">main&#123;  </span><br><span class="line">    pid_t pid;  </span><br><span class="line">    printf(&quot;fork!&quot;);</span><br><span class="line">    pid=fork(); </span><br><span class="line">    if (pid &lt; 0)  </span><br><span class="line">        printf(&quot;error in fork!&quot;);  </span><br><span class="line">    else if (pid == 0)  </span><br><span class="line">        printf(&quot;i am the child process, my process id is %d\n&quot;,getpid());  </span><br><span class="line">    else  </span><br><span class="line">        printf(&quot;i am the parent process, my process id is %\/n&quot;,getpid());  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>fork()：一个父进程会创建一个子进程，子进程共享父进程的内存空间及指针记录。</p>
+</li>
+<li><p>返回两次结果值，指的是：父进程fork()函数会返回一个值，返回子进程的进程ID；而子进程此时执行节点也是到fork()，<br>父子进程会继续往下执行，从而产生返回两个值的现象，本质是两个进程执行得到相应的值。</p>
+</li>
+<li><p>由于在复制时复制了父进程的堆栈段，所以两个进程都停留在fork函数中，等待返回。<br>因此fork函数会返回两次，一次是在父进程中返回，另一次是在子进程中返回，这两次的返回值是不一样的。</p>
+</li>
+<li><p>fork函数返回的值为什么在父子进程中不同。<br>“ 其实就相当于链表，进程形成了链表，父进程的fork函数返回的值指向子进程的进程id, 因为子进程没有子进程，所以其fork函数返回的值为0 .</p>
+</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">int main()&#123;</span><br><span class="line">    execl(&quot;/bin/ls&quot;, &quot;ls&quot;, &quot;-l&quot;, NULL);</span><br><span class="line">    perror(&quot;execl&quot;);</span><br><span class="line">    exit(1);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>A进程中调用exec函数族函数，将A进程的代码段替换成了ls程序的代码段，则A进程下的代码则不会执行，也不会返回结果。</p>
+<h2 id="3、thread-info"><a href="#3、thread-info" class="headerlink" title="3、thread_info"></a>3、thread_info</h2><p>快速获取task_struct：  </p>
+<ul>
+<li>1、有的硬件系统，有专门的寄存器来存储。</li>
+<li>2、寄存器不富余的体系，只能在栈的尾端创建thread_info结构。<br><img src="/2020/04/09/2020-04-09-Linux-thread/thread-info.png" alt="task_struct"></li>
+</ul>
+<p><img src="/2020/04/09/2020-04-09-Linux-thread/stack.png" alt="task_struct"><br>操作系统，将所有的进程都放入一个双向链表结构的任务列表中（task_list）</p>
+<h2 id="4、虚拟内存"><a href="#4、虚拟内存" class="headerlink" title="4、虚拟内存"></a>4、虚拟内存</h2><p>task_struct中的mm_struct结构代表着虚拟内存。<br><img src="/2020/04/09/2020-04-09-Linux-thread/vm.png" alt="task_struct"></p>
+<p><strong>为什么需要虚拟内存：</strong>  </p>
+<ol>
+<li>多线程环境下，内存空间小，易不足，若想不影响其他进程，则只能将其他进程的内容拷贝至磁盘中持久化，但是会导致耗时增加。</li>
+<li>多线程环境下，若直接使用物理内存，则进程的数据可能被其他进程修改，导致进程运行的不准确。</li>
+</ol>
+<p><strong>为了解决上述问题</strong>，将进程进行隔离，使用了虚拟内存，各进程之间不受影响，使每个进程都能拥有所有的物理内存空间。</p>
+<h3 id="4-1、虚拟内存实现"><a href="#4-1、虚拟内存实现" class="headerlink" title="4.1、虚拟内存实现"></a>4.1、虚拟内存实现</h3><p><img src="/2020/04/09/2020-04-09-Linux-thread/vm-%E5%AE%9E%E7%8E%B0.png" alt="task_struct"></p>
+<p>Linux为每个进程维护了一个单独的虚拟地址空间，分成内核空间和用户空间。（进程之间空间是天然独立的，互不影响；子进程共享父进程的空间，则会导致子进程数据的相互篡改）</p>
+<ul>
+<li>内核空间：高地址空间的1GB，用于运行内核代码和数据和保存进程的相关信息。俗称内核态。</li>
+<li>用户空间：低地址空间的3GB，运行用户进程的代码和数据。俗称用户态。</li>
+<li>每次内核调用，都会进行空间切换，数据拷贝，这个操作是耗时的。</li>
+<li>虚拟内存到物理内存的映射，通过mmu（内存管理单元）操作。</li>
+</ul>
+<p><strong>写时复制：Copy On Write技术实现原理：</strong>   </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">1. fork()之后，复制出来的子进程有自己的task_struct结构和pid,  </span><br><span class="line">2. kernel把父进程中所有的内存页的权限都设为read-only，  </span><br><span class="line">3. 然后子进程的地址空间指向父进程。当父子进程都只读内存时，相安无事。   </span><br><span class="line">4. 当其中某个进程写内存时，CPU硬件检测到内存页是read-only的，   </span><br><span class="line">5. 于是触发页异常中断（page-fault），陷入kernel的一个中断例程。   </span><br><span class="line">6. 中断例程中，kernel就会把触发的异常的页复制一份，于是父子进程各自持有独立的一份，  </span><br><span class="line">7. 父进程会对原有的物理空间进行修改，而子进程会使用拷贝后的新物理空间。</span><br></pre></td></tr></table></figure>
+
+<p>在<strong>fork</strong>函数调用时，父进程和子进程会被内核分配不同的虚拟内存空间，所以从进程的角度看它们访问的是不同的内存：</p>
+<ul>
+<li>在虚拟内存空间进行读操作时，内核会将虚拟内存映射到物理内存上，父子进程共享了物理上的内存空间；</li>
+<li>当父进程对共享的内存进行修改时，共享的内存会以页为单位进行拷贝，父进程会对原有的物理空间进行修改，而子进程会使用拷贝后的新物理空间；</li>
+<li>当子进程对共享的内存进行修改时，子进程会在拷贝后的新物理空间上进行修改，而不会改动原有的物理空间，避免影响父进程的内存空间；</li>
+</ul>
+<h1 id="五、Linux内核架构"><a href="#五、Linux内核架构" class="headerlink" title="五、Linux内核架构"></a>五、Linux内核架构</h1><p><img src="/2020/04/09/2020-04-09-Linux-thread/internal.png" alt="internal"><br>进程调度器：process scheduler，持有了task_list，然后管理这些进程链表。维护了一个current指针，指向当前正在执行的进程。<br><strong>抢占式和非抢占式。</strong></p>
+<h1 id="六、进程状态"><a href="#六、进程状态" class="headerlink" title="六、进程状态"></a>六、进程状态</h1><ul>
+<li>task_running：正在运行或就绪</li>
+<li>task_intermptible：可中断的休眠，等待资源、信号，一旦满足，由中断变为就绪</li>
+<li>task_unintermptible：不可中断的休眠，信号无法唤醒，只有当资源满足时可唤醒。</li>
+<li>task_stoped：进程被停止执行</li>
+<li>task_traced：表示进程被debugger等进程监视</li>
+</ul>
+<h1 id="七、中断"><a href="#七、中断" class="headerlink" title="七、中断"></a>七、中断</h1><p>CPU暂停当前线程执行，执行中断请求。<br><strong>中断类型：</strong> </p>
+<ul>
+<li>同步中断（软中断）：由CPU控制单元产生，之所以称为同步，因为只有当一条指令执行完成后，才会执行中断指令。</li>
+<li>异步中断（硬中断）：由硬件设备产生的中断信号，随机产生。</li>
+</ul>
+<p>#八、缺页<br><img src="/2020/04/09/2020-04-09-Linux-thread/%E7%BC%BA%E9%A1%B5.png" alt="缺页"></p>
+<ol>
+<li>含义：PTE有晓位=0，虚拟内存中的虚拟页没有被缓存在物理内存中，称为缺页。</li>
+<li>具体表现：malloc()和mmap()函数调用，在分配时只建立的虚拟内存空间（在进程堆中分配），并没有分配虚拟内存对应的物理内存。当进程服务这些虚拟内存时，mmu（内存管理单元）无法解析，将报出page fault错误，缺页中断，然后进程进行空间切换，由用户态切换至内核态，然后由内核处理。</li>
+<li>处理方式：根据缺页类型，CPU判断物理内存中是否有当前所需页帧，如果存在，进行映射；如果不存在，则去磁盘读取保存至内存，再建立映射。</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux-Thread/" rel="tag"># Linux Thread</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/06/2020-04-06-volatile/" rel="prev" title="volatile">
+      <i class="fa fa-chevron-left"></i> volatile
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/11/2020-04-11-java-thread/" rel="next" title="java-thread">
+      java-thread <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、什么是进程，进程和线程的区别"><span class="nav-number">1.</span> <span class="nav-text">一、什么是进程，进程和线程的区别</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、进程实现"><span class="nav-number">2.</span> <span class="nav-text">二、进程实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1、进程结构"><span class="nav-number">2.1.</span> <span class="nav-text">1、进程结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2、进程创建"><span class="nav-number">2.2.</span> <span class="nav-text">2、进程创建</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1、内核创建方式"><span class="nav-number">2.2.1.</span> <span class="nav-text">2.1、内核创建方式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2、对外暴露接口创建方式"><span class="nav-number">2.2.2.</span> <span class="nav-text">2.2、对外暴露接口创建方式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3、thread-info"><span class="nav-number">2.3.</span> <span class="nav-text">3、thread_info</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4、虚拟内存"><span class="nav-number">2.4.</span> <span class="nav-text">4、虚拟内存</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1、虚拟内存实现"><span class="nav-number">2.4.1.</span> <span class="nav-text">4.1、虚拟内存实现</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#五、Linux内核架构"><span class="nav-number">3.</span> <span class="nav-text">五、Linux内核架构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#六、进程状态"><span class="nav-number">4.</span> <span class="nav-text">六、进程状态</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#七、中断"><span class="nav-number">5.</span> <span class="nav-text">七、中断</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw" src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">32</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.8.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、线程状态1234567891011121314public enum State &amp;#123;    //新建状态，未启动    NEW,    //就绪状态，在JVM中运行，但是在操作系统中可能是等待执行。    RUNNABLE,    //阻塞状态，表示线程阻塞于锁    BLOCKED,    //等待状态，需要等待其他线程做出一些特定动作（通知或中断）    WAITING,   /">
+<meta name="keywords" content="JVM Thread">
+<meta property="og:type" content="article">
+<meta property="og:title" content="java-thread">
+<meta property="og:url" content="http://yoursite.com/2020/04/11/2020-04-11-java-thread/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、线程状态1234567891011121314public enum State &amp;#123;    //新建状态，未启动    NEW,    //就绪状态，在JVM中运行，但是在操作系统中可能是等待执行。    RUNNABLE,    //阻塞状态，表示线程阻塞于锁    BLOCKED,    //等待状态，需要等待其他线程做出一些特定动作（通知或中断）    WAITING,   /">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2020/04/11/2020-04-11-java-thread/%E7%BA%BF%E7%A8%8B%E7%8A%B6%E6%80%81%E6%B5%81%E8%BD%AC.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/11/2020-04-11-java-thread/%E7%BA%BF%E7%A8%8B%E8%BF%9B%E7%A8%8B%E5%85%B3%E7%B3%BB.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/11/2020-04-11-java-thread/jvm%E7%BA%BF%E7%A8%8B-Linux%E8%BF%9B%E7%A8%8B.png">
+<meta property="og:updated_time" content="2021-07-07T03:11:51.812Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="java-thread">
+<meta name="twitter:description" content="一、线程状态1234567891011121314public enum State &amp;#123;    //新建状态，未启动    NEW,    //就绪状态，在JVM中运行，但是在操作系统中可能是等待执行。    RUNNABLE,    //阻塞状态，表示线程阻塞于锁    BLOCKED,    //等待状态，需要等待其他线程做出一些特定动作（通知或中断）    WAITING,   /">
+<meta name="twitter:image" content="http://yoursite.com/2020/04/11/2020-04-11-java-thread/%E7%BA%BF%E7%A8%8B%E7%8A%B6%E6%80%81%E6%B5%81%E8%BD%AC.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/04/11/2020-04-11-java-thread/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>java-thread | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/11/2020-04-11-java-thread/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          java-thread
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-11 17:19:31" itemprop="dateCreated datePublished" datetime="2020-04-11T17:19:31+08:00">2020-04-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-07 11:11:51" itemprop="dateModified" datetime="2021-07-07T11:11:51+08:00">2021-07-07</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/JVM/" itemprop="url" rel="index"><span itemprop="name">JVM</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、线程状态"><a href="#一、线程状态" class="headerlink" title="一、线程状态"></a>一、线程状态</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">public enum State &#123;</span><br><span class="line">    //新建状态，未启动</span><br><span class="line">    NEW,</span><br><span class="line">    //就绪状态，在JVM中运行，但是在操作系统中可能是等待执行。</span><br><span class="line">    RUNNABLE,</span><br><span class="line">    //阻塞状态，表示线程阻塞于锁</span><br><span class="line">    BLOCKED,</span><br><span class="line">    //等待状态，需要等待其他线程做出一些特定动作（通知或中断）</span><br><span class="line">    WAITING,</span><br><span class="line">   //超时等待，可以在指定的时间后自行返回</span><br><span class="line">   TIMED_WAITING,</span><br><span class="line">   //表示该线程已经执行完毕。</span><br><span class="line">   TERMINATED;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/2020/04/11/2020-04-11-java-thread/%E7%BA%BF%E7%A8%8B%E7%8A%B6%E6%80%81%E6%B5%81%E8%BD%AC.png" alt="状态流转"></p>
+<p>Java线程与Linux进程状态的对应关系：  </p>
+<ol>
+<li>new，是Thread对象的状态，此时和Linux的进程还没有关系。</li>
+<li>Runnable对应linux的Running。</li>
+<li>BLOCKED、WAITING、TIMED_WAITING，对应task_intermptible</li>
+<li>TERMINATED 对应task_stoped</li>
+</ol>
+<a id="more"></a>  
+
+<p>sleep</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">Thread类的方法</span><br><span class="line">public static native void sleep(long millis)</span><br><span class="line">public static native void sleep(long millis, int nanos)//sleep(毫秒, 纳秒)</span><br><span class="line"></span><br><span class="line">总结：</span><br><span class="line">    1.线程暂时停止运行，但是未失去对锁的拥有</span><br><span class="line">    2.线程等待指定的时间后，该线程不一定会立马/确定运行</span><br><span class="line">    3.线程等待，进入_EntryList队列中</span><br></pre></td></tr></table></figure>
+
+<p>join</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br></pre></td><td class="code"><pre><span class="line">Waits at most millis milliseconds for this thread to die. A timeout of 0 means to wait forever.</span><br><span class="line"></span><br><span class="line">public final void join()&#123;</span><br><span class="line">    join(0);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">public final **synchronized** void join(long millis) throw InterruptException&#123;</span><br><span class="line">    long base = System.currentTimeMillis();</span><br><span class="line">    long now = 0;</span><br><span class="line">    if(millis &lt; 0)&#123;</span><br><span class="line">        throw new IllegalArgumentException();</span><br><span class="line">    &#125;</span><br><span class="line">    if(millis == 0)&#123;</span><br><span class="line">        while(isAlive())&#123;//isAlive()，当前线程是否还活着</span><br><span class="line">            wait(0);//object.wait(0);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;else&#123;</span><br><span class="line">        while(isAlive())&#123;</span><br><span class="line">            long delay = millis - now;</span><br><span class="line">            if(delay &lt;=0 )&#123;</span><br><span class="line">                break;</span><br><span class="line">            &#125;</span><br><span class="line">            wait(delay);</span><br><span class="line">            now = System.currentTimeMillis() - base;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">join总结：</span><br><span class="line">    1、join方法为synchronized方法，所以当线程执行时，会获取该thread对象的锁</span><br><span class="line">    2、所以执行join方法就已经获取了thread对象的锁，再执行wait方法，就不会抛出异常了。</span><br><span class="line">    3、使执行object.join()方法的线程等待</span><br><span class="line">    4、主线程和子线程之间使用，主线程执行，那么主线程将阻塞等待</span><br><span class="line">        </span><br><span class="line">使用</span><br><span class="line">public class Join &#123;</span><br><span class="line">    public static void main(String[] args) &#123;</span><br><span class="line">        Thread thread = new JoinThread();</span><br><span class="line">        thread.start();</span><br><span class="line">        try &#123;</span><br><span class="line">            //主线程等待thread的业务处理完了之后再向下运行  </span><br><span class="line">            thread.join();</span><br><span class="line">        &#125; catch (InterruptedException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">        for(int i = 0; i &lt; 5; i++)&#123;</span><br><span class="line">            System.out.println(Thread.currentThread().getName()+&quot; -- &quot; + i);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">class JoinThread extends Thread&#123;</span><br><span class="line">    @Override</span><br><span class="line">    public void run() &#123;</span><br><span class="line">        for(int i = 0; i &lt; 5; i++)&#123;</span><br><span class="line">            System.out.println(Thread.currentThread().getName() + &quot; -- &quot;+i);</span><br><span class="line">            try &#123;</span><br><span class="line">                sleep(500);</span><br><span class="line">            &#125; catch (InterruptedException e) &#123;</span><br><span class="line">                e.printStackTrace();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">//---------------运行结果---------------------</span><br><span class="line">//主线程等待JoinThread执行完再执行</span><br><span class="line">Thread-0 -- 0</span><br><span class="line">Thread-0 -- 1</span><br><span class="line">Thread-0 -- 2</span><br><span class="line">Thread-0 -- 3</span><br><span class="line">Thread-0 -- 4</span><br><span class="line">main -- 0</span><br><span class="line">main -- 1</span><br><span class="line">main -- 2</span><br><span class="line">main -- 3</span><br><span class="line">main -- 4</span><br></pre></td></tr></table></figure>
+
+<p>yield</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line">a hint to the scheduler that the current thread is willing to yield its</span><br><span class="line">current use of a processor. The schedular is free to ignore this hint.</span><br><span class="line">一个线索、示意调度器当前线程将会放弃他当前的处理器使用权</span><br><span class="line"></span><br><span class="line">public static native void yield();</span><br><span class="line">总结：</span><br><span class="line">    yield()方法不会使线程失去资源，只是失去了处理器使用权，但是时机不好把控，取决于操作系统</span><br><span class="line">    public static void main(String[] args)&#123;</span><br><span class="line">        String object = &quot;abc&quot;;</span><br><span class="line">        new Thread(new Runnable()&#123;</span><br><span class="line">            public void run()&#123;</span><br><span class="line">                synchronized(object)&#123;</span><br><span class="line">                    System.out.println(&quot;A1&quot;);</span><br><span class="line">                    sleep(4000);</span><br><span class="line">                    System.out.println(&quot;A3&quot;);</span><br><span class="line">                    Thread.currrentThread.yield();</span><br><span class="line">                    System.out.println(&quot;A4&quot;);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;).start();</span><br><span class="line">        </span><br><span class="line">        new Thread(new Runnable()&#123;</span><br><span class="line">            public void run()&#123;</span><br><span class="line">                synchronized(object)&#123;</span><br><span class="line">                    System.out.println(&quot;a&quot;);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;).start();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">执行结果：</span><br><span class="line">    A1</span><br><span class="line">    A3</span><br><span class="line">    A4</span><br><span class="line">    a</span><br><span class="line">    线程让步，并没有执行其他线程，未释放锁</span><br><span class="line"></span><br><span class="line">使用</span><br><span class="line">    public static void main(String[] args)&#123;</span><br><span class="line">        new Thread(new Runnable()&#123;</span><br><span class="line">            public void run()&#123;</span><br><span class="line">                System.out.println(&quot;A1&quot;);</span><br><span class="line">                sleep(4000);</span><br><span class="line">                System.out.println(&quot;A3&quot;);</span><br><span class="line">                Thread.currrentThread.yield();</span><br><span class="line">                System.out.println(&quot;A4&quot;);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;).start();</span><br><span class="line">        </span><br><span class="line">        new Thread(new Runnable()&#123;</span><br><span class="line">            public void run()&#123;</span><br><span class="line">                System.out.println(&quot;a&quot;);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;).start();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">执行结果</span><br><span class="line">    例：A1</span><br><span class="line">        A3</span><br><span class="line">        a</span><br><span class="line">        A4</span><br></pre></td></tr></table></figure>
+
+<h1 id="二、创建线程方式"><a href="#二、创建线程方式" class="headerlink" title="二、创建线程方式"></a>二、创建线程方式</h1><ul>
+<li>继承Thread类，并复写run方法</li>
+<li>实现Runnable接口，复写run方法</li>
+<li>创建FutureTask对象，创建Callable子类对象，复写call(相当于run)方法，将其传递给FutureTask对象（相当于一个Runnable）</li>
+<li>线程池</li>
+</ul>
+<p>1、Thread类</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">public class MyThread extends Thread&#123; </span><br><span class="line">    @Override </span><br><span class="line">    public void run() &#123; </span><br><span class="line">        System.out.println(Thread.currentThread().getName()); </span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">public class MyThreadTest &#123; </span><br><span class="line">    public static void main(String[] args) &#123; </span><br><span class="line">        // 创建线程 </span><br><span class="line">        MyThread thread = new MyThread(); </span><br><span class="line">        // 启动线程 </span><br><span class="line">        thread.start(); &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么需要start()才能启动线程？</strong>      </p>
+<ol>
+<li>new Thread()：此时只是创建了Thread对象，没有实际去创建线程</li>
+<li>thread.start()：启动线程，实际操作的是调用Linux创建进程，直到进程获取CPU资源才会执行。<ol>
+<li>内部执行native start0()方法</li>
+<li>start0()方法内部会调用OS创建进程的方法</li>
+<li>start0()方法执行后，会调用run()方法</li>
+</ol>
+</li>
+</ol>
+<p>2、Runnable接口</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">public class MyRunnable implements Runnable&#123; </span><br><span class="line">    @Override </span><br><span class="line">    public void run() &#123; </span><br><span class="line">        System.out.println(Thread.currentThread().getName()); </span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">public class MyRunnableTest &#123; </span><br><span class="line">    public static void main(String[] args) &#123; </span><br><span class="line">        MyRunnable myRunnable = new MyRunnable(); </span><br><span class="line">        // 创建线程 </span><br><span class="line">        Thread thread = new Thread(myRunnable); </span><br><span class="line">        // 启动线程 </span><br><span class="line">        thread.start(); </span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>3、Callable</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">public class MyCallable implements Callable &#123; </span><br><span class="line">    @Override </span><br><span class="line">    public Integer call() throws Exception &#123; </span><br><span class="line">        System.out.println(Thread.currentThread().getName()); </span><br><span class="line">        return 99; </span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">public class MyCallableTest &#123; </span><br><span class="line">    public static void main(String[] args) &#123; </span><br><span class="line">        FutureTask futureTask = new FutureTask&lt;&gt;(new MyCallable()); </span><br><span class="line">        // 创建线程 </span><br><span class="line">        Thread thread = new Thread(futureTask); </span><br><span class="line">        // 启动线程 </span><br><span class="line">        thread.start(); </span><br><span class="line">        // 结果返回 </span><br><span class="line">        try &#123; </span><br><span class="line">            Thread.sleep(1000); </span><br><span class="line">            System.out.println(&quot;返回的结果是：&quot; + futureTask.get()); </span><br><span class="line">        &#125; catch (Exception e) &#123; </span><br><span class="line">            e.printStackTrace(); </span><br><span class="line">        &#125; </span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>4、线程池</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">public class MyRunnable implements Runnable&#123; </span><br><span class="line">    @Override </span><br><span class="line">    public void run() &#123; </span><br><span class="line">        System.out.println(Thread.currentThread().getName()); </span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">public class SingleThreadExecutorTest &#123; </span><br><span class="line">    public static void main(String[] args) &#123; </span><br><span class="line">        ExecutorService executorService = Executors.newSingleThreadExecutor(); </span><br><span class="line">        MyRunnable myRunnable = new MyRunnable(); </span><br><span class="line">        for(int i = 0; i &lt; 10; i++)&#123; </span><br><span class="line">            executorService.execute(myRunnable); </span><br><span class="line">        &#125; </span><br><span class="line">        System.out.println(&quot;=======任务开始=======&quot;); </span><br><span class="line">        executorService.shutdown(); </span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>三、linux进程和java线程<br><img src="/2020/04/11/2020-04-11-java-thread/%E7%BA%BF%E7%A8%8B%E8%BF%9B%E7%A8%8B%E5%85%B3%E7%B3%BB.png" alt="线程进程关系"></p>
+<p><img src="/2020/04/11/2020-04-11-java-thread/jvm%E7%BA%BF%E7%A8%8B-Linux%E8%BF%9B%E7%A8%8B.png" alt="jvm-linux"><br>jvm线程对应Linux的一个进程</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/JVM-Thread/" rel="tag"># JVM Thread</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/09/2020-04-09-Linux-thread/" rel="prev" title="Linux-thread">
+      <i class="fa fa-chevron-left"></i> Linux-thread
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/12/2020-04-12-线程池/" rel="next" title="线程池">
+      线程池 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、线程状态"><span class="nav-number">1.</span> <span class="nav-text">一、线程状态</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、创建线程方式"><span class="nav-number">2.</span> <span class="nav-text">二、创建线程方式</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw" src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">32</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

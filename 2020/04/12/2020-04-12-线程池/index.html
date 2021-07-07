@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.8.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="面试问题1：Java的线程池说一下，各个参数的作用，如何进行的? 面试问题2：按线程池内部机制，当提交新任务时，有哪些异常要考虑。 面试问题3：线程池都有哪几种工作队列？ 面试问题4：使用无界队列的线程池会导致内存飙升吗？ 面试问题5：说说几种常见的线程池及使用场景?  一、常见的创建线程池方式有以下几种： Executors.newCachedThreadPool()：无限线程池。 Execu">
+<meta name="keywords" content="JVM ThreadPoll">
+<meta property="og:type" content="article">
+<meta property="og:title" content="线程池">
+<meta property="og:url" content="http://yoursite.com/2020/04/12/2020-04-12-线程池/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="面试问题1：Java的线程池说一下，各个参数的作用，如何进行的? 面试问题2：按线程池内部机制，当提交新任务时，有哪些异常要考虑。 面试问题3：线程池都有哪几种工作队列？ 面试问题4：使用无界队列的线程池会导致内存飙升吗？ 面试问题5：说说几种常见的线程池及使用场景?  一、常见的创建线程池方式有以下几种： Executors.newCachedThreadPool()：无限线程池。 Execu">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2020/04/12/2020-04-12-线程池/%E7%BA%BF%E7%A8%8B%E6%B1%A0.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/12/2020-04-12-线程池/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E7%8A%B6%E6%80%81.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/12/2020-04-12-线程池/%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/12/2020-04-12-线程池/%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1-%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/12/2020-04-12-线程池/DelayedWorkQueue.png">
+<meta property="og:updated_time" content="2021-07-07T03:11:51.804Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="线程池">
+<meta name="twitter:description" content="面试问题1：Java的线程池说一下，各个参数的作用，如何进行的? 面试问题2：按线程池内部机制，当提交新任务时，有哪些异常要考虑。 面试问题3：线程池都有哪几种工作队列？ 面试问题4：使用无界队列的线程池会导致内存飙升吗？ 面试问题5：说说几种常见的线程池及使用场景?  一、常见的创建线程池方式有以下几种： Executors.newCachedThreadPool()：无限线程池。 Execu">
+<meta name="twitter:image" content="http://yoursite.com/2020/04/12/2020-04-12-线程池/%E7%BA%BF%E7%A8%8B%E6%B1%A0.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/04/12/2020-04-12-线程池/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>线程池 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/12/2020-04-12-线程池/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          线程池
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-12 21:07:15" itemprop="dateCreated datePublished" datetime="2020-04-12T21:07:15+08:00">2020-04-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-07 11:11:51" itemprop="dateModified" datetime="2021-07-07T11:11:51+08:00">2021-07-07</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/JVM-ThreadPoll/" itemprop="url" rel="index"><span itemprop="name">JVM ThreadPoll</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ul>
+<li>面试问题1：Java的线程池说一下，各个参数的作用，如何进行的?</li>
+<li>面试问题2：按线程池内部机制，当提交新任务时，有哪些异常要考虑。</li>
+<li>面试问题3：线程池都有哪几种工作队列？</li>
+<li>面试问题4：使用无界队列的线程池会导致内存飙升吗？</li>
+<li>面试问题5：说说几种常见的线程池及使用场景?</li>
+</ul>
+<h1 id="一、常见的创建线程池方式有以下几种："><a href="#一、常见的创建线程池方式有以下几种：" class="headerlink" title="一、常见的创建线程池方式有以下几种："></a>一、常见的创建线程池方式有以下几种：</h1><ol>
+<li>Executors.newCachedThreadPool()：无限线程池。</li>
+<li>Executors.newFixedThreadPool(nThreads)：创建固定大小的线程池。</li>
+<li>Executors.newSingleThreadExecutor()：创建单个线程的线程池。</li>
+</ol>
+<a id="more"></a>  
+
+<h1 id="二、具体实现"><a href="#二、具体实现" class="headerlink" title="二、具体实现"></a>二、具体实现</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">public static ExecutorService newCachedThreadPool() &#123;</span><br><span class="line">    return new ThreadPoolExecutor(0, Integer.MAX_VALUE,</span><br><span class="line">                                  60L, TimeUnit.SECONDS,</span><br><span class="line">                                  new SynchronousQueue&lt;Runnable&gt;());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>底层实现，都是采用了ThreadPoolExecutor对象进行线程池的实例化。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">ThreadPoolExecutor(</span><br><span class="line">    int corePoolSize, </span><br><span class="line">    int maximumPoolSize, </span><br><span class="line">    long keepAliveTime, </span><br><span class="line">    TimeUnit unit, </span><br><span class="line">    BlockingQueue&lt;Runnable&gt; workQueue, </span><br><span class="line">    RejectedExecutionHandler handler)</span><br></pre></td></tr></table></figure>
+
+<p>这几个核心参数的作用：</p>
+<ul>
+<li>corePoolSize 为线程池的基本大小。</li>
+<li>maximumPoolSize 为线程池最大线程大小。</li>
+<li>keepAliveTime 和 unit 则是线程空闲后的存活时间。</li>
+<li>workQueue 用于存放任务的阻塞队列。</li>
+<li>handler 当队列和最大线程池都满了之后的饱和策略。</li>
+</ul>
+<h1 id="三、线程池执行流程"><a href="#三、线程池执行流程" class="headerlink" title="三、线程池执行流程"></a>三、线程池执行流程</h1><p><img src="/2020/04/12/2020-04-12-线程池/%E7%BA%BF%E7%A8%8B%E6%B1%A0.png" alt="线程池"></p>
+<h1 id="四、四种拒绝策略"><a href="#四、四种拒绝策略" class="headerlink" title="四、四种拒绝策略"></a>四、四种拒绝策略</h1><ol>
+<li>AbortPolicy(抛出一个异常，默认的)</li>
+<li>DiscardPolicy(直接丢弃任务)</li>
+<li>DiscardOldestPolicy（丢弃队列里最老的任务，将当前这个任务继续提交给线程池）</li>
+<li>CallerRunsPolicy（交给线程池调用所在的线程进行处理)</li>
+</ol>
+<h1 id="五、线程池的工作队列"><a href="#五、线程池的工作队列" class="headerlink" title="五、线程池的工作队列"></a>五、线程池的工作队列</h1><ul>
+<li>ArrayBlockingQueue：（有界队列）用数组实现的有界阻塞队列，按FIFO排序量。</li>
+<li>LinkedBlockingQueue：（可设置容量队列）基于链表结构的阻塞队列，按FIFO排序量，不设置容量则是无界的，吞吐量大于ArrayBlockingQueue</li>
+<li>DelayQueue：（延迟队列）</li>
+<li>PriorityBlockingQueue：（优先级队列）（小根堆）</li>
+<li>SynchronousQueue：（同步队列）</li>
+</ul>
+<h1 id="六、几种常见的线程池"><a href="#六、几种常见的线程池" class="headerlink" title="六、几种常见的线程池"></a>六、几种常见的线程池</h1><ul>
+<li>newFixedThreadPool (固定数目线程的线程池)：采用无界队列，可能导致内存飙升及OOM，适用于执行长期的任务</li>
+<li>newCachedThreadPool(可缓存线程的线程池)</li>
+<li>newSingleThreadExecutor(单线程的线程池)</li>
+<li>newScheduledThreadPool(定时及周期执行的线程池)</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">newFixedThreadPool</span><br><span class="line">public static ExecutorService newFixedThreadPool(int nThreads, ThreadFactory threadFactory) &#123; </span><br><span class="line">    return new ThreadPoolExecutor(nThreads, </span><br><span class="line">                                    nThreads, </span><br><span class="line">                                    0L, </span><br><span class="line">                                    TimeUnit.MILLISECONDS, </span><br><span class="line">                                    new LinkedBlockingQueue&lt;Runnable&gt;(), threadFactory); </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>1、采用无界队列，任务的执行时间比较长(比如设置了10秒)，会导致队列的任务越积越多，<br>    导致机器内存使用不停飙升， 最终导致OOM。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">newCachedThreadPool</span><br><span class="line">public static ExecutorService newCachedThreadPool(ThreadFactory threadFactory) &#123; </span><br><span class="line">    return new ThreadPoolExecutor(0, </span><br><span class="line">                                Integer.MAX_VALUE, </span><br><span class="line">                                60L, </span><br><span class="line">                                TimeUnit.SECONDS, </span><br><span class="line">                                new SynchronousQueue&lt;Runnable&gt;(), </span><br><span class="line">                                threadFactory); </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>1、线程个数无界</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">newSingleThreadExecutor</span><br><span class="line">public static ExecutorService newSingleThreadExecutor(ThreadFactory threadFactory) &#123; return new FinalizableDelegatedExecutorService (</span><br><span class="line">    new ThreadPoolExecutor(1, </span><br><span class="line">                            1, </span><br><span class="line">                            0L, </span><br><span class="line">                            TimeUnit.MILLISECONDS, </span><br><span class="line">                            new LinkedBlockingQueue&lt;Runnable&gt;(), </span><br><span class="line">                            threadFactory)); </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>1、核心线程数=1<br>2、最大线程数=1<br>3、适用于串行执行任务的场景，一个任务一个任务地执行</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">newScheduledThreadPool</span><br><span class="line">public ScheduledThreadPoolExecutor(int corePoolSize) &#123; </span><br><span class="line">    super(corePoolSize, Integer.MAX_VALUE, 0, NANOSECONDS, new DelayedWorkQueue()); </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="七、线程池状态"><a href="#七、线程池状态" class="headerlink" title="七、线程池状态"></a>七、线程池状态</h1><p><img src="/2020/04/12/2020-04-12-线程池/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E7%8A%B6%E6%80%81.png" alt="线程池状态"></p>
+<ol>
+<li>RUNNING：运行状态，能够接收新任务，并处理已添加的任务。</li>
+<li>SHUTDOWN：不接收新任务，但是已有任务继续执行。</li>
+<li>STOP：不接收新任务，不处理已添加的任务，并会中断正在执行的任务。</li>
+<li>TIDYING：最终做到队列中的任务为空。</li>
+<li>TERMINATED：终止状态。</li>
+</ol>
+<h1 id="八、execute-和submit-方法的区别"><a href="#八、execute-和submit-方法的区别" class="headerlink" title="八、execute()和submit()方法的区别"></a>八、execute()和submit()方法的区别</h1><ol>
+<li>execute()：提交不需要返回结果的任务。</li>
+<li>submit()：提交需要返回结果的任务。</li>
+</ol>
+<h1 id="九、细讲ScheduledThreadPoolExecutor使用与实现"><a href="#九、细讲ScheduledThreadPoolExecutor使用与实现" class="headerlink" title="九、细讲ScheduledThreadPoolExecutor使用与实现"></a>九、细讲ScheduledThreadPoolExecutor使用与实现</h1><h2 id="9-1、实际开发当中，经常会遇到计划任务类的需求："><a href="#9-1、实际开发当中，经常会遇到计划任务类的需求：" class="headerlink" title="9.1、实际开发当中，经常会遇到计划任务类的需求："></a>9.1、实际开发当中，经常会遇到计划任务类的需求：</h2><ul>
+<li>订单15分钟内未支付自动关闭</li>
+<li>每隔1个小时对前1小时内的支付账单做对账检查</li>
+<li>每日凌晨2点对前一日的订单数据汇总处理</li>
+</ul>
+<h2 id="9-2、提供4个调度方法："><a href="#9-2、提供4个调度方法：" class="headerlink" title="9.2、提供4个调度方法："></a>9.2、提供4个调度方法：</h2><ul>
+<li>schedule(Runnable command, long delay, TimeUnit unit)<ul>
+<li>延迟特定时间后执行指定任务，无返回结果 </li>
+</ul>
+</li>
+<li>schedule(Callable<v> callable, long delay, TimeUnit unit)<ul>
+<li>延迟特定时间后执行指定任务，有返回结果</li>
+</ul>
+</v></li>
+<li>scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit)<ul>
+<li>延迟初始时间后执行指定任务，之后周期性执行指定任务</li>
+</ul>
+</li>
+<li>scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit)<ul>
+<li>延迟初始时间后执行指定任务，之后按固定时间间隔执行任务</li>
+</ul>
+</li>
+</ul>
+<p><img src="/2020/04/12/2020-04-12-线程池/%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1.png" alt="线程池状态"></p>
+<h2 id="9-3、数据结构"><a href="#9-3、数据结构" class="headerlink" title="9.3、数据结构"></a>9.3、数据结构</h2><p><img src="/2020/04/12/2020-04-12-线程池/%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1-%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.png" alt="线程池状态"></p>
+<p>DelayedWorkQueue结构<br><img src="/2020/04/12/2020-04-12-线程池/DelayedWorkQueue.png" alt="线程池状态"></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/JVM-ThreadPoll/" rel="tag"># JVM ThreadPoll</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/11/2020-04-11-java-thread/" rel="prev" title="java-thread">
+      <i class="fa fa-chevron-left"></i> java-thread
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/13/2020-04-13-强弱软虚/" rel="next" title="强弱软虚">
+      强弱软虚 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、常见的创建线程池方式有以下几种："><span class="nav-number">1.</span> <span class="nav-text">一、常见的创建线程池方式有以下几种：</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、具体实现"><span class="nav-number">2.</span> <span class="nav-text">二、具体实现</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、线程池执行流程"><span class="nav-number">3.</span> <span class="nav-text">三、线程池执行流程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#四、四种拒绝策略"><span class="nav-number">4.</span> <span class="nav-text">四、四种拒绝策略</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#五、线程池的工作队列"><span class="nav-number">5.</span> <span class="nav-text">五、线程池的工作队列</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#六、几种常见的线程池"><span class="nav-number">6.</span> <span class="nav-text">六、几种常见的线程池</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#七、线程池状态"><span class="nav-number">7.</span> <span class="nav-text">七、线程池状态</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#八、execute-和submit-方法的区别"><span class="nav-number">8.</span> <span class="nav-text">八、execute()和submit()方法的区别</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#九、细讲ScheduledThreadPoolExecutor使用与实现"><span class="nav-number">9.</span> <span class="nav-text">九、细讲ScheduledThreadPoolExecutor使用与实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#9-1、实际开发当中，经常会遇到计划任务类的需求："><span class="nav-number">9.1.</span> <span class="nav-text">9.1、实际开发当中，经常会遇到计划任务类的需求：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-2、提供4个调度方法："><span class="nav-number">9.2.</span> <span class="nav-text">9.2、提供4个调度方法：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-3、数据结构"><span class="nav-number">9.3.</span> <span class="nav-text">9.3、数据结构</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw" src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">32</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
