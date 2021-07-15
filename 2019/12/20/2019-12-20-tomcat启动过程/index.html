@@ -20,20 +20,21 @@
     var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="一、tomcat的启动过程BootStrap.main() 分成两步   1、资源初始化，load()，绑定serverSocket 2、资源启动，start()，connector创建acceptor连接线程池。">
-<meta name="keywords" content="java">
+  <meta name="description" content="一、tomcat的启动过程 执行start.sh，实际将执行catalina.sh，java命令执行Bootstrap类的main方法，将start作为参数传入  二、Load过程1.1、Boostrap.java123456789public static void main(String args[]) &amp;#123;    synchronized (daemonLock) &amp;#123;">
+<meta name="keywords" content="Tomcat">
 <meta property="og:type" content="article">
 <meta property="og:title" content="tomcat启动过程">
 <meta property="og:url" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat启动过程/index.html">
 <meta property="og:site_name" content="CHW&#39;s Notes">
-<meta property="og:description" content="一、tomcat的启动过程BootStrap.main() 分成两步   1、资源初始化，load()，绑定serverSocket 2、资源启动，start()，connector创建acceptor连接线程池。">
+<meta property="og:description" content="一、tomcat的启动过程 执行start.sh，实际将执行catalina.sh，java命令执行Bootstrap类的main方法，将start作为参数传入  二、Load过程1.1、Boostrap.java123456789public static void main(String args[]) &amp;#123;    synchronized (daemonLock) &amp;#123;">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat启动过程/tomcat-starting-procedure.jpeg">
-<meta property="og:updated_time" content="2020-11-24T13:01:23.353Z">
+<meta property="og:image" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat启动过程/%E8%BF%9E%E6%8E%A5%E5%99%A8.png">
+<meta property="og:image" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat启动过程/%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B.png">
+<meta property="og:updated_time" content="2021-07-15T12:01:12.729Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="tomcat启动过程">
-<meta name="twitter:description" content="一、tomcat的启动过程BootStrap.main() 分成两步   1、资源初始化，load()，绑定serverSocket 2、资源启动，start()，connector创建acceptor连接线程池。">
-<meta name="twitter:image" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat启动过程/tomcat-starting-procedure.jpeg">
+<meta name="twitter:description" content="一、tomcat的启动过程 执行start.sh，实际将执行catalina.sh，java命令执行Bootstrap类的main方法，将start作为参数传入  二、Load过程1.1、Boostrap.java123456789public static void main(String args[]) &amp;#123;    synchronized (daemonLock) &amp;#123;">
+<meta name="twitter:image" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat启动过程/%E8%BF%9E%E6%8E%A5%E5%99%A8.png">
 
 <link rel="canonical" href="http://yoursite.com/2019/12/20/2019-12-20-tomcat启动过程/">
 
@@ -200,18 +201,67 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h1 id="一、tomcat的启动过程"><a href="#一、tomcat的启动过程" class="headerlink" title="一、tomcat的启动过程"></a>一、tomcat的启动过程</h1><p>BootStrap.main()</p>
+        <h1 id="一、tomcat的启动过程"><a href="#一、tomcat的启动过程" class="headerlink" title="一、tomcat的启动过程"></a>一、tomcat的启动过程</h1><ul>
+<li>执行start.sh，实际将执行catalina.sh，<br>java命令执行Bootstrap类的main方法，将start作为参数传入</li>
+</ul>
+<h1 id="二、Load过程"><a href="#二、Load过程" class="headerlink" title="二、Load过程"></a>二、Load过程</h1><h2 id="1-1、Boostrap-java"><a href="#1-1、Boostrap-java" class="headerlink" title="1.1、Boostrap.java"></a>1.1、Boostrap.java</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">public static void main(String args[]) &#123;</span><br><span class="line">    synchronized (daemonLock) &#123;</span><br><span class="line">        Bootstrap daemon = new Bootstrap();</span><br><span class="line">        if (command.equals(&quot;startd&quot;)) &#123;</span><br><span class="line">            args[args.length - 1] = &quot;start&quot;;</span><br><span class="line">            daemon.load(args);</span><br><span class="line">            daemon.start();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行Boostrap的main方法，此时tomcat就在JVM作为一个线程启动了。</p>
 <p>分成两步</p>
 <blockquote>
 <ul>
 <li>1、资源初始化，load()，绑定serverSocket</li>
-<li>2、资源启动，start()，connector创建acceptor连接线程池。</li>
+<li>2、资源启动，start()，connector创建acceptor连接线程池。    </li>
 </ul>
 </blockquote>
-<a id="more"></a>
+<p>执行Load方法</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">/**</span><br><span class="line"> * Load daemon.</span><br><span class="line"> */</span><br><span class="line">private void load(String[] arguments) throws Exception &#123;</span><br><span class="line">    // Call the load() method</span><br><span class="line">    String methodName = &quot;load&quot;;</span><br><span class="line">    Method method = catalinaDaemon.getClass().getMethod(methodName, paramTypes);</span><br></pre></td></tr></table></figure>
 
-<p>时序图<br><img src="/2019/12/20/2019-12-20-tomcat启动过程/tomcat-starting-procedure.jpeg" alt="tomcat启动过程"></p>
-<p>accepter：接收连接，生成socket。(socket = serverSock.accept();)<br>poller：解析socket（processSocket -&gt; ）</p>
+<p>通过反射，执行Catalina.java的load方法    </p>
+<h2 id="1-2、Catalina-java"><a href="#1-2、Catalina-java" class="headerlink" title="1.2、Catalina.java"></a>1.2、Catalina.java</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">public void load() &#123;</span><br><span class="line">    //首先利用Digester类解析server.xml文件，得到容器的配置，并创建相应的对象，并关联父子容器。依次创建的是StandardServer、StandardService、StandardEngine、StandardHost。</span><br><span class="line">    Digester digester = createStartDigester();</span><br><span class="line">    InputSource inputSource = null;</span><br><span class="line">    InputStream inputStream = null;</span><br><span class="line">    File file = null;</span><br><span class="line">    try &#123;</span><br><span class="line">        //解析server.xml</span><br><span class="line">        file = new File(&quot;conf/server.xml&quot;);</span><br><span class="line">        inputStream = new FileInputStream(file);</span><br><span class="line">        inputSource = new InputSource(file.toURI().toURL().toString());</span><br><span class="line">    &#125; catch (Exception e) &#123;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    // Start the new server</span><br><span class="line">    try &#123;</span><br><span class="line">        getServer().init();</span><br><span class="line">    &#125; catch (LifecycleException e) &#123;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>解析server.xml文件，首先利用Digester类解析server.xml文件，得到容器的配置，并创建相应的对象，并关联父子容器。<br> 依次创建的是StandardServer、StandardService、StandardEngine、StandardHost。。</li>
+<li>然后拿到StandardServer实例调用init()方法初始化Tomcat容器的一系列组件。一些容器初始化的的时候，都会调用其子容器的init()方法，初始化它的子容器。<br> 顺序是StandardServer、StandardService、StandardEngine、Connector。<br> 每个容器都在初始化自身相关设置的同时，将子容器初始化。</li>
+</ol>
+<h2 id="1-3、StandardServer"><a href="#1-3、StandardServer" class="headerlink" title="1.3、StandardServer:"></a>1.3、StandardServer:</h2><p>实际的server实现是StandardServer</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">protected void initInternal() throws LifecycleException &#123;</span><br><span class="line">    // Register global String cache</span><br><span class="line">    // Note although the cache is global, if there are multiple Servers</span><br><span class="line">    // present in the JVM (may happen when embedding) then the same cache</span><br><span class="line">    // will be registered under multiple names</span><br><span class="line">    onameStringCache = register(new StringCache(), &quot;type=StringCache&quot;);</span><br><span class="line">    // Register the MBeanFactory</span><br><span class="line">    MBeanFactory factory = new MBeanFactory();</span><br><span class="line">    factory.setContainer(this);</span><br><span class="line">    onameMBeanFactory = register(factory, &quot;type=MBeanFactory&quot;);</span><br><span class="line">    // Register the naming resources</span><br><span class="line">    globalNamingResources.init();</span><br><span class="line">    </span><br><span class="line">    // Initialize our defined Services</span><br><span class="line">    for (int i = 0; i &lt; services.length; i++) &#123;</span><br><span class="line">        services[i].init();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>加载Server、Service、Connector、Container、Engine、Host、Context、Wrapper一系列的容器。</li>
+<li>初始化service，从server的初始化上看，一个server有多个service。</li>
+</ol>
+<h2 id="1-4、StandardService"><a href="#1-4、StandardService" class="headerlink" title="1.4、StandardService:"></a>1.4、StandardService:</h2><p>实际的service实现是StandardService</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">protected void initInternal() throws LifecycleException &#123;</span><br><span class="line">    if (engine != null) &#123;</span><br><span class="line">        engine.init();</span><br><span class="line">    &#125;</span><br><span class="line">    // Initialize any Executors</span><br><span class="line">    for (Executor executor : findExecutors()) &#123;</span><br><span class="line">        if (executor instanceof JmxEnabled) &#123;</span><br><span class="line">            ((JmxEnabled) executor).setDomain(getDomain());</span><br><span class="line">        &#125;</span><br><span class="line">        executor.init();</span><br><span class="line">    &#125;</span><br><span class="line">    // Initialize mapper listener</span><br><span class="line">    mapperListener.init();</span><br><span class="line">    // Initialize our defined Connectors</span><br><span class="line">    synchronized (connectorsLock) &#123;</span><br><span class="line">        for (Connector connector : connectors) &#123;</span><br><span class="line">            try &#123;</span><br><span class="line">                connector.init();</span><br><span class="line">            &#125; catch (Exception e) &#123;</span><br><span class="line">                String message = sm.getString(</span><br><span class="line">                        &quot;standardService.connector.initFailed&quot;, connector);</span><br><span class="line">                log.error(message, e);</span><br><span class="line">                if (Boolean.getBoolean(&quot;org.apache.catalina.startup.EXIT_ON_INIT_FAILURE&quot;))</span><br><span class="line">                    throw new LifecycleException(message);</span><br><span class="line">&#125;&#125;&#125;&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>service执行engine的初始化。(engine继承Container，所以实际是进行container的初始化)</li>
+<li>然后创建一组线程池。executor是Tomcat自己实现的线程池。【】</li>
+<li>然后进行连接器(connector)的初始化（一组连接器，server.xml中配置的多个connector，对应了端口号和协议）</li>
+</ol>
+<h2 id="1-5、Connector-连接器"><a href="#1-5、Connector-连接器" class="headerlink" title="1.5、Connector:连接器"></a>1.5、Connector:连接器</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">protected void initInternal() throws LifecycleException &#123;</span><br><span class="line">    // Initialize adapter</span><br><span class="line">    adapter = new CoyoteAdapter(this);</span><br><span class="line">    protocolHandler.setAdapter(adapter);</span><br><span class="line">    try &#123;</span><br><span class="line">        protocolHandler.init();</span><br><span class="line">    &#125; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/2019/12/20/2019-12-20-tomcat启动过程/%E8%BF%9E%E6%8E%A5%E5%99%A8.png" alt="连接器"></p>
+<ol>
+<li>创建adapter适配器，当processor解析socket之后生成的Request和Response不能直接传入到容器中，需要通过adapter<br>将Request和Response转换成ServletRequest和ServletResponse.</li>
+<li>初始化protocolHandler，有两个重要组件：Endpoint和Processer<ul>
+<li>Endpoint：端口监听，接收Socket后进行解析，基于TCP/IP协议。</li>
+<li>Processer：用来实现HTTP协议。将Endpoint的socket字节流解析成Tomcat的Request和Response，并通过Adapter交给容器处理。<br>#############</li>
+</ul>
+</li>
+</ol>
+<ul>
+<li>connector在解析server.xml时创建，看connector的构造器，会生成Http11Protocol协议解析器。</li>
+<li>Http11Protocol的构造器，会创建NIOEndPoint</li>
+<li>EndPoint.init，会bind绑定端口，等待请求、接收请求</li>
+<li>EndPoint内有processor处理线程。</li>
+</ul>
+<h2 id="1-6、protocolHandler-协议处理器"><a href="#1-6、protocolHandler-协议处理器" class="headerlink" title="1.6、protocolHandler:协议处理器"></a>1.6、protocolHandler:协议处理器</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public void init() throws Exception &#123;</span><br><span class="line">    endpoint.init();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>初始化终端</p>
+<h2 id="1-7、endpoint-终端"><a href="#1-7、endpoint-终端" class="headerlink" title="1.7、endpoint:终端"></a>1.7、endpoint:终端</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">public void init() throws Exception &#123;</span><br><span class="line">    if (bindOnInit) &#123;</span><br><span class="line">        bind();</span><br><span class="line">        bindState = BindState.BOUND_ON_INIT;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">终端的初始化，需要创建socket并绑定端口号。</span><br><span class="line"></span><br><span class="line">public void bind() throws Exception &#123;</span><br><span class="line">    if (!getUseInheritedChannel()) &#123;</span><br><span class="line">        serverSock = ServerSocketChannel.open();</span><br><span class="line">        socketProperties.setProperties(serverSock.socket());</span><br><span class="line">        InetSocketAddress addr = (getAddress()!=null?new InetSocketAddress(getAddress(),getPort()):new InetSocketAddress(getPort()));</span><br><span class="line">        serverSock.socket().bind(addr,getAcceptCount());</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        // Retrieve the channel provided by the OS</span><br><span class="line">        Channel ic = System.inheritedChannel();</span><br><span class="line">        if (ic instanceof ServerSocketChannel) &#123;</span><br><span class="line">            serverSock = (ServerSocketChannel) ic;</span><br><span class="line">        &#125;</span><br><span class="line">        if (serverSock == null) &#123;</span><br><span class="line">            throw new IllegalArgumentException(sm.getString(&quot;endpoint.init.bind.inherited&quot;));</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    serverSock.configureBlocking(true); //mimic APR behavior</span><br><span class="line">    selectorPool.open();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">EndPoint结构：</span><br></pre></td></tr></table></figure>
+
+<h1 id="三、start过程"><a href="#三、start过程" class="headerlink" title="三、start过程"></a>三、start过程</h1><h2 id="初始化过程总结："><a href="#初始化过程总结：" class="headerlink" title="初始化过程总结："></a>初始化过程总结：</h2><p><img src="/2019/12/20/2019-12-20-tomcat启动过程/%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B.png" alt="启动过程"></p>
 <p>参考<br><a href="https://blog.csdn.net/cx520forever/article/details/52743166" target="_blank" rel="noopener">Tomcat整体架构浅析</a></p>
 
     </div>
@@ -221,6 +271,9 @@
     
 
       <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Tomcat/" rel="tag"># Tomcat</a>
+          </div>
 
         
 
@@ -232,8 +285,8 @@
       <i class="fa fa-chevron-left"></i> tomcat架构
     </a></div>
       <div class="post-nav-item">
-    <a href="/2020/03/29/2020-03-29-磁盘局部性原理/" rel="next" title="2020-03-29-磁盘局部性原理">
-      2020-03-29-磁盘局部性原理 <i class="fa fa-chevron-right"></i>
+    <a href="/2019/12/21/2019-12-21-tomcat启动过程2/" rel="next" title="tomcat启动过程">
+      tomcat启动过程 <i class="fa fa-chevron-right"></i>
     </a></div>
     </div>
       </footer>
@@ -293,7 +346,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、tomcat的启动过程"><span class="nav-number">1.</span> <span class="nav-text">一、tomcat的启动过程</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、tomcat的启动过程"><span class="nav-number">1.</span> <span class="nav-text">一、tomcat的启动过程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、Load过程"><span class="nav-number">2.</span> <span class="nav-text">二、Load过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-1、Boostrap-java"><span class="nav-number">2.1.</span> <span class="nav-text">1.1、Boostrap.java</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-2、Catalina-java"><span class="nav-number">2.2.</span> <span class="nav-text">1.2、Catalina.java</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-3、StandardServer"><span class="nav-number">2.3.</span> <span class="nav-text">1.3、StandardServer:</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-4、StandardService"><span class="nav-number">2.4.</span> <span class="nav-text">1.4、StandardService:</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-5、Connector-连接器"><span class="nav-number">2.5.</span> <span class="nav-text">1.5、Connector:连接器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-6、protocolHandler-协议处理器"><span class="nav-number">2.6.</span> <span class="nav-text">1.6、protocolHandler:协议处理器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-7、endpoint-终端"><span class="nav-number">2.7.</span> <span class="nav-text">1.7、endpoint:终端</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、start过程"><span class="nav-number">3.</span> <span class="nav-text">三、start过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#初始化过程总结："><span class="nav-number">3.1.</span> <span class="nav-text">初始化过程总结：</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -308,7 +361,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-count">47</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -321,7 +374,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-count">28</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
