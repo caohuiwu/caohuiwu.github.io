@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.8.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、什么是虚拟机规范定义Java虚拟机实现的一些基本要求。 二、虚拟机结构从Class文件结构、数据类型、运行时数据区等方面进行了定义，具体实现未定义。">
+<meta name="keywords" content="JVM JMM Java">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JMM">
+<meta property="og:url" content="http://yoursite.com/2020/05/10/2020-05-10-JMM/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、什么是虚拟机规范定义Java虚拟机实现的一些基本要求。 二、虚拟机结构从Class文件结构、数据类型、运行时数据区等方面进行了定义，具体实现未定义。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2020/05/10/2020-05-10-JMM/jmm.png">
+<meta property="og:updated_time" content="2021-07-12T13:38:22.391Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="JMM">
+<meta name="twitter:description" content="一、什么是虚拟机规范定义Java虚拟机实现的一些基本要求。 二、虚拟机结构从Class文件结构、数据类型、运行时数据区等方面进行了定义，具体实现未定义。">
+<meta name="twitter:image" content="http://yoursite.com/2020/05/10/2020-05-10-JMM/jmm.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/05/10/2020-05-10-JMM/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>JMM | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/05/10/2020-05-10-JMM/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          JMM
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-05-10 18:14:36" itemprop="dateCreated datePublished" datetime="2020-05-10T18:14:36+08:00">2020-05-10</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、什么是虚拟机规范"><a href="#一、什么是虚拟机规范" class="headerlink" title="一、什么是虚拟机规范"></a>一、什么是虚拟机规范</h1><p>定义Java虚拟机实现的一些基本要求。</p>
+<h1 id="二、虚拟机结构"><a href="#二、虚拟机结构" class="headerlink" title="二、虚拟机结构"></a>二、虚拟机结构</h1><p>从Class文件结构、数据类型、运行时数据区等方面进行了定义，具体实现未定义。</p>
+<p><img src="/2020/05/10/2020-05-10-JMM/jmm.png" alt="jmm"></p>
+<a id="more"></a>  
+
+<h1 id="三、运行时数据区"><a href="#三、运行时数据区" class="headerlink" title="三、运行时数据区"></a>三、运行时数据区</h1><blockquote>
+<p>PC寄存器、Java虚拟机栈、Java本地方法栈、Java堆、方法区、运行时常量池</p>
+</blockquote>
+<h2 id="1、PC寄存器"><a href="#1、PC寄存器" class="headerlink" title="1、PC寄存器"></a>1、PC寄存器</h2><p>线程独有，每个线程都有自己的PC寄存器，如果方法不是native的，则保存的是当前所执行字节码的地址。</p>
+<h2 id="2、Java虚拟机栈"><a href="#2、Java虚拟机栈" class="headerlink" title="2、Java虚拟机栈"></a>2、Java虚拟机栈</h2><p>线程独有，每个线程对应一个虚拟机栈，栈和线程同时创建，用于存储栈桢。<br>用于存储局部变量和过程结果的地方。   </p>
+<ul>
+<li>可能发生的异常：<ul>
+<li>如果线程请求的栈容量超过栈允许的最大容量，则抛出StackOverflowError异常</li>
+<li>如果栈允许动态扩展，而此时无法获取更多内存；或者是新的线程创建无法获取内存，此时都会抛出OutOfMemoryError异常<h2 id="3、Java本地方法栈"><a href="#3、Java本地方法栈" class="headerlink" title="3、Java本地方法栈"></a>3、Java本地方法栈</h2>线程独有，线程创建时会创建一个对应的本地方法栈。（虚拟机可不实现本地方法栈）<br>来native方法的执行（支持除Java语音编写）。</li>
+</ul>
+</li>
+<li>可能发生的异常：<ul>
+<li>如果线程请求的栈容量超过栈允许的最大容量，则抛出StackOverflowError异常</li>
+<li>如果栈允许动态扩展，而此时无法获取更多内存；或者是新的线程创建无法获取内存，此时都会抛出OutOfMemoryError异常<h2 id="4、Java堆"><a href="#4、Java堆" class="headerlink" title="4、Java堆"></a>4、Java堆</h2>线程共享，用于存储类实例和数组对象。<br>虚拟机规范并未指定具体实现方式及内存管理，方案可自己定义（如垃圾收集，内存管理）   </li>
+</ul>
+</li>
+<li>可能发生的异常：<ul>
+<li>如果实际需要的容量超过堆的最大容量，则抛出OutOfMemoryError异常<h2 id="5、方法区"><a href="#5、方法区" class="headerlink" title="5、方法区"></a>5、方法区</h2>线程共享，用于存储类的结构信息，例如运行时常量池、字段和方法数据，构造函数和普通方法的字节码数据。<br>方法区在虚拟机启动的时候被创建。虚拟机规范中定义为可垃圾回收或者是不回收。   </li>
+</ul>
+</li>
+<li>可能发生的异常：<ul>
+<li>如果实际需要的容量超过堆的最大容量，则抛出OutOfMemoryError异常<h3 id="5-1、运行时常量池"><a href="#5-1、运行时常量池" class="headerlink" title="5.1、运行时常量池"></a>5.1、运行时常量池</h3>线程共享，每一个运行时常量池都分配在方法区中。类或接口加载到内存中，就会创建运行时常量池。<br>是类或接口的常量池的运行时表现形式。<br>它包括了若干种不同的常量：从编译期可知的数值字面量到必须运行 期解析后才能获得的方法或字段引用。</li>
+</ul>
+</li>
+<li>可能发生的异常：<ul>
+<li>如果实际需要的容量超过堆的最大容量，则抛出OutOfMemoryError异常</li>
+</ul>
+</li>
+</ul>
+<p>class文件中除了有类的版本、字段、方法、接口等描述信息外，还有一项信息是常量池<br>用于存放编译期生成的各种字面量和符号引用</p>
+<pre><code>字面量：文本字符串、声明为final的常量值
+符号引用：
+    1. 类和接口的全限定名
+    2. 字段的名称和描述符
+    3. 方法的名称和描述符</code></pre><p>JDK7将字符串常量池、字符引用、静态变量移动到了堆中，运行时常量池还在方法区内。<br>jdk8方法区的实现使用metaspace元空间代替，运行时常量池在元空间内，元空间被放在了直接内存内。     </p>
+<h1 id="四、栈桢"><a href="#四、栈桢" class="headerlink" title="四、栈桢"></a>四、栈桢</h1><p>每一个方法执行都会创建一个栈桢，方法执行完就释放。栈桢存储在虚拟机栈上。</p>
+<ul>
+<li>结构：<ul>
+<li>局部变量表</li>
+<li>操作数栈</li>
+<li>指向类运行时常量池的引用</li>
+</ul>
+</li>
+<li>作用：<ul>
+<li>存储数据和部分过程结果的数据结构，同时也用来处理动态链接、方法返回值和异常分派</li>
+</ul>
+</li>
+</ul>
+<h2 id="4-1、局部变量表"><a href="#4-1、局部变量表" class="headerlink" title="4.1、局部变量表"></a>4.1、局部变量表</h2><p>栈桢中的一组变量列表，长度编译期间确定，并存储在类或接口的二进制表之中。<br>long和double需要两个变量来存储，其他的都只需要一个变量。<br>变量表中的第0个位置存储的是调用该方法所对应实例对象的引用（this关键字，其他的参数从1位置开始）</p>
+<h2 id="4-2、操作数栈"><a href="#4-2、操作数栈" class="headerlink" title="4.2、操作数栈"></a>4.2、操作数栈</h2><p>栈桢中的一个后进先出的栈，长度编译期间确定，并存储在类或接口的二进制表之中。<br>从局部变量表中或实例对象中获取数据，通过指令入栈出栈，计算并出栈入栈。在方法调用时，用来存储入参及返回结果。</p>
+<h2 id="4-3、引用"><a href="#4-3、引用" class="headerlink" title="4.3、引用"></a>4.3、引用</h2><p>指向类运行时常量池的引用来实现动态链接。<br>Class文件里边，用符号引用来描述方法调用或访问其他成员变量。<br>动态链接就是为了将符号引用转换成直接引用。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/JVM-JMM-Java/" rel="tag"># JVM JMM Java</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/05/07/2020-05-07-零拷贝/" rel="prev" title="零拷贝">
+      <i class="fa fa-chevron-left"></i> 零拷贝
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/05/11/2020-05-11-类加载/" rel="next" title="类加载">
+      类加载 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、什么是虚拟机规范"><span class="nav-number">1.</span> <span class="nav-text">一、什么是虚拟机规范</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、虚拟机结构"><span class="nav-number">2.</span> <span class="nav-text">二、虚拟机结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、运行时数据区"><span class="nav-number">3.</span> <span class="nav-text">三、运行时数据区</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1、PC寄存器"><span class="nav-number">3.1.</span> <span class="nav-text">1、PC寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2、Java虚拟机栈"><span class="nav-number">3.2.</span> <span class="nav-text">2、Java虚拟机栈</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3、Java本地方法栈"><span class="nav-number">3.3.</span> <span class="nav-text">3、Java本地方法栈</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4、Java堆"><span class="nav-number">3.4.</span> <span class="nav-text">4、Java堆</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5、方法区"><span class="nav-number">3.5.</span> <span class="nav-text">5、方法区</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1、运行时常量池"><span class="nav-number">3.5.1.</span> <span class="nav-text">5.1、运行时常量池</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#四、栈桢"><span class="nav-number">4.</span> <span class="nav-text">四、栈桢</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1、局部变量表"><span class="nav-number">4.1.</span> <span class="nav-text">4.1、局部变量表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2、操作数栈"><span class="nav-number">4.2.</span> <span class="nav-text">4.2、操作数栈</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3、引用"><span class="nav-number">4.3.</span> <span class="nav-text">4.3、引用</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw" src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

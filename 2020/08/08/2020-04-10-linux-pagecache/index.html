@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.8.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、磁盘文件的存储 磁盘的最小存储单元是扇区sector，一个扇区是512个字节 存储在磁盘的文件系统采用块作为最小的存储单元，1个块大小一般是4KB(1KB, 2KB, 4KB, 8KB) 磁盘管理器负责处理块到扇区的映射，给定设备号和块号，磁盘管理器可以很方便找到对应的扇区">
+<meta name="keywords" content="linux pagecache buffercache">
+<meta property="og:type" content="article">
+<meta property="og:title" content="linux pagecache">
+<meta property="og:url" content="http://yoursite.com/2020/08/08/2020-04-10-linux-pagecache/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、磁盘文件的存储 磁盘的最小存储单元是扇区sector，一个扇区是512个字节 存储在磁盘的文件系统采用块作为最小的存储单元，1个块大小一般是4KB(1KB, 2KB, 4KB, 8KB) 磁盘管理器负责处理块到扇区的映射，给定设备号和块号，磁盘管理器可以很方便找到对应的扇区">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2020/08/08/2020-04-10-linux-pagecache/27_file_page_device_block.png">
+<meta property="og:updated_time" content="2021-07-10T06:45:34.150Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="linux pagecache">
+<meta name="twitter:description" content="一、磁盘文件的存储 磁盘的最小存储单元是扇区sector，一个扇区是512个字节 存储在磁盘的文件系统采用块作为最小的存储单元，1个块大小一般是4KB(1KB, 2KB, 4KB, 8KB) 磁盘管理器负责处理块到扇区的映射，给定设备号和块号，磁盘管理器可以很方便找到对应的扇区">
+<meta name="twitter:image" content="http://yoursite.com/2020/08/08/2020-04-10-linux-pagecache/27_file_page_device_block.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/08/08/2020-04-10-linux-pagecache/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>linux pagecache | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/08/08/2020-04-10-linux-pagecache/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          linux pagecache
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-08-08 21:24:46" itemprop="dateCreated datePublished" datetime="2020-08-08T21:24:46+08:00">2020-08-08</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="一、磁盘文件的存储"><a href="#一、磁盘文件的存储" class="headerlink" title="一、磁盘文件的存储"></a>一、磁盘文件的存储</h2><ol>
+<li>磁盘的最小存储单元是扇区sector，一个扇区是512个字节</li>
+<li>存储在磁盘的文件系统采用块作为最小的存储单元，1个块大小一般是4KB(1KB, 2KB, 4KB, 8KB)</li>
+<li>磁盘管理器负责处理块到扇区的映射，给定设备号和块号，磁盘管理器可以很方便找到对应的扇区</li>
+</ol>
+<a id="more"></a>    
+
+<h2 id="二、page-cache"><a href="#二、page-cache" class="headerlink" title="二、page cache"></a>二、page cache</h2><p>缓存<strong>文件</strong>内容，以page为单位。</p>
+<h2 id="三、buffer-cache"><a href="#三、buffer-cache" class="headerlink" title="三、buffer cache"></a>三、buffer cache</h2><p>缓存<strong>硬盘</strong>内容，以块为单位。<br>磁盘的最小数据单位为sector（扇区），内核会在磁盘sector上构建一层缓存，他以sector的整数倍力度单位(block)，缓存部分sector数据在内存中</p>
+<h2 id="四、逻辑关系"><a href="#四、逻辑关系" class="headerlink" title="四、逻辑关系"></a>四、逻辑关系</h2><p>从linux-2.6.18的内核源码来看，Page Cache和Buffer Cache是一个事物的两种表现：对于一个Page而言，对上，他是某个File的一个Page Cache，而对下，他同样是一个Device上的一组Buffer Cache。<br>实际IO操作，都是与page cache交互，不与内存直接交互</p>
+<p><em>The term, Buffer Cache, is often used for the Page Cache. Linux kernels up to version 2.2 had both a Page Cache as well as a Buffer Cache. As of the 2.4 kernel, these two caches have been combined. Today, there is only one cache, the Page Cache.</em></p>
+<p><strong><em>假设page cache=4K，buffer cache=1k，则一个page cache中有4个buffer cache。（page cache和buffer cache合并后）</em></strong></p>
+<p>[注意]：这里的Page Cache与Buffer Cache的融合，是针对文件这一层面的Page Cache与Buffer Cache的融合。对于跨层的：File层面的Page Cache和裸设备Buffer Cache，虽然都统一到了基于Page的实现，但File的Page Cache和该文件对应的Block在裸设备层访问的Buffer Cache，这两个是完全独立的Page，这种情况下，一个物理磁盘Block上的数据，仍然对应了Linux内核中的两份Page，一个是通过文件层访问的File的Page Cache(Page Cache)，一个是通过裸设备层访问的Page Cache(Buffer Cache)。</p>
+<p><img src="/2020/08/08/2020-04-10-linux-pagecache/27_file_page_device_block.png" alt="逻辑关系"></p>
+<h2 id="五、write-gt-系统调用-gt-内核是怎么处理的？"><a href="#五、write-gt-系统调用-gt-内核是怎么处理的？" class="headerlink" title="五、write-&gt;系统调用-&gt;内核是怎么处理的？"></a>五、write-&gt;系统调用-&gt;内核是怎么处理的？</h2><p>写的时候，内核应该是从用户态进程空间将数据copy至内核态的page cache，此时内核会返回程序写入成功结果，但是数据并没有实际写入硬盘;<br>程序可以调用flush方法将数据写入硬盘，或者是等内核自己写入磁盘（例如page cache空间不足时，或者是定时写磁盘）;<br>页表，只是一个虚拟地址跟物理地址的一个映射存储容器；<br>page cache，是为了解决内存跟硬盘速度问题，是一个缓存容器，以页为单位对文件内容进行缓存;<br>在内存中的数据，是怎样的写入硬盘呢？是需要通过CPU呢还是可以使用DMA让内存跟硬盘直接交互</p>
+<p>当然，目前 BufferCache 仍然是存在的，因为还存在需要执行的块 IO。因为大多数块都是用来存储文件数据，所以大部分 BufferCache 都指向了 PageCache；但还是有一小部分块并不是文件数据，例如元数据、RawBlock IO，此时还需要通过 BufferCache 来缓存。</p>
+<h2 id="六、mmp"><a href="#六、mmp" class="headerlink" title="六、mmp"></a>六、mmp</h2><p>用户调用mmap将文件映射到内存时，内核进行一系列的参数检查，然后创建对应的vma，然后给该vma绑定vma_ops。当用户访问到mmap对应的内存时，CPU 会触发page fault，在page fault回调中，将申请pagecache中的匿名页，读取文件到其物理内存中，然后将pagecache中所属的物理页与用户进程的vma进行映射。</p>
+<p><strong><em>简单点说：就是在用户进程中创建变量vma和物理内存进行映射，而不需要再将数据从page cache再拷贝至用户进程空间。</em></strong></p>
+<h2 id="七、read系统调用"><a href="#七、read系统调用" class="headerlink" title="七、read系统调用"></a>七、read系统调用</h2><p>调用open函数时，可以指定是以阻塞方式还是以非阻塞方式打开一个文件描述符。</p>
+<pre><code>阻塞方式打开：
+int fd = open(&quot;/dev/tty&quot;, O_RDWR|O_NONBLOCK);
+非阻塞方式打开：
+int fd = open(&quot;/dev/tty&quot;, O_RDWR);</code></pre><p><strong>对于网络IO之socket</strong>，默认是阻塞的，即当去read的时候，用户进程会阻塞，由内核去获取数据然后拷贝至用户空间；<br>设置成非阻塞时，read时候，用户进程立马得到消息（是否有内容），此时用户进程不是阻塞的，那么如果没有获取数据的话，按一般做法肯定是轮训的询问内核数据是否准备好，会加大内核压力；因此，多路复用就出现了….</p>
+<p><strong>对于普通文件IO（IO包下）</strong>，我觉得默认是阻塞的，读一次，就获取多少数据，直到wile循环结束将文件读完…<br>Java中IO包下的都是bio，代表是open系统调用是采用默认的阻塞方式，此时进程会阻塞，直到内核将数据从磁盘读到page cache，再从page cache读到用户空间</p>
+<p><a href="https://gohalo.me/post/linux-memory-buffer-vs-cache-details.html" target="_blank" rel="noopener">Linux Cache VS. Buffer</a><br><a href="http://lday.me/2019/09/09/0023_linux_page_cache_and_buffer_cache/" target="_blank" rel="noopener">Linux内核Page Cache和Buffer Cache关系及演化历史</a><br><a href="https://lrita.github.io/2019/03/13/the-internal-of-file-syscall/" target="_blank" rel="noopener">文件IO系统调用内幕</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/linux-pagecache-buffercache/" rel="tag"># linux pagecache buffercache</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/01/2020-07-01-分库分表/" rel="prev" title="分库分表">
+      <i class="fa fa-chevron-left"></i> 分库分表
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/10/19/2020-10-19-交易账单/" rel="next" title="交易账单">
+      交易账单 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#一、磁盘文件的存储"><span class="nav-number">1.</span> <span class="nav-text">一、磁盘文件的存储</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#二、page-cache"><span class="nav-number">2.</span> <span class="nav-text">二、page cache</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#三、buffer-cache"><span class="nav-number">3.</span> <span class="nav-text">三、buffer cache</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#四、逻辑关系"><span class="nav-number">4.</span> <span class="nav-text">四、逻辑关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#五、write-gt-系统调用-gt-内核是怎么处理的？"><span class="nav-number">5.</span> <span class="nav-text">五、write-&gt;系统调用-&gt;内核是怎么处理的？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#六、mmp"><span class="nav-number">6.</span> <span class="nav-text">六、mmp</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#七、read系统调用"><span class="nav-number">7.</span> <span class="nav-text">七、read系统调用</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw" src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.8.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、讲讲对象从对象结构、对象创建过程、锁升级过程说明 二、对象结构 对象=对象头+实例数据+数据填充 对象头=markword+classpointer+数组大小 markword=hashcode+GC年龄+锁标识+偏向锁标识32bit虚拟机:  25bit的hashcode，4bit的GC年龄(0-15岁)，1bit的偏向锁标识，2bit的锁标志位（4种状态） = 32bit">
+<meta name="keywords" content="JVM java">
+<meta property="og:type" content="article">
+<meta property="og:title" content="java对象">
+<meta property="og:url" content="http://yoursite.com/2020/05/16/2020-05-16-java对象/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、讲讲对象从对象结构、对象创建过程、锁升级过程说明 二、对象结构 对象=对象头+实例数据+数据填充 对象头=markword+classpointer+数组大小 markword=hashcode+GC年龄+锁标识+偏向锁标识32bit虚拟机:  25bit的hashcode，4bit的GC年龄(0-15岁)，1bit的偏向锁标识，2bit的锁标志位（4种状态） = 32bit">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java对象/%E5%AF%B9%E8%B1%A1%E5%A4%B4.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java对象/%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java对象/%E5%AF%B9%E8%B1%A1%E7%BB%A7%E6%89%BF.png">
+<meta property="og:updated_time" content="2021-07-13T02:46:08.865Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="java对象">
+<meta name="twitter:description" content="一、讲讲对象从对象结构、对象创建过程、锁升级过程说明 二、对象结构 对象=对象头+实例数据+数据填充 对象头=markword+classpointer+数组大小 markword=hashcode+GC年龄+锁标识+偏向锁标识32bit虚拟机:  25bit的hashcode，4bit的GC年龄(0-15岁)，1bit的偏向锁标识，2bit的锁标志位（4种状态） = 32bit">
+<meta name="twitter:image" content="http://yoursite.com/2020/05/16/2020-05-16-java对象/%E5%AF%B9%E8%B1%A1%E5%A4%B4.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/05/16/2020-05-16-java对象/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>java对象 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/05/16/2020-05-16-java对象/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          java对象
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-05-16 20:29:04" itemprop="dateCreated datePublished" datetime="2020-05-16T20:29:04+08:00">2020-05-16</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、讲讲对象"><a href="#一、讲讲对象" class="headerlink" title="一、讲讲对象"></a>一、讲讲对象</h1><p>从对象结构、对象创建过程、锁升级过程说明</p>
+<h1 id="二、对象结构"><a href="#二、对象结构" class="headerlink" title="二、对象结构"></a>二、对象结构</h1><ul>
+<li>对象=对象头+实例数据+数据填充</li>
+<li>对象头=markword+classpointer+数组大小</li>
+<li>markword=hashcode+GC年龄+锁标识+偏向锁标识<br>32bit虚拟机:<br><img src="/2020/05/16/2020-05-16-java对象/%E5%AF%B9%E8%B1%A1%E5%A4%B4.png" alt="对象头"></li>
+</ul>
+<p>25bit的hashcode，4bit的GC年龄(0-15岁)，1bit的偏向锁标识，2bit的锁标志位（4种状态） = 32bit</p>
+<a id="more"></a>  
+
+<h1 id="三、锁升级"><a href="#三、锁升级" class="headerlink" title="三、锁升级"></a>三、锁升级</h1><p>从锁的种类，锁的定义等方面进行讲述。</p>
+<ul>
+<li><p>无锁：对象默认进来是没有锁的</p>
+</li>
+<li><p>偏向锁：</p>
+<ol>
+<li>锁产生背景：同步代码块，通过经验验证，一般同时只有一个线程使用，从而竞争较少。</li>
+<li>锁实现原理：对象头的markwork中记录当前线程的ID，表示偏向该线程。</li>
+<li>锁升级过程：当线程执行同步代码块，判断对象是否有锁，无锁的话，对象头的markword中记录当前线程的ID（CAS操作），<pre><code>表示偏向该线程。线程进入代码块，只需要判断对象的是否偏向该线程（首先判断偏向锁标识，再判断markword中存储的线程ID）。</code></pre></li>
+<li>锁释放：线程不会主动释放锁，只有当其他线程竞争时，才会继续锁的升级。       </li>
+</ol>
+</li>
+<li><p>轻量级锁：</p>
+<ol>
+<li>锁产生背景：不阻塞线程，通过自旋的方式，提升性能。</li>
+<li>锁实现原理：从线程栈桢中创建Lock Record空间，然后将对象的markword复制到Lock record空间，然后通过CAS操作<br>将对象的markword更新为指向Lock record的指针，Lock record的owner指向了markword。</li>
+<li>锁升级过程：当线程自旋超过一定次数时，或者是超过2个线程竞争资源，都会升级成重量级锁。    </li>
+</ol>
+<ul>
+<li>优点：竞争时，只需要让现场自旋尝试去获取锁，而不需要阻塞线程。</li>
+<li>缺点：自旋，适合执行时间短，自旋时间长容易消耗CPU资源。    </li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><p>重量级锁：<br>1、锁实现原理：通过对象的monitor锁，而monitor锁依赖操作系统的MutexLock（互斥锁）<br>  将markword的值替换成指向MutexLock的指针<br>2、monitor锁实现原理:</p>
+<ol>
+<li>每个对象都有监视器</li>
+<li>字节码指令：monitorEnter和monitorExit</li>
+<li>c++实现ObjectMonitor，以下为重要属性<ul>
+<li>_owner：监视器持有者</li>
+<li>_entryList：存放处于blocked状态的线程列表，多个线程同时访问进来会进入这个集合</li>
+<li>_waitSet：当持有monitor的线程调用wait()方法时，该线程会释放monitor，_owner变量恢复成null，_count会减1，该线程进入_waitSet并等待唤醒。</li>
+<li>_recursions：锁的重入次数   </li>
+<li>_count：用来记录当前线程拥有锁的次数  </li>
+</ul>
+</li>
+</ol>
+<ul>
+<li>缺点：依赖操作系统的锁，会阻塞线程，唤醒和阻塞都需要用户态和内核态的切换       </li>
+</ul>
+</li>
+</ul>
+<h1 id="四、对象内存分配"><a href="#四、对象内存分配" class="headerlink" title="四、对象内存分配"></a>四、对象内存分配</h1><ul>
+<li><p>对象头</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">32bit JVM (8字节)</span><br><span class="line">    mark word: 32bit</span><br><span class="line">        在对象未被锁定的状态：25bit hashcode + 4bit 对象分代年龄 + 2bit存储锁标志位 + 1bit 固定为0</span><br><span class="line">    类型指针：32bit</span><br><span class="line">    </span><br><span class="line">64bit JVM (16字节)</span><br><span class="line"></span><br><span class="line">    mark word: 64bit</span><br><span class="line">    类型指针：64bit</span><br><span class="line">    </span><br><span class="line">数组长度（Array Length）</span><br><span class="line">    如果对象是一个数组，那么对象头还需要有额外的空间用于存储数组的长度。</span><br><span class="line">    这部分数据的长度也随着JVM架构的不同而不同：32位的JVM上，长度为32位；64位JVM则为64位。</span><br><span class="line">    64位JVM如果开启+UseCompressedOops选项，该区域长度也将由64位压缩至32位。</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>实例数据</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">基本类型与引用类型</span><br><span class="line">    boolean             1</span><br><span class="line">    byte                1</span><br><span class="line">    shot                2</span><br><span class="line">    char                2</span><br><span class="line">    int                 4</span><br><span class="line">    float               4</span><br><span class="line">    long                8   </span><br><span class="line">    double              8</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>栗子</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Class A &#123;</span><br><span class="line">    int i;</span><br><span class="line">    byte b;</span><br><span class="line">    String str;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p><img src="/2020/05/16/2020-05-16-java对象/%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D.png" alt="内存分配"></p>
+<h1 id="五、对象的继承"><a href="#五、对象的继承" class="headerlink" title="五、对象的继承"></a>五、对象的继承</h1><p><img src="/2020/05/16/2020-05-16-java对象/%E5%AF%B9%E8%B1%A1%E7%BB%A7%E6%89%BF.png" alt="对象继承"></p>
+<p>这个程序执行的基本流程是：</p>
+<ol>
+<li><p>虚拟机加载Test类，提取类信息到方法区；</p>
+</li>
+<li><p>通过保存在方法去的字节码，虚拟机开始执行main方法，main函数入栈；</p>
+</li>
+<li><p>执行Student s = new Student();给student实例对象分配堆空间。又因为实现自己要先实现父类，所以，虚拟机加载person类到方法区，并在堆中为父类成员变量在子类空间中初始化。然后加载student类到方法区，为子类的成员变量分配空间并初始化。</p>
+</li>
+<li><p>接下来两条语句为成员变量赋值，由于name跟age是从父类继承而来，会被保存在子类父对象中，所以就根据引用变量s持有的引用找到堆中的对象(子类对象)，然后给name跟age赋值。</p>
+</li>
+<li><p>调用say()方法，通过引用变量s持有的引用找到堆中的实例对象，通过实例对象持有的本类在方法区的引用，找到本类的类型信息，定位到say()方法。say()方法入栈。开始执行say()方法中的字节码。</p>
+</li>
+<li><p>say()方法执行完毕，say方法出栈，程序回到main方法，main方法执行完毕出栈，主线程消亡，虚拟机实例消亡，程序结束。</p>
+</li>
+</ol>
+<p>总结：相同的方法会被重写，变量没有重写之说，如果子类声明了跟父类一样的变量，那意味着子类将有两个相同名称的变量。一个存放在子类实例对象中，一个存放在父类子对象中。父类的private变量，也会被继承并且初始化在子类父对象中，只不过对外不可见。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/JVM-java/" rel="tag"># JVM java</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/05/15/2020-05-15-泛型/" rel="prev" title="泛型">
+      <i class="fa fa-chevron-left"></i> 泛型
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/06/01/2020-06-01-es/" rel="next" title="es">
+      es <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、讲讲对象"><span class="nav-number">1.</span> <span class="nav-text">一、讲讲对象</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、对象结构"><span class="nav-number">2.</span> <span class="nav-text">二、对象结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、锁升级"><span class="nav-number">3.</span> <span class="nav-text">三、锁升级</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#四、对象内存分配"><span class="nav-number">4.</span> <span class="nav-text">四、对象内存分配</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#五、对象的继承"><span class="nav-number">5.</span> <span class="nav-text">五、对象的继承</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw" src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
