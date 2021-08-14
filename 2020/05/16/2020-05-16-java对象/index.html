@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="JVM java,">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="一、讲讲对象从对象结构、对象创建过程、锁升级过程说明 二、对象结构 对象=对象头+实例数据+数据填充 对象头=markword+classpointer+数组大小 markword=hashcode+GC年龄+锁标识+偏向锁标识32bit虚拟机:  25bit的hashcode，4bit的GC年龄(0-15岁)，1bit的偏向锁标识，2bit的锁标志位（4种状态） = 32bit">
+<meta name="keywords" content="JVM java">
+<meta property="og:type" content="article">
+<meta property="og:title" content="java对象">
+<meta property="og:url" content="http://yoursite.com/2020/05/16/2020-05-16-java对象/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、讲讲对象从对象结构、对象创建过程、锁升级过程说明 二、对象结构 对象=对象头+实例数据+数据填充 对象头=markword+classpointer+数组大小 markword=hashcode+GC年龄+锁标识+偏向锁标识32bit虚拟机:  25bit的hashcode，4bit的GC年龄(0-15岁)，1bit的偏向锁标识，2bit的锁标志位（4种状态） = 32bit">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java对象/2020-05-16-java%E5%AF%B9%E8%B1%A1/%E5%AF%B9%E8%B1%A1%E5%A4%B4.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java对象/2020-05-16-java%E5%AF%B9%E8%B1%A1/%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java对象/2020-05-16-java%E5%AF%B9%E8%B1%A1/%E5%AF%B9%E8%B1%A1%E7%BB%A7%E6%89%BF.png">
+<meta property="og:updated_time" content="2021-08-14T14:57:18.559Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="java对象">
+<meta name="twitter:description" content="一、讲讲对象从对象结构、对象创建过程、锁升级过程说明 二、对象结构 对象=对象头+实例数据+数据填充 对象头=markword+classpointer+数组大小 markword=hashcode+GC年龄+锁标识+偏向锁标识32bit虚拟机:  25bit的hashcode，4bit的GC年龄(0-15岁)，1bit的偏向锁标识，2bit的锁标志位（4种状态） = 32bit">
+<meta name="twitter:image" content="http://yoursite.com/2020/05/16/2020-05-16-java对象/2020-05-16-java%E5%AF%B9%E8%B1%A1/%E5%AF%B9%E8%B1%A1%E5%A4%B4.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: 'Author'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2020/05/16/2020-05-16-java对象/">
+
+
+
+
+
+  <title>java对象 | CHW's Notes</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">CHW's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            Home
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            Archives
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/05/16/2020-05-16-java对象/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">java对象</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2020-05-16T20:29:04+08:00">
+                2020-05-16
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="一、讲讲对象"><a href="#一、讲讲对象" class="headerlink" title="一、讲讲对象"></a>一、讲讲对象</h1><p>从对象结构、对象创建过程、锁升级过程说明</p>
+<h1 id="二、对象结构"><a href="#二、对象结构" class="headerlink" title="二、对象结构"></a>二、对象结构</h1><ul>
+<li>对象=对象头+实例数据+数据填充</li>
+<li>对象头=markword+classpointer+数组大小</li>
+<li>markword=hashcode+GC年龄+锁标识+偏向锁标识<br>32bit虚拟机:<br><img src="2020-05-16-java%E5%AF%B9%E8%B1%A1/%E5%AF%B9%E8%B1%A1%E5%A4%B4.png" alt="对象头"></li>
+</ul>
+<p>25bit的hashcode，4bit的GC年龄(0-15岁)，1bit的偏向锁标识，2bit的锁标志位（4种状态） = 32bit</p>
+<a id="more"></a>  
+
+<h1 id="三、锁升级"><a href="#三、锁升级" class="headerlink" title="三、锁升级"></a>三、锁升级</h1><p>从锁的种类，锁的定义等方面进行讲述。</p>
+<ul>
+<li><p>无锁：对象默认进来是没有锁的</p>
+</li>
+<li><p>偏向锁：</p>
+<ol>
+<li>锁产生背景：同步代码块，通过经验验证，一般同时只有一个线程使用，从而竞争较少。</li>
+<li>锁实现原理：对象头的markwork中记录当前线程的ID，表示偏向该线程。</li>
+<li>锁升级过程：当线程执行同步代码块，判断对象是否有锁，无锁的话，对象头的markword中记录当前线程的ID（CAS操作），<pre><code>表示偏向该线程。线程进入代码块，只需要判断对象的是否偏向该线程（首先判断偏向锁标识，再判断markword中存储的线程ID）。</code></pre></li>
+<li>锁释放：线程不会主动释放锁，只有当其他线程竞争时，才会继续锁的升级。       </li>
+</ol>
+</li>
+<li><p>轻量级锁：</p>
+<ol>
+<li>锁产生背景：不阻塞线程，通过自旋的方式，提升性能。</li>
+<li>锁实现原理：从线程栈桢中创建Lock Record空间，然后将对象的markword复制到Lock record空间，然后通过CAS操作<br>将对象的markword更新为指向Lock record的指针，Lock record的owner指向了markword。</li>
+<li>锁升级过程：当线程自旋超过一定次数时，或者是超过2个线程竞争资源，都会升级成重量级锁。    </li>
+</ol>
+<ul>
+<li>优点：竞争时，只需要让现场自旋尝试去获取锁，而不需要阻塞线程。</li>
+<li>缺点：自旋，适合执行时间短，自旋时间长容易消耗CPU资源。    </li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><p>重量级锁：<br>1、锁实现原理：通过对象的monitor锁，而monitor锁依赖操作系统的MutexLock（互斥锁）<br>  将markword的值替换成指向MutexLock的指针<br>2、monitor锁实现原理:</p>
+<ol>
+<li>每个对象都有监视器</li>
+<li>字节码指令：monitorEnter和monitorExit</li>
+<li>c++实现ObjectMonitor，以下为重要属性<ul>
+<li>_owner：监视器持有者</li>
+<li>_entryList：存放处于blocked状态的线程列表，多个线程同时访问进来会进入这个集合</li>
+<li>_waitSet：当持有monitor的线程调用wait()方法时，该线程会释放monitor，_owner变量恢复成null，_count会减1，该线程进入_waitSet并等待唤醒。</li>
+<li>_recursions：锁的重入次数   </li>
+<li>_count：用来记录当前线程拥有锁的次数  </li>
+</ul>
+</li>
+</ol>
+<ul>
+<li>缺点：依赖操作系统的锁，会阻塞线程，唤醒和阻塞都需要用户态和内核态的切换       </li>
+</ul>
+</li>
+</ul>
+<h1 id="四、对象内存分配"><a href="#四、对象内存分配" class="headerlink" title="四、对象内存分配"></a>四、对象内存分配</h1><ul>
+<li><p>对象头</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">32bit JVM (8字节)</span><br><span class="line">    mark word: 32bit</span><br><span class="line">        在对象未被锁定的状态：25bit hashcode + 4bit 对象分代年龄 + 2bit存储锁标志位 + 1bit 固定为0</span><br><span class="line">    类型指针：32bit</span><br><span class="line">    </span><br><span class="line">64bit JVM (16字节)</span><br><span class="line"></span><br><span class="line">    mark word: 64bit</span><br><span class="line">    类型指针：64bit</span><br><span class="line">    </span><br><span class="line">数组长度（Array Length）</span><br><span class="line">    如果对象是一个数组，那么对象头还需要有额外的空间用于存储数组的长度。</span><br><span class="line">    这部分数据的长度也随着JVM架构的不同而不同：32位的JVM上，长度为32位；64位JVM则为64位。</span><br><span class="line">    64位JVM如果开启+UseCompressedOops选项，该区域长度也将由64位压缩至32位。</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>实例数据</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">基本类型与引用类型</span><br><span class="line">    boolean             1</span><br><span class="line">    byte                1</span><br><span class="line">    shot                2</span><br><span class="line">    char                2</span><br><span class="line">    int                 4</span><br><span class="line">    float               4</span><br><span class="line">    long                8   </span><br><span class="line">    double              8</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>栗子</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Class A &#123;</span><br><span class="line">    int i;</span><br><span class="line">    byte b;</span><br><span class="line">    String str;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p><img src="2020-05-16-java%E5%AF%B9%E8%B1%A1/%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D.png" alt="内存分配"></p>
+<h1 id="五、对象的继承"><a href="#五、对象的继承" class="headerlink" title="五、对象的继承"></a>五、对象的继承</h1><p><img src="2020-05-16-java%E5%AF%B9%E8%B1%A1/%E5%AF%B9%E8%B1%A1%E7%BB%A7%E6%89%BF.png" alt="对象继承"></p>
+<p>这个程序执行的基本流程是：</p>
+<ol>
+<li><p>虚拟机加载Test类，提取类信息到方法区；</p>
+</li>
+<li><p>通过保存在方法去的字节码，虚拟机开始执行main方法，main函数入栈；</p>
+</li>
+<li><p>执行Student s = new Student();给student实例对象分配堆空间。又因为实现自己要先实现父类，所以，虚拟机加载person类到方法区，并在堆中为父类成员变量在子类空间中初始化。然后加载student类到方法区，为子类的成员变量分配空间并初始化。</p>
+</li>
+<li><p>接下来两条语句为成员变量赋值，由于name跟age是从父类继承而来，会被保存在子类父对象中，所以就根据引用变量s持有的引用找到堆中的对象(子类对象)，然后给name跟age赋值。</p>
+</li>
+<li><p>调用say()方法，通过引用变量s持有的引用找到堆中的实例对象，通过实例对象持有的本类在方法区的引用，找到本类的类型信息，定位到say()方法。say()方法入栈。开始执行say()方法中的字节码。</p>
+</li>
+<li><p>say()方法执行完毕，say方法出栈，程序回到main方法，main方法执行完毕出栈，主线程消亡，虚拟机实例消亡，程序结束。</p>
+</li>
+</ol>
+<p>总结：相同的方法会被重写，变量没有重写之说，如果子类声明了跟父类一样的变量，那意味着子类将有两个相同名称的变量。一个存放在子类实例对象中，一个存放在父类子对象中。父类的private变量，也会被继承并且初始化在子类父对象中，只不过对外不可见。</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/JVM-java/" rel="tag"># JVM java</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2020/05/15/2020-05-15-泛型/" rel="next" title="泛型">
+                <i class="fa fa-chevron-left"></i> 泛型
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2020/06/01/2020-06-01-es/" rel="prev" title="es">
+                es <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">chw</p>
+              <p class="site-description motion-element" itemprop="description">do somthing</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">52</span>
+                  <span class="site-state-item-name">posts</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">11</span>
+                  <span class="site-state-item-name">categories</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">33</span>
+                  <span class="site-state-item-name">tags</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、讲讲对象"><span class="nav-number">1.</span> <span class="nav-text">一、讲讲对象</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、对象结构"><span class="nav-number">2.</span> <span class="nav-text">二、对象结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、锁升级"><span class="nav-number">3.</span> <span class="nav-text">三、锁升级</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#四、对象内存分配"><span class="nav-number">4.</span> <span class="nav-text">四、对象内存分配</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#五、对象的继承"><span class="nav-number">5.</span> <span class="nav-text">五、对象的继承</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+
+  
+</div>
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a></div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Muse</a> v5.1.4</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

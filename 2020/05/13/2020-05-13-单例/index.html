@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Hexo, NexT">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="#一、什么是单例单例，就是保证一个类的实例对象只存在一个 #二、创建对象方法new，反射，克隆，反序列化 #三、破坏单例什么是破坏单例？就是让一个类存在多个实例对象如何破坏：  单例的首要条件是构造函数私有化。那么new方式行不通。 克隆，需要实现cloneable接口。要达到单例效果，就不能实现这个类。 序列化：需要实现Serializable接口12345678910111213public">
+<meta name="keywords" content="java">
+<meta property="og:type" content="article">
+<meta property="og:title" content="单例">
+<meta property="og:url" content="http://yoursite.com/2020/05/13/2020-05-13-单例/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="#一、什么是单例单例，就是保证一个类的实例对象只存在一个 #二、创建对象方法new，反射，克隆，反序列化 #三、破坏单例什么是破坏单例？就是让一个类存在多个实例对象如何破坏：  单例的首要条件是构造函数私有化。那么new方式行不通。 克隆，需要实现cloneable接口。要达到单例效果，就不能实现这个类。 序列化：需要实现Serializable接口12345678910111213public">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2021-08-14T14:57:18.558Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="单例">
+<meta name="twitter:description" content="#一、什么是单例单例，就是保证一个类的实例对象只存在一个 #二、创建对象方法new，反射，克隆，反序列化 #三、破坏单例什么是破坏单例？就是让一个类存在多个实例对象如何破坏：  单例的首要条件是构造函数私有化。那么new方式行不通。 克隆，需要实现cloneable接口。要达到单例效果，就不能实现这个类。 序列化：需要实现Serializable接口12345678910111213public">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: 'Author'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2020/05/13/2020-05-13-单例/">
+
+
+
+
+
+  <title>单例 | CHW's Notes</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">CHW's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            Home
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            Archives
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/05/13/2020-05-13-单例/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">单例</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2020-05-13T19:50:03+08:00">
+                2020-05-13
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>#一、什么是单例<br>单例，就是保证一个类的实例对象只存在一个</p>
+<p>#二、创建对象方法<br>new，反射，克隆，反序列化</p>
+<p>#三、破坏单例<br>什么是破坏单例？就是让一个类存在多个实例对象<br><strong>如何破坏：</strong></p>
+<ol>
+<li>单例的首要条件是构造函数私有化。那么new方式行不通。</li>
+<li>克隆，需要实现cloneable接口。要达到单例效果，就不能实现这个类。</li>
+<li>序列化：需要实现Serializable接口<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">public class Test &#123;  </span><br><span class="line">    public static void main(String[] args) throws Exception &#123;  </span><br><span class="line">        //序列化  </span><br><span class="line">        Singleton instance1 = Singleton.getInstance();  </span><br><span class="line">        ObjectOutputStream objectOutputStream = new ObjectOutputStream(new FileOutputStream(&quot;tempFile&quot;));  </span><br><span class="line">        objectOutputStream.writeObject(instance1);  </span><br><span class="line">        //反序列化  </span><br><span class="line">        File file = new File(&quot;tempFile&quot;);  </span><br><span class="line">        ObjectInputStream objectInputStream = new ObjectInputStream(new FileInputStream(file));  </span><br><span class="line">        Singleton instance2 = (Singleton) objectInputStream.readObject();  </span><br><span class="line">        System.out.println(instance1 == instance2); //false，代表不是同一个对象</span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<a id="more"></a>  
+
+<ul>
+<li>总结：通过反射，可以破坏单例。【底层实现原理还是使用反射】</li>
+<li>防止序列化破坏单例：在单例类中实现readResolve方法<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">//在单例类中实现readResolve方法</span><br><span class="line">public class Singleton implements Serializable &#123;  </span><br><span class="line">    private Singleton() &#123;  </span><br><span class="line">    &#125;  </span><br><span class="line">    private static class SingletonInstance &#123;  </span><br><span class="line">        private static final Singleton INSTANCE = new Singleton();  </span><br><span class="line">   &#125;   </span><br><span class="line">    public static Singleton getInstance() &#123;  </span><br><span class="line">        return SingletonInstance.INSTANCE;  </span><br><span class="line">   &#125;  </span><br><span class="line">    private Object readResolve() &#123;  </span><br><span class="line">        return SingletonInstance.INSTANCE;  </span><br><span class="line">   &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<ol start="4">
+<li>反射<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">public class Test &#123;  </span><br><span class="line">    public static void main(String[] args) throws Exception &#123;  </span><br><span class="line">      Singleton instance1 = Singleton.getInstance();  </span><br><span class="line">      //通过反射创建对象  </span><br><span class="line">      Class&lt;Singleton&gt; singletonClass = Singleton.class;  </span><br><span class="line">      Constructor&lt;Singleton&gt; constructor = singletonClass.getDeclaredConstructor(); </span><br><span class="line">      //暴力破解私有构造器------开启后才能反射创建对象</span><br><span class="line">      constructor.setAccessible(true);  </span><br><span class="line">      Singleton instance2 = constructor.newInstance();   </span><br><span class="line">     System.out.println(instance1 == instance2);  //返回false</span><br><span class="line">  &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<ul>
+<li>总结：反射可以破坏单例</li>
+<li>防止反射破坏序列化：修改构造器，通过构造器判断（饥汉模式无法实现）<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">public class Singleton &#123;</span><br><span class="line">    private static volatile Singleton instance ;</span><br><span class="line">    private Singleton()&#123;</span><br><span class="line">        //构造器判断</span><br><span class="line">        if(instance != null)&#123;</span><br><span class="line">            throw new RuntimeException(&quot;不允许反射调用构造器&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    public static Singleton getInstance()&#123;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p>总结：要想实现不被破坏的单例，需要通过构造函数判断+实现readResolve方法。</p>
+<p>#四、最佳方式<br>枚举</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public enum EnumSingleton &#123;</span><br><span class="line">    INSTANCE; </span><br><span class="line">    public EnumSingleton getInstance()&#123; </span><br><span class="line">         return INSTANCE;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>避免反射破坏单例：<br>使用反射会抛出异常</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">java.lang.NoSuchMethodException: com.jvm.SingleEnum.&lt;init&gt;()</span><br><span class="line">	at java.lang.Class.getConstructor0(Class.java:3082)</span><br><span class="line">	at java.lang.Class.getDeclaredConstructor(Class.java:2178)</span><br><span class="line">	at com.jvm.SingleEnumTest.main(SingleEnumTest.java:16)</span><br></pre></td></tr></table></figure>
+
+<p>原因</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">protected Enum(String name, int ordinal) &#123;</span><br><span class="line">    this.name = name;</span><br><span class="line">    this.ordinal = ordinal;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>枚举类的构造函数有参，无法通过子类的构造函数进行</p>
+<p>并且Constructor.newInstance进行了枚举判断，如果是枚举则抛出异常。</p>
+<ul>
+<li>避免反序列化破坏单例：<ul>
+<li>每个枚举对象都有一个唯一的name属性。序列化只是将name属性序列化，在反序列化的时候，通过创建一个Map(key,value)，搭建起name和与之对应的对象之间的联系，然后通过索引key来获得枚举对象。</li>
+</ul>
+</li>
+</ul>
+<h1 id="五、懒汉饥汉"><a href="#五、懒汉饥汉" class="headerlink" title="五、懒汉饥汉"></a>五、懒汉饥汉</h1><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">safeLazyInitialization</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Instance instance;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">synchronized</span> <span class="keyword">static</span> Instance <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">if</span>(instance ==<span class="keyword">null</span>)</span><br><span class="line">            instance = <span class="keyword">new</span> Instance();       </span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>方法上添加synchronized方法，会导致性能较差，可以实现单例。</p>
+<p>优化一</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">DoubleCheckedLocking</span> </span>&#123;                     <span class="comment">//1</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Instance instance;                   <span class="comment">//2</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span>  <span class="keyword">static</span> Instance <span class="title">getInstance</span><span class="params">()</span></span>&#123;              <span class="comment">//3</span></span><br><span class="line">        <span class="keyword">if</span>(instance ==<span class="keyword">null</span>) &#123;                           <span class="comment">//4:第一次检查</span></span><br><span class="line">            <span class="keyword">synchronized</span> (DoubleCheckedLocking.class) &#123; <span class="comment">//5：加锁</span></span><br><span class="line">                <span class="keyword">if</span> (instance == <span class="keyword">null</span>)                   <span class="comment">//6：第二次检查</span></span><br><span class="line">                    instance = <span class="keyword">new</span> Instance();          <span class="comment">//7：问题的根源处在这里</span></span><br><span class="line">            &#125;                                           <span class="comment">//8</span></span><br><span class="line">        &#125;                                               <span class="comment">//9</span></span><br><span class="line">        <span class="keyword">return</span> instance;                                <span class="comment">//10</span></span><br><span class="line">    &#125;                                                   <span class="comment">//11</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>不对方法进行加锁，对Class对象进行加锁。但是也会出现问题。</p>
+<ul>
+<li><p>指令代码</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">memory=allocate();        //1:分配对象的内存空间</span><br><span class="line">ctorInstance(memory);     //2:初始化对象</span><br><span class="line">instance = memory;          //3:设置instance指向刚分配的内存地址</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>指令重排序后</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">memory=allocate();        //1:分配对象的内存空间</span><br><span class="line">instance = memory;          //3:设置instance指向刚分配的内存地址</span><br><span class="line">ctorInstance(memory);     //2:初始化对象</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>问题根源</p>
+<ul>
+<li>线程1执行到第7行时，因为指令重排序，instance!=null，但是对象未进行初始化，对象信息都是初始值。</li>
+<li>线程2此时执行第4行，instance!=null，此时返回instance，因为未初始化，属性值将是初始值有问题。</li>
+</ul>
+</li>
+<li><p>为什么需要双重校验呢？</p>
+<ul>
+<li>第一层校验，提高效率</li>
+<li>如果A、B两个线程，A进入了synchronized同步代码块，此时B通过了136行的校验，阻塞在同步代码块</li>
+<li>如果没有第二层校验，那么A创建完释放锁，B进入同步代码块，没有判断的话也会创建实例，从而导致问题。</li>
+</ul>
+</li>
+</ul>
+<p>优化二</p>
+<pre><code class="java"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">DoubleCheckedLocking</span> </span>{                     <span class="comment">//1</span>
+  <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">volatile</span> Instance instance;                   <span class="comment">//2</span>
+  <span class="function"><span class="keyword">public</span>  <span class="keyword">static</span> Instance <span class="title">getInstance</span><span class="params">()</span></span>{              <span class="comment">//3</span>
+      <span class="keyword">if</span>(instance ==<span class="keyword">null</span>) {                           <span class="comment">//4:第一次检查</span>
+          <span class="keyword">synchronized</span> (DoubleCheckedLocking.class) { <span class="comment">//5：加锁</span>
+              <span class="keyword">if</span> (instance == <span class="keyword">null</span>)                   <span class="comment">//6：第二次检查</span>
+                  instance = <span class="keyword">new</span> Instance();          <span class="comment">//7：问题的根源处在这里</span>
+          }                                           <span class="comment">//8</span>
+      }                                               <span class="comment">//9</span>
+      <span class="keyword">return</span> instance;                                <span class="comment">//10</span>
+  }                                                   <span class="comment">//11</span>
+}</code></pre>
+<p>volatile防止指令重排序。</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2020/05/11/2020-05-11-类加载/" rel="next" title="类加载">
+                <i class="fa fa-chevron-left"></i> 类加载
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2020/05/14/2020-05-14-枚举/" rel="prev" title="枚举">
+                枚举 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">chw</p>
+              <p class="site-description motion-element" itemprop="description">do somthing</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">52</span>
+                  <span class="site-state-item-name">posts</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">11</span>
+                  <span class="site-state-item-name">categories</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">33</span>
+                  <span class="site-state-item-name">tags</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#五、懒汉饥汉"><span class="nav-number">1.</span> <span class="nav-text">五、懒汉饥汉</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+
+  
+</div>
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a></div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Muse</a> v5.1.4</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

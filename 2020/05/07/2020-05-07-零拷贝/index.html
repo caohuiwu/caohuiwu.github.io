@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Hexo, NexT">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="一、什么是零拷贝？减少数据的拷贝。 二、前提知识1、Linux进程的虚拟空间Linux进程的虚拟空间，分成内核空间和用户空间，数据进入进程的过程，是从磁盘拷贝至内核，然后从内核空间拷贝至用户空间。read、write两个系统调用的过程，从磁盘将数据读入内核空间，然后从内核空间拷贝至用户空间，过程复杂。  4次数据拷贝，速率低下。">
+<meta name="keywords" content="java">
+<meta property="og:type" content="article">
+<meta property="og:title" content="零拷贝">
+<meta property="og:url" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、什么是零拷贝？减少数据的拷贝。 二、前提知识1、Linux进程的虚拟空间Linux进程的虚拟空间，分成内核空间和用户空间，数据进入进程的过程，是从磁盘拷贝至内核，然后从内核空间拷贝至用户空间。read、write两个系统调用的过程，从磁盘将数据读入内核空间，然后从内核空间拷贝至用户空间，过程复杂。  4次数据拷贝，速率低下。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/%E5%9F%BA%E6%9C%AC%E6%96%B9%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/DMA.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/DMA-%E4%BC%98%E5%8C%96.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/mmp.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/sendfile.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/sendfile_DMA.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/jmm.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/%E7%9B%B4%E6%8E%A5%E5%86%85%E5%AD%98.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/%E7%9B%B4%E6%8E%A5%E5%86%85%E5%AD%98%E5%9B%9E%E6%94%B6%E5%92%8C%E5%88%86%E9%85%8D.png">
+<meta property="og:updated_time" content="2021-08-14T14:57:18.444Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="零拷贝">
+<meta name="twitter:description" content="一、什么是零拷贝？减少数据的拷贝。 二、前提知识1、Linux进程的虚拟空间Linux进程的虚拟空间，分成内核空间和用户空间，数据进入进程的过程，是从磁盘拷贝至内核，然后从内核空间拷贝至用户空间。read、write两个系统调用的过程，从磁盘将数据读入内核空间，然后从内核空间拷贝至用户空间，过程复杂。  4次数据拷贝，速率低下。">
+<meta name="twitter:image" content="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/%E5%9F%BA%E6%9C%AC%E6%96%B9%E5%BC%8F.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: 'Author'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/">
+
+
+
+
+
+  <title>零拷贝 | CHW's Notes</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">CHW's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            Home
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            Archives
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/05/07/2020-05-07-零拷贝/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">零拷贝</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2020-05-07T21:36:43+08:00">
+                2020-05-07
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="一、什么是零拷贝？"><a href="#一、什么是零拷贝？" class="headerlink" title="一、什么是零拷贝？"></a>一、什么是零拷贝？</h1><p>减少数据的拷贝。</p>
+<h1 id="二、前提知识"><a href="#二、前提知识" class="headerlink" title="二、前提知识"></a>二、前提知识</h1><h2 id="1、Linux进程的虚拟空间"><a href="#1、Linux进程的虚拟空间" class="headerlink" title="1、Linux进程的虚拟空间"></a>1、Linux进程的虚拟空间</h2><p>Linux进程的虚拟空间，分成内核空间和用户空间，数据进入进程的过程，是从磁盘拷贝至内核，然后从内核空间拷贝至用户空间。<br><img src="2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/%E5%9F%BA%E6%9C%AC%E6%96%B9%E5%BC%8F.png" alt="基本方式"><br>read、write两个系统调用的过程，从磁盘将数据读入内核空间，然后从内核空间拷贝至用户空间，过程复杂。</p>
+<ul>
+<li>4次数据拷贝，速率低下。</li>
+</ul>
+<a id="more"></a>  
+
+<h2 id="2、DMA拷贝"><a href="#2、DMA拷贝" class="headerlink" title="2、DMA拷贝"></a>2、DMA拷贝</h2><p>Direct Memory Access，直接内存操作。<br>传统数据的传输：使用CPU，CPU负责数据的拷贝传输。<br><img src="2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/DMA.png" alt="基本方式"><br>优化数据传输：DMA，专门进行数据传输的硬件<br><img src="2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/DMA-%E4%BC%98%E5%8C%96.png" alt="基本方式"><br>优势：解放CPU</p>
+<h1 id="三、零拷贝的实现"><a href="#三、零拷贝的实现" class="headerlink" title="三、零拷贝的实现"></a>三、零拷贝的实现</h1><p>减少系统调用，减少态的切换。</p>
+<ul>
+<li>mmap</li>
+<li>sendfile</li>
+<li>sendfile + DMA</li>
+</ul>
+<h2 id="1、mmap"><a href="#1、mmap" class="headerlink" title="1、mmap"></a>1、mmap</h2><p>用户空间会和内核空间行程一个映射，这样就不需要将数据从内核态拷贝至用户态，从而减少一次拷贝。<br><strong>映射原理：</strong></p>
+<ul>
+<li>就是在用户进程中创建变量vma和物理内存进行映射，而不需要再将数据从page cache再拷贝至用户进程空间<br><img src="2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/mmp.png" alt="mmap"></li>
+<li>4次上下文切换，3次拷贝。<h2 id="2、sendfile"><a href="#2、sendfile" class="headerlink" title="2、sendfile"></a>2、sendfile</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">include &lt;sys/socket.h&gt;</span><br><span class="line">ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p>它的前两个参数分别是目的端和源端的文件描述符，后面两个参数是源端的偏移量和复制数据的长度，返回值是实际复制数据的长度。<br>它可以替代前面的<strong>read()</strong>和<strong>write()</strong>这两个系统调用，这样就可以减少一次系统调用<br><img src="2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/sendfile.png" alt="sendfile"></p>
+<ul>
+<li>2次上下文切换，3次拷贝</li>
+</ul>
+<h2 id="3、sendfile-DMA"><a href="#3、sendfile-DMA" class="headerlink" title="3、sendfile + DMA"></a>3、sendfile + DMA</h2><p>sendfile减少内核空间的CPU拷贝<br><img src="2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/sendfile_DMA.png" alt="sendfile_dma"></p>
+<h1 id="四、Java中的零拷贝"><a href="#四、Java中的零拷贝" class="headerlink" title="四、Java中的零拷贝"></a>四、Java中的零拷贝</h1><ul>
+<li>java NIO的零拷贝实现是基于mmap+write方式</li>
+<li>FileChannel的map方法产生的MappedByteBuffer FileChannel提供了map()方法，<br>该方法可以在一个打开的文件和MappedByteBuffer之间建立一个虚拟内存映射，MappedByteBuffer继承于ByteBuffer；<br>该缓冲器的内存是一个文件的内存映射区域。map方法底层是通过mmap实现的，因此将文件内存从磁盘读取到内核缓冲区后，用户空间和内核空间共享该缓冲区。用法如下</li>
+</ul>
+<h2 id="4-1、从JMM看堆外内存"><a href="#4-1、从JMM看堆外内存" class="headerlink" title="4.1、从JMM看堆外内存"></a>4.1、从JMM看堆外内存</h2><p><img src="2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/jmm.png" alt="JMM"><br>直接内存：就是基于mmap+write方式实现的零拷贝</p>
+<ul>
+<li><p>永久代主要存放以下数据：</p>
+<ul>
+<li>JVM internal representation of classes and their metadata</li>
+<li>Class statics</li>
+<li>Interned strings</li>
+<li>运行时常量池</li>
+</ul>
+</li>
+<li><p>从 JDK7 开始，JDK 开发者们就有消灭永久代的打算了。有部分数据移到永久代之外了：</p>
+<ul>
+<li>Symbols =&gt; native memory</li>
+<li>Interned strings =&gt; Java Heap</li>
+<li>Class statics =&gt; Java Heap</li>
+<li>运行时常量池，还是存放在方法区内</li>
+</ul>
+</li>
+<li><p>到了 JDK8，这个工作终于完成了，彻底废弃了 PermGen，Metaspace 取而代之。</p>
+<ul>
+<li>运行时常量池，也移到了metaspace内</li>
+</ul>
+</li>
+</ul>
+<h3 id="1、内存分类"><a href="#1、内存分类" class="headerlink" title="1、内存分类"></a>1、内存分类</h3><ul>
+<li><p>堆内内存： on-heap memory  </p>
+<ul>
+<li>java虚拟机运行时区域堆内存（HeapByteBuffer）。 </li>
+</ul>
+</li>
+<li><p>堆外内存：off-heap memory</p>
+<ul>
+<li>除java堆之外的所有其他运行时数据区域，包括程序计数器，java虚拟机栈，本地 方法栈，方法区（元数据区），<br>运行时常量池，直接内存（DirectByteBuffer）。</li>
+</ul>
+</li>
+</ul>
+<h3 id="2、如何申请直接内存"><a href="#2、如何申请直接内存" class="headerlink" title="2、如何申请直接内存"></a>2、如何申请直接内存</h3><ol>
+<li>Unsafe.allocateMemory(long var1) </li>
+<li>ByteBuffer.allocateDirect(int capacity) </li>
+<li>native方法</li>
+</ol>
+<h3 id="3、源码解析"><a href="#3、源码解析" class="headerlink" title="3、源码解析"></a>3、源码解析</h3><p><img src="2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/%E7%9B%B4%E6%8E%A5%E5%86%85%E5%AD%98.png" alt="直接内存"></p>
+<ul>
+<li>DirectByteBuffer：直接内存对象，还归属JVM管理，在堆中。（冰山对象）</li>
+<li>构建Cleaner对象用于跟踪DirectByteBuffer对象的垃圾回收，以实现当DirectByteBuffer被垃圾回收时，堆外内存也会被释放</li>
+</ul>
+<h3 id="4、申请-amp-回收"><a href="#4、申请-amp-回收" class="headerlink" title="4、申请&amp;回收"></a>4、申请&amp;回收</h3><ul>
+<li><p>申请</p>
+<ul>
+<li>通过C的malloc来进行分配<ul>
+<li>如果内存不够？Bits.reserveMemory(size, cap) </li>
+<li>首先尝试tryReserveMemory，这个方法会释放已经被JVM回收的DirectByteBuffer对象所引用的堆外内存。</li>
+<li>如果内存依旧不够，则会尝试System.gc()，产生full GC</li>
+<li>如果上面的操作都失败并且重试9次，则抛出OOM异常</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>回收</p>
+<ul>
+<li>Cleaner是PhantomReference的子类，并通过自身的next和prev字段维护的一个双向链表。</li>
+<li>PhantomReference的作用在于跟踪垃圾回收过程，并不会对对象的垃圾回收过程造成任何的影响。</li>
+<li>所以cleaner = Cleaner.create(this, new Deallocator(base, size, cap)); 用于对当前构造的DirectByteBuffer对象的垃圾回收过程进行跟踪。</li>
+<li>当DirectByteBuffer对象从pending状态 ——&gt; enqueue状态时，会触发Cleaner的clean()，而Cleaner的clean()的方法会实现通过unsafe对堆外内存的释放。</li>
+</ul>
+</li>
+</ul>
+<p><img src="2020-05-07-%E9%9B%B6%E6%8B%B7%E8%B4%9D/%E7%9B%B4%E6%8E%A5%E5%86%85%E5%AD%98%E5%9B%9E%E6%94%B6%E5%92%8C%E5%88%86%E9%85%8D.png" alt="JMM"></p>
+<p><a href="https://www.jianshu.com/p/007052ee3773" target="_blank" rel="noopener">参考</a></p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2020/04/13/2020-04-13-ThreadLocal/" rel="next" title="ThreadLocal">
+                <i class="fa fa-chevron-left"></i> ThreadLocal
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2020/05/10/2020-05-10-JMM/" rel="prev" title="JMM">
+                JMM <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">chw</p>
+              <p class="site-description motion-element" itemprop="description">do somthing</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">52</span>
+                  <span class="site-state-item-name">posts</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">11</span>
+                  <span class="site-state-item-name">categories</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">33</span>
+                  <span class="site-state-item-name">tags</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、什么是零拷贝？"><span class="nav-number">1.</span> <span class="nav-text">一、什么是零拷贝？</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、前提知识"><span class="nav-number">2.</span> <span class="nav-text">二、前提知识</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1、Linux进程的虚拟空间"><span class="nav-number">2.1.</span> <span class="nav-text">1、Linux进程的虚拟空间</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2、DMA拷贝"><span class="nav-number">2.2.</span> <span class="nav-text">2、DMA拷贝</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、零拷贝的实现"><span class="nav-number">3.</span> <span class="nav-text">三、零拷贝的实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1、mmap"><span class="nav-number">3.1.</span> <span class="nav-text">1、mmap</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2、sendfile"><span class="nav-number">3.2.</span> <span class="nav-text">2、sendfile</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3、sendfile-DMA"><span class="nav-number">3.3.</span> <span class="nav-text">3、sendfile + DMA</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#四、Java中的零拷贝"><span class="nav-number">4.</span> <span class="nav-text">四、Java中的零拷贝</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1、从JMM看堆外内存"><span class="nav-number">4.1.</span> <span class="nav-text">4.1、从JMM看堆外内存</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1、内存分类"><span class="nav-number">4.1.1.</span> <span class="nav-text">1、内存分类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2、如何申请直接内存"><span class="nav-number">4.1.2.</span> <span class="nav-text">2、如何申请直接内存</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3、源码解析"><span class="nav-number">4.1.3.</span> <span class="nav-text">3、源码解析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4、申请-amp-回收"><span class="nav-number">4.1.4.</span> <span class="nav-text">4、申请&amp;回收</span></a></li></ol></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+
+  
+</div>
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a></div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Muse</a> v5.1.4</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

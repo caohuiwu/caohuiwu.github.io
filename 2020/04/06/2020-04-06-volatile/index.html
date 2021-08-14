@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="JVM,">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="一、volatile 保证变量可见性。 禁止指令重排序。  二、如何实现从三个层面解析。     字节码层面 JVM层面 CPU层面（汇编语言）">
+<meta name="keywords" content="JVM">
+<meta property="og:type" content="article">
+<meta property="og:title" content="volatile">
+<meta property="og:url" content="http://yoursite.com/2020/04/06/2020-04-06-volatile/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、volatile 保证变量可见性。 禁止指令重排序。  二、如何实现从三个层面解析。     字节码层面 JVM层面 CPU层面（汇编语言）">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2020/04/06/2020-04-06-volatile/2020-04-06-volatile/volatile%E5%AD%97%E8%8A%82%E7%A0%81.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/06/2020-04-06-volatile/2020-04-06-volatile/volatile-jvm.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/06/2020-04-06-volatile/2020-04-06-volatile/volatile%E6%B1%87%E7%BC%96%E4%BB%A3%E7%A0%81.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/06/2020-04-06-volatile/2020-04-06-volatile/cache_sync.png">
+<meta property="og:updated_time" content="2021-08-14T14:57:18.380Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="volatile">
+<meta name="twitter:description" content="一、volatile 保证变量可见性。 禁止指令重排序。  二、如何实现从三个层面解析。     字节码层面 JVM层面 CPU层面（汇编语言）">
+<meta name="twitter:image" content="http://yoursite.com/2020/04/06/2020-04-06-volatile/2020-04-06-volatile/volatile%E5%AD%97%E8%8A%82%E7%A0%81.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: 'Author'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2020/04/06/2020-04-06-volatile/">
+
+
+
+
+
+  <title>volatile | CHW's Notes</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">CHW's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            Home
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            Archives
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/06/2020-04-06-volatile/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">volatile</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2020-04-06T15:05:38+08:00">
+                2020-04-06
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">In</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/JVM/" itemprop="url" rel="index">
+                    <span itemprop="name">JVM</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="一、volatile"><a href="#一、volatile" class="headerlink" title="一、volatile"></a>一、volatile</h1><ol>
+<li>保证变量可见性。</li>
+<li>禁止指令重排序。</li>
+</ol>
+<h1 id="二、如何实现"><a href="#二、如何实现" class="headerlink" title="二、如何实现"></a>二、如何实现</h1><p>从三个层面解析。   </p>
+<ol>
+<li>字节码层面</li>
+<li>JVM层面</li>
+<li>CPU层面（汇编语言）</li>
+</ol>
+<a id="more"></a>  
+
+<h2 id="2-1、字节码层面"><a href="#2-1、字节码层面" class="headerlink" title="2.1、字节码层面"></a>2.1、字节码层面</h2><p><img src="2020-04-06-volatile/volatile%E5%AD%97%E8%8A%82%E7%A0%81.png" alt="dmq"></p>
+<p>使用volatile关键字修饰的实例变量，会使用ACC_VOLATILE修饰。</p>
+<h2 id="2-2、JVM层面"><a href="#2-2、JVM层面" class="headerlink" title="2.2、JVM层面"></a>2.2、JVM层面</h2><p>c/c++中的volatile关键字，用来修饰变量，通常用于语言级别的 memory barrier。<br>volatile是一种类型修饰符，被volatile声明的变量表示随时可能发生变化，每次使用时，都必须从变量i对应的内存地址读取，编译器对操作该变量的代码不再进行优化</p>
+<p><img src="2020-04-06-volatile/volatile-jvm.png" alt="volatile"></p>
+<h2 id="2-3、汇编语言层面"><a href="#2-3、汇编语言层面" class="headerlink" title="2.3、汇编语言层面"></a>2.3、汇编语言层面</h2><p><img src="2020-04-06-volatile/volatile%E6%B1%87%E7%BC%96%E4%BB%A3%E7%A0%81.png" alt="volatile"></p>
+<p>idea：查看汇编指令代码，在执行的VM参数中添加以下值：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-server -Xcomp -XX:+UnlockDiagnosticVMOptions -XX:+PrintAssembly -XX:CompileCommand=compileonly,*VolatileTest.main</span><br></pre></td></tr></table></figure>
+
+<p>生成lock指令，lock指令会锁住总线，阻止其他CPU通过总线访问内存。</p>
+<p><a href="https://blog.csdn.net/m15517986455/article/details/83273723" target="_blank" rel="noopener">volatile实现内存可见性分析：字节码版本</a></p>
+<h1 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h1><h2 id="3-1、如何保证禁止指令重排？"><a href="#3-1、如何保证禁止指令重排？" class="headerlink" title="3.1、如何保证禁止指令重排？"></a>3.1、如何保证禁止指令重排？</h2><ul>
+<li>编译器优化的重排序：编译器在不改变单线程程序语义的前提下，可以重新安排语句的执行顺序。</li>
+<li>指令级并行的重排序：如果不存在数据依赖性，处理器可以改变语句对应机器指令的执行顺序。</li>
+<li>内存系统的重排序：</li>
+</ul>
+<ol>
+<li>volatile会添加编译器屏障，防止编译器优化导致的指令重排，JMM定义的如下：<ul>
+<li>storestore</li>
+<li>storeload</li>
+<li>loadload</li>
+<li>loadstore</li>
+</ul>
+</li>
+<li>指令级的重排序<ul>
+<li>lfence：读屏障，清空invalidate queue，强制读取cache中的值，lfence之前的读操作一定在lfence之前完成</li>
+<li>sfence：写屏障，会将store buffer中的修改写入到cache中，sfence之前的写操作一点在sfence之前完成，使其他CPU可见</li>
+<li>mfence：同时刷新store buffer和 invalidate queue     </li>
+</ul>
+</li>
+</ol>
+<h2 id="3-2、如何保证内存可见？"><a href="#3-2、如何保证内存可见？" class="headerlink" title="3.2、如何保证内存可见？"></a>3.2、如何保证内存可见？</h2><ol>
+<li>写操作时，lock指令锁住总线，修改内存中的值。</li>
+<li>修改完以后，通过MESI协议保证数据一致性<ul>
+<li>MESI协议：定义了四种状态，独占-&gt;共享-&gt;修改-&gt;无效，当修改了数据时回写缓存，同时通知其他CPU该缓存无效，所以其他CPU需要重新从主存中读取最新内容，以此达到可见性，修改值的CPU需要等待其他CPU返回ack。</li>
+<li>MESI实现：MESI的实现，按理论实现的话效率过低，从而通过store buffer来提高运行效率。<ul>
+<li>store buffer：在CPU和缓存之间CPU0修改并回写时，直接返回成功，不需要等到其他CPU返回invalidate ack，解决MESI协议的强一致性问题，提升性能。具体实现是：cpu0写入到store buffer后，继续往下执行，然后通知其他CPU值失效返回ack，此时CPU0会从cache中获取而不是store buffer，此处导致数据不一致，执行顺序也乱序；</li>
+<li>Invalidate queue：在缓存和内存之间在收到invalidate消息后立马返回ack，实际并没有将cache中的数据清除，从而导致了数据不一致。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<ul>
+<li><strong>StoreBuffer和InvalidateQueue结构</strong><br><img src="2020-04-06-volatile/cache_sync.png" alt="volatile"></li>
+</ul>
+<p>StoreBuffer和InvalidateQueue结构的引入，会引起数据不一致的问题，如何解决呢？</p>
+<ul>
+<li>内存屏障（指令级）<ul>
+<li>smp_wmb(StoreStore)：执行后需等待 Store Buffer 中的写入变更 flush 完全到缓存后，后续的写操作才能继续执行，保证执行前后的写操作对其他 CPU 而言是顺序执行的；</li>
+<li>smp_rmb(LoadLoad)：执行后需等待 Invalidate Queue 完全应用到缓存后，后续的读操作才能继续执行，保证执行前后的读操作对其他 CPU 而言是顺序执行的；</li>
+</ul>
+</li>
+</ul>
+<p><a href="https://zhuanlan.zhihu.com/p/126275344" target="_blank" rel="noopener">happens-before</a></p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/JVM/" rel="tag"># JVM</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2020/04/04/2020-04-04-cpu/" rel="next" title="cpu">
+                <i class="fa fa-chevron-left"></i> cpu
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2020/04/09/2020-04-09-Linux-thread/" rel="prev" title="Linux-thread">
+                Linux-thread <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">chw</p>
+              <p class="site-description motion-element" itemprop="description">do somthing</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">52</span>
+                  <span class="site-state-item-name">posts</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">11</span>
+                  <span class="site-state-item-name">categories</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">33</span>
+                  <span class="site-state-item-name">tags</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、volatile"><span class="nav-number">1.</span> <span class="nav-text">一、volatile</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、如何实现"><span class="nav-number">2.</span> <span class="nav-text">二、如何实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1、字节码层面"><span class="nav-number">2.1.</span> <span class="nav-text">2.1、字节码层面</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2、JVM层面"><span class="nav-number">2.2.</span> <span class="nav-text">2.2、JVM层面</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3、汇编语言层面"><span class="nav-number">2.3.</span> <span class="nav-text">2.3、汇编语言层面</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、总结"><span class="nav-number">3.</span> <span class="nav-text">三、总结</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1、如何保证禁止指令重排？"><span class="nav-number">3.1.</span> <span class="nav-text">3.1、如何保证禁止指令重排？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2、如何保证内存可见？"><span class="nav-number">3.2.</span> <span class="nav-text">3.2、如何保证内存可见？</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+
+  
+</div>
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a></div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Muse</a> v5.1.4</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
