@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Hexo, NexT">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta name="keywords" content="java">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《mysql》源码分析-Insert流程">
+<meta property="og:url" content="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/%E5%9F%BA%E6%9C%AC%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/%E6%BA%90%E7%A0%81%E6%9E%B6%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/innodb_insert%E6%B5%81%E7%A8%8B%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/mtr_commit.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/Binlog%E6%8B%85%E4%BB%BB%E5%8D%8F%E8%B0%83%E8%80%85%E7%9A%84XA%E4%BA%8B%E5%8A%A1%E5%A4%84%E7%90%86%E8%BF%87%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/%E6%9B%B4%E6%96%B0%E6%80%BB%E7%BB%93.png">
+<meta property="og:updated_time" content="2025-02-19T08:50:51.794Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="《mysql》源码分析-Insert流程">
+<meta name="twitter:description" content="这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta name="twitter:image" content="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/%E5%9F%BA%E6%9C%AC%E7%BB%93%E6%9E%84.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/">
+
+
+
+
+
+  <title>《mysql》源码分析-Insert流程 | CHW's Notes</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">CHW's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-fa fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/08/13/2020-08-13-mysql-源码分析-insert流程/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/touxiang.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">《mysql》源码分析-Insert流程</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-08-13T22:01:31+08:00">
+                2020-08-13
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/" itemprop="url" rel="index">
+                    <span itemprop="name">数据库</span>
+                  </a>
+                </span>
+
+                
+                
+                  ， 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/mysql/" itemprop="url" rel="index">
+                    <span itemprop="name">mysql</span>
+                  </a>
+                </span>
+
+                
+                
+                  ， 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/mysql/源码/" itemprop="url" rel="index">
+                    <span itemprop="name">源码</span>
+                  </a>
+                </span>
+
+                
+                
+                  ， 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/mysql/源码/Insert流程/" itemprop="url" rel="index">
+                    <span itemprop="name">Insert流程</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="page-pv">阅读数
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  11.2k
+                </span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">
+                  50
+                </span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <pre><code>这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。</code></pre><h1 id="一、mysql"><a href="#一、mysql" class="headerlink" title="一、mysql"></a>一、mysql</h1><p><code>MySQL</code> 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）</p>
+<a id="more"></a>
+<p>基本结构：<br><img src="/2020/08/13/2020-08-13-mysql-源码分析-insert流程/%E5%9F%BA%E6%9C%AC%E7%BB%93%E6%9E%84.png" alt="基本结构"></p>
+<h1 id="二、源码架构图"><a href="#二、源码架构图" class="headerlink" title="二、源码架构图"></a>二、源码架构图</h1><p>首先看一下MySQL的源码架构图，主要可以分成三层。<br><img src="/2020/08/13/2020-08-13-mysql-源码分析-insert流程/%E6%BA%90%E7%A0%81%E6%9E%B6%E6%9E%84.png" alt="源码架构"></p>
+<h2 id="2-1、源码结构"><a href="#2-1、源码结构" class="headerlink" title="2.1、源码结构"></a>2.1、源码结构</h2><p>下面是8.0.41版本的源码结构图：<br><img src="/2020/08/13/2020-08-13-mysql-源码分析-insert流程/%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84%E5%9B%BE.png" alt="源码结构图"><br>MySql其实就两大块，一块是MySql Server层，一块就是Storage Engines层。</p>
+<ul>
+<li><strong>&lt;1&gt; Client</strong><br>不同语言的sdk遵守mysql协议就可以与mysqld进行互通。</li>
+<li><strong>&lt;2&gt; Connection/Thread Pool</strong><br>MySql使用C++编写，Connection是非常宝贵的，在初始化的时候维护一个池。</li>
+<li><strong>&lt;3&gt; SqlInterface,Parse,Optimizer,Cache</strong><br>对sql处理，解析，优化，缓存等处理和过滤模块，了解了解即可。</li>
+<li><strong>&lt;4&gt; Storage Engines</strong><br>负责存储的模块，官方，第三方，甚至是你自己都可以自定义实现这个数据存储，这就把生态做起来了，🐮👃。</li>
+</ul>
+<h1 id="三、一条Insert语句的执行过程"><a href="#三、一条Insert语句的执行过程" class="headerlink" title="三、一条Insert语句的执行过程"></a>三、一条Insert语句的执行过程</h1><p>收到客户端的请求后，会调用 <code>do_command()</code>. 处理用户命令。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//继续分发</span></span><br><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">do_command</span><span class="params">(THD *thd)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    return_value= dispatch_command(command, thd, packet+<span class="number">1</span>, (uint) (packet_length<span class="number">-1</span>));</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">dispatch_command</span><span class="params">(<span class="keyword">enum</span> enum_server_command command, THD *thd, <span class="keyword">char</span>* packet, uint packet_length)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">      <span class="keyword">switch</span> (command) &#123;</span><br><span class="line">         <span class="keyword">case</span> COM_INIT_DB: ....  <span class="keyword">break</span>;</span><br><span class="line">         ...</span><br><span class="line">         <span class="keyword">case</span> COM_QUERY:   <span class="comment">//查询语句：  insert xxxx</span></span><br><span class="line">             mysql_parse(thd, thd-&gt;query(), thd-&gt;query_length(), &amp;parser_state);  <span class="comment">//sql解析</span></span><br><span class="line">           <span class="keyword">break</span>;</span><br><span class="line">      &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//sql解析模块</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">mysql_parse</span><span class="params">(THD *thd, <span class="keyword">char</span> *rawbuf, uint length, Parser_state *parser_state)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">      error= mysql_execute_command(thd);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>略过建立连接（更具体的连接流程，查看上一篇文章），从 <code>mysql_parse()</code> 开始分析</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">mysql_parse</span><span class="params">(THD *thd, <span class="keyword">char</span> *rawbuf, uint length,</span></span></span><br><span class="line"><span class="function"><span class="params">                 Parser_state *parser_state)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="comment">/* ...... */</span></span><br><span class="line">	</span><br><span class="line">  <span class="comment">/* 检查query_cache，如果结果存在于cache中，直接返回 */</span></span><br><span class="line">  <span class="keyword">if</span> (query_cache_send_result_to_client(thd, rawbuf, length) &lt;= <span class="number">0</span>)   </span><br><span class="line">  &#123;</span><br><span class="line">     LEX *lex= thd-&gt;lex;</span><br><span class="line"> 	 </span><br><span class="line"> 	 <span class="comment">/* 解析语句 */</span></span><br><span class="line">     <span class="keyword">bool</span> err= parse_sql(thd, parser_state, <span class="literal">NULL</span>);</span><br><span class="line">		</span><br><span class="line">	 <span class="comment">/* 整理语句格式，记录 general log */</span></span><br><span class="line">	 <span class="comment">/* ...... */</span></span><br><span class="line">	 		  <span class="comment">/* 执行语句 */</span></span><br><span class="line">             error= mysql_execute_command(thd);</span><br><span class="line">             <span class="comment">/* 提交或回滚没结束的事务（事务可能在mysql_execute_command中提交，用trx_end_by_hint标记事务是否已经提交） */</span></span><br><span class="line">             <span class="keyword">if</span> (!thd-&gt;trx_end_by_hint)         </span><br><span class="line">             &#123;</span><br><span class="line">               <span class="keyword">if</span> (!error &amp;&amp; lex-&gt;ci_on_success)</span><br><span class="line">                 trans_commit(thd);</span><br><span class="line"> </span><br><span class="line">               <span class="keyword">if</span> (error &amp;&amp; lex-&gt;rb_on_fail)</span><br><span class="line">                 trans_rollback(thd);</span><br><span class="line">             &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="5-1、-解析SQL"><a href="#5-1、-解析SQL" class="headerlink" title="5.1、 解析SQL"></a>5.1、 解析SQL</h2><p><code>parse_sql</code>，使用提供的解析器状态和对象创建上下文，将一个 SQL 语句转换成一个准备解决的抽象语法树（AST）。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">---parse_sql（sql/sql_parse.cc）：使用提供的解析器状态和对象创建上下文，将一个 SQL 语句转换成一个准备解决的抽象语法树（AST）。</span><br><span class="line">------THD::sql_parser（sql/sql_class.cc）：首先调用解析器将语句转换为解析树；然后，进一步将解析树转换为抽象语法树（AST），以备解析（resolve）之用。</span><br><span class="line">---------my_sql_parser_parse：Bison 解析器生成的语法解析入口函数</span><br><span class="line">---------LEX::make_sql_cmd（sql/sql_lex.cc）：使用解析树（parse_tree）实例化一个 Sql_cmd 对象，并将其赋值给 Lex。</span><br><span class="line">------------Parse_tree_root::make_cmd（sql/parse_tree_nodes.h）：各个语句根据自身抽象语法树（AST）构造 Sql_cmt 对象。</span><br></pre></td></tr></table></figure>
+
+<h2 id="5-2、执行Insert语句"><a href="#5-2、执行Insert语句" class="headerlink" title="5.2、执行Insert语句"></a>5.2、执行Insert语句</h2><p>进入 <code>mysql_execute_command()</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*  */</span></span><br><span class="line">  <span class="comment">/* ...... */</span></span><br><span class="line">  </span><br><span class="line">  <span class="keyword">case</span> SQLCOM_INSERT:</span><br><span class="line">  &#123;  </span><br><span class="line">    </span><br><span class="line">    <span class="comment">/* 检查权限 */</span></span><br><span class="line">    <span class="keyword">if</span> ((res= insert_precheck(thd, all_tables)))</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* 执行insert */</span></span><br><span class="line">    res= mysql_insert(thd, all_tables, lex-&gt;field_list, lex-&gt;many_values,</span><br><span class="line">                      lex-&gt;update_list, lex-&gt;value_list,</span><br><span class="line">                      lex-&gt;duplicates, lex-&gt;ignore);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* 提交或者回滚事务 */</span></span><br><span class="line">    <span class="keyword">if</span> (!res)</span><br><span class="line">    &#123;</span><br><span class="line">      trans_commit_stmt(thd);</span><br><span class="line">      trans_commit(thd);</span><br><span class="line">      thd-&gt;trx_end_by_hint= TRUE;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (res)</span><br><span class="line">    &#123;</span><br><span class="line">      trans_rollback_stmt(thd);</span><br><span class="line">      trans_rollback(thd);</span><br><span class="line">      thd-&gt;trx_end_by_hint= TRUE;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>进入 mysql_insert()，源码在<code>sql/sql_insert.cc</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">mysql_insert</span><span class="params">(THD *thd,TABLE_LIST *table_list,</span></span></span><br><span class="line"><span class="function"><span class="params">                  List&lt;Item&gt; &amp;fields, <span class="comment">/* insert 的字段 */</span></span></span></span><br><span class="line"><span class="function"><span class="params">                  List&lt;List_item&gt; &amp;values_list, <span class="comment">/* insert 的值 */</span></span></span></span><br><span class="line"><span class="function"><span class="params">                  List&lt;Item&gt; &amp;update_fields,</span></span></span><br><span class="line"><span class="function"><span class="params">                  List&lt;Item&gt; &amp;update_values,</span></span></span><br><span class="line"><span class="function"><span class="params">                  enum_duplicates duplic,</span></span></span><br><span class="line"><span class="function"><span class="params">                  <span class="keyword">bool</span> ignore)</span></span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">  <span class="comment">/*对每条记录调用 write_record */</span></span><br><span class="line">  <span class="keyword">while</span> ((values= its++))</span><br><span class="line">  &#123;</span><br><span class="line">	<span class="keyword">if</span> (lock_type == TL_WRITE_DELAYED)</span><br><span class="line">    &#123;</span><br><span class="line">      LEX_STRING <span class="keyword">const</span> st_query = &#123; query, thd-&gt;query_length() &#125;;</span><br><span class="line">      DEBUG_SYNC(thd, <span class="string">"before_write_delayed"</span>);</span><br><span class="line">      <span class="comment">/* insert delay */</span></span><br><span class="line">      error= write_delayed(thd, table, st_query, log_on, &amp;info);</span><br><span class="line">      DEBUG_SYNC(thd, <span class="string">"after_write_delayed"</span>);</span><br><span class="line">      query=<span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> </span><br><span class="line">      <span class="comment">/* normal insert */</span></span><br><span class="line">      error= write_record(thd, table, &amp;info, &amp;update);</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    这里还有</span></span><br><span class="line"><span class="comment">    thd-&gt;binlog_query()写binlog</span></span><br><span class="line"><span class="comment">    my_ok()返回ok报文，ok报文中包含影响行数</span></span><br><span class="line"><span class="comment">  */</span></span><br></pre></td></tr></table></figure>
+
+<p>进入 write_record</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">  COPY_INFO *info 用来处理唯一键冲突，记录影响行数</span></span><br><span class="line"><span class="comment">  COPY_INFO *update 处理 INSERT ON DUPLICATE KEY UPDATE 相关信息</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">write_record</span><span class="params">(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (duplicate_handling == DUP_REPLACE || duplicate_handling == DUP_UPDATE)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">/* 处理 INSERT ON DUPLICATE KEY UPDATE 等复杂情况 */</span></span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">/* 调用存储引擎的接口 */</span></span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span> ((error=table-&gt;file-&gt;ha_write_row(table-&gt;record[<span class="number">0</span>])))</span><br><span class="line">  &#123;</span><br><span class="line">    DEBUG_SYNC(thd, <span class="string">"write_row_noreplace"</span>);</span><br><span class="line">    <span class="keyword">if</span> (!ignore_errors ||</span><br><span class="line">        table-&gt;file-&gt;is_fatal_error(error, HA_CHECK_DUP))</span><br><span class="line">      <span class="keyword">goto</span> err; </span><br><span class="line">    table-&gt;file-&gt;restore_auto_increment(prev_insert_id);</span><br><span class="line">    <span class="keyword">goto</span> ok_or_after_trg_err;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>调用存储引擎的接口 ha_write_row. 源码在<code>sql/handler.cc</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* handler 是各个存储引擎的基类，这里我们使用InnoDB引擎*/</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">handler::ha_write_row</span><span class="params">(uchar *buf)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="comment">/* 指定log_event类型*/</span></span><br><span class="line">  Log_func *log_func= Write_rows_log_event::binlog_row_logging_function;</span><br><span class="line">  error= write_row(buf);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>handler 是各个存储引擎的基类，这里我们使用InnoDB引擎。再往下是进入引擎的write_row。<font color="green"><strong>write_row是个虚方法，也就是给底层方法实现的，在这里就是给各大Storage Engines的哈</strong></font>，进入引擎层，这里是innodb引擎，handler对应ha_innobase 插入的表信息保存在handler中</p>
+<h3 id="5-2-1、innodb执行插入"><a href="#5-2-1、innodb执行插入" class="headerlink" title="5.2.1、innodb执行插入"></a>5.2.1、innodb执行插入</h3><p>先看一下整体的流程：<br><img src="/2020/08/13/2020-08-13-mysql-源码分析-insert流程/innodb_insert%E6%B5%81%E7%A8%8B%E5%9B%BE.png" alt="基本结构"><br>再分析具体的源码：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span></span><br><span class="line">ha_innobase::write_row(</span><br><span class="line"><span class="comment">/*===================*/</span></span><br><span class="line">        uchar*  record) <span class="comment">/*!&lt; in: a row in MySQL format */</span></span><br><span class="line">&#123;</span><br><span class="line">		error = row_insert_for_mysql((byte*) record, prebuilt);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">UNIV_INTERN</span><br><span class="line"><span class="keyword">dberr_t</span></span><br><span class="line">row_insert_for_mysql(                                                                                                                                                                                       </span><br><span class="line"><span class="comment">/*=================*/</span></span><br><span class="line">        byte*           mysql_rec,      <span class="comment">/*!&lt; in: row in the MySQL format */</span></span><br><span class="line">        <span class="keyword">row_prebuilt_t</span>* prebuilt)       <span class="comment">/*!&lt; in: prebuilt struct in MySQL</span></span><br><span class="line"><span class="comment">                                        handle */</span></span><br><span class="line">&#123;</span><br><span class="line">		<span class="comment">/*记录格式从MySQL转换成InnoDB*/</span></span><br><span class="line">		row_mysql_convert_row_to_innobase(node-&gt;row, prebuilt, mysql_rec);</span><br><span class="line">	</span><br><span class="line">        thr-&gt;run_node = node;</span><br><span class="line">        thr-&gt;prev_node = node;</span><br><span class="line">		</span><br><span class="line">		<span class="comment">/*插入记录*/</span></span><br><span class="line">        row_ins_step(thr);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">UNIV_INTERN</span><br><span class="line"><span class="keyword">que_thr_t</span>*</span><br><span class="line">row_ins_step(</span><br><span class="line"><span class="comment">/*=========*/</span></span><br><span class="line">        <span class="keyword">que_thr_t</span>*      thr)    <span class="comment">/*!&lt; in: query thread */</span></span><br><span class="line">&#123;</span><br><span class="line">		<span class="comment">/*给表加IX锁*/</span></span><br><span class="line">		err = lock_table(<span class="number">0</span>, node-&gt;table, LOCK_IX, thr);</span><br><span class="line">		</span><br><span class="line">		<span class="comment">/*插入记录*/</span></span><br><span class="line">		err = row_ins(node, thr);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>InnoDB表是基于B+树的索引组织表</p>
+<p>如果InnoDB表没有主键和唯一键，需要分配隐含的row_id组织聚集索引</p>
+<p>row_id分配逻辑在row_ins中，这里不详细展开</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> __attribute__((nonnull, warn_unused_result))</span><br><span class="line"><span class="keyword">dberr_t</span></span><br><span class="line">row_ins(</span><br><span class="line"><span class="comment">/*====*/</span></span><br><span class="line">        <span class="keyword">ins_node_t</span>*     node,   <span class="comment">/*!&lt; in: row insert node */</span></span><br><span class="line">        <span class="keyword">que_thr_t</span>*      thr)    <span class="comment">/*!&lt; in: query thread */</span></span><br><span class="line">&#123;</span><br><span class="line">		<span class="keyword">if</span> (node-&gt;state == INS_NODE_ALLOC_ROW_ID) &#123;</span><br><span class="line">				<span class="comment">/*若innodb表没有主键和唯一键，用row_id组织索引*/</span></span><br><span class="line">        		row_ins_alloc_row_id_step(node);</span><br><span class="line">				</span><br><span class="line">				<span class="comment">/*获取row_id的索引*/</span></span><br><span class="line">                node-&gt;index = dict_table_get_first_index(node-&gt;table);</span><br><span class="line">                node-&gt;entry = UT_LIST_GET_FIRST(node-&gt;entry_list);</span><br><span class="line">		&#125;</span><br><span class="line">		</span><br><span class="line">		<span class="comment">/*遍历所有索引，向每个索引中插入记录*/</span></span><br><span class="line">		<span class="keyword">while</span> (node-&gt;index != <span class="literal">NULL</span>) &#123;</span><br><span class="line">                <span class="keyword">if</span> (node-&gt;index-&gt;type != DICT_FTS) &#123;</span><br><span class="line">                        <span class="comment">/* 向索引中插入记录 */</span></span><br><span class="line">                        err = row_ins_index_entry_step(node, thr);</span><br><span class="line"></span><br><span class="line">                        <span class="keyword">if</span> (err != DB_SUCCESS) &#123;</span><br><span class="line"></span><br><span class="line">                                <span class="keyword">return</span>(err);</span><br><span class="line">                        &#125;</span><br><span class="line">                &#125;                                                                                                                                                                                           </span><br><span class="line">				</span><br><span class="line">				<span class="comment">/*获取下一个索引*/</span></span><br><span class="line">                node-&gt;index = dict_table_get_next_index(node-&gt;index);</span><br><span class="line">                node-&gt;entry = UT_LIST_GET_NEXT(tuple_list, node-&gt;entry);</span><br><span class="line"></span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>插入单个索引项</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> __attribute__((nonnull, warn_unused_result))</span><br><span class="line"><span class="keyword">dberr_t</span></span><br><span class="line">row_ins_index_entry_step(                                                                                                                                                                                   </span><br><span class="line"><span class="comment">/*=====================*/</span></span><br><span class="line">        <span class="keyword">ins_node_t</span>*     node,   <span class="comment">/*!&lt; in: row insert node */</span></span><br><span class="line">        <span class="keyword">que_thr_t</span>*      thr)    <span class="comment">/*!&lt; in: query thread */</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="keyword">dberr_t</span> err;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*给索引项赋值*/</span></span><br><span class="line">        row_ins_index_entry_set_vals(node-&gt;index, node-&gt;entry, node-&gt;row);</span><br><span class="line"></span><br><span class="line">		<span class="comment">/*插入索引项*/</span></span><br><span class="line">        err = row_ins_index_entry(node-&gt;index, node-&gt;entry, thr);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span>(err);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="5-2-1-1、插入索引记录"><a href="#5-2-1-1、插入索引记录" class="headerlink" title="5.2.1.1、插入索引记录"></a>5.2.1.1、插入索引记录</h4><p>插入操作又分为：聚合索引、组合索引以及二级索引。</p>
+<ul>
+<li>逻辑都会先尝试page不分离的插入方式，需要定位到记录插入的位置，完成mlog的数据更新，在mtr提交过程中，<ul>
+<li>1、redo写入公共buffer；</li>
+<li>2、把更新的page加到buffer pool的flush list，脏页上记录的lsn为当前mtr写入的结束点lsn，基于加锁逻辑，能够保证flush list上的脏页总是以LSN排序。</li>
+</ul>
+</li>
+</ul>
+<p><code>row_ins_index_entry</code> 函数的主要功能是将一条新的索引记录插入到 InnoDB 存储引擎的索引结构中，执行的堆栈信息如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">row_ins_index_entry</span><br><span class="line">  |--&gt; row_ins_clust_index_entry // 聚合索引insert [展开]</span><br><span class="line">  |--&gt; row_ins_sec_index_multi_value_entry // 组合索引insert</span><br><span class="line">  |--&gt; row_ins_sec_index_entry // 二级索引insert</span><br></pre></td></tr></table></figure>
+
+<p>具体源码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span></span><br><span class="line"><span class="keyword">dberr_t</span></span><br><span class="line">row_ins_index_entry(                                                                                                                                                                                        </span><br><span class="line"><span class="comment">/*================*/</span></span><br><span class="line">        <span class="keyword">dict_index_t</span>*   index,  <span class="comment">/*!&lt; in: index */</span></span><br><span class="line">        <span class="keyword">dtuple_t</span>*       entry,  <span class="comment">/*!&lt; in/out: index entry to insert */</span></span><br><span class="line">        <span class="keyword">que_thr_t</span>*      thr)    <span class="comment">/*!&lt; in: query thread */</span></span><br><span class="line">&#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (dict_index_is_clust(index)) &#123;</span><br><span class="line">        		<span class="comment">/* 插入聚集索引 */</span></span><br><span class="line">                <span class="keyword">return</span>(row_ins_clust_index_entry(index, entry, thr, <span class="number">0</span>));</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        		<span class="comment">/* 插入二级索引 */</span></span><br><span class="line">                <span class="keyword">return</span>(row_ins_sec_index_entry(index, entry, thr));</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>row_ins_clust_index_entry 和 row_ins_sec_index_entry 函数结构类似，只分析插入聚集索引，源码如下：</p>
+<h5 id="1-聚合索引-Insert-Record流程"><a href="#1-聚合索引-Insert-Record流程" class="headerlink" title="1. 聚合索引 Insert Record流程"></a>1. 聚合索引 Insert Record流程</h5><p>方法执行流程如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">分支1： </span><br><span class="line">  |--&gt; row_ins_clust_index_entry // 聚合索引insert</span><br><span class="line">  |  |--&gt; row_ins_clust_index_entry_low(BTR_MODIFY_LEAF) // 尝试乐观方式更新B+Tree叶子节点，加x-latch锁[展开]</span><br><span class="line">  |  |--&gt; row_ins_clust_index_entry_low(BTR_MODIFY_TREE) // 悲观方式更新整体B+Tree </span><br><span class="line"></span><br><span class="line">row_ins_clust_index_entry_low ①</span><br><span class="line">  |--&gt; mtr.start();     // 做一些初始化。</span><br><span class="line">  |--&gt; btr_cur_optimistic_insert // 假设已经获得该Page的x-latch锁，尝试在游标的下一个位置插入Row。</span><br><span class="line">  |  |--&gt; btr_cur_ins_lock_and_undo // 写undolog</span><br><span class="line">  |  |  |--&gt; trx_undo_report_row_operation // 在undo记录insert、update、聚合索引删除标记 这些信息。内含 mtr_start/mtr_commit </span><br><span class="line">  |  |  |  |--&gt; trx_undo_assign_undo // 创建或者复用一个undo_log, 内含 mtr_start/mtr_commit </span><br><span class="line">  |  |--&gt; page_cur_tuple_insert // 在Page游标的下一个位置点Insert数据</span><br><span class="line">  |  |  |--&gt; page_cur_insert_rec_low // [见下文] ②</span><br><span class="line">  |  |  |--&gt; page_cur_insert_rec_zip //  if 压缩页的情况 </span><br><span class="line">  |--&gt; btr_cur_pessimistic_insert // 如果乐观情况失败，调用悲观Insert接口</span><br><span class="line">  |--&gt; mtr.commit();  // [见下文] ③</span><br><span class="line"></span><br><span class="line"> page_cur_insert_rec_low ②</span><br><span class="line">  |--&gt; 1-8: //为Record分配内存，并添加到B+Tree上</span><br><span class="line">  |--&gt; 9. page_cur_insert_rec_write_log // 为Redo Record of Insert Record分配内存（自定义的heap）</span><br><span class="line">                                        // 并记录在Page上</span><br><span class="line">  |  |--&gt; 先寻找 insert_record的第一个字节</span><br><span class="line">  |  |--&gt; 计算mlog大小; mlog_open //为mlog分配内存</span><br><span class="line">  |  |--&gt; mlog_write_initial_log_record_fast //初始化mlog,这里的mlog类型 MLOG_COMP_REC_INSERT</span><br><span class="line">  //|  |--&gt; dict_index_get_n_unique_in_tree </span><br><span class="line">          // 计算行Record上决定唯一性的列(field)数，也就是聚合索引=主键数，二级索引=主键+二级索引数</span><br><span class="line">  |  |--&gt; memcpy(log_ptr, ins_ptr, rec_size); // 把insert指针拷贝给redolog指针 </span><br><span class="line">  |  |--&gt; mlog_close // 关闭mlog</span><br></pre></td></tr></table></figure>
+
+<p>继续执行<code>row_ins_clust_index_entry</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">UNIV_INTERN</span><br><span class="line"><span class="keyword">dberr_t</span></span><br><span class="line">row_ins_clust_index_entry(</span><br><span class="line"><span class="comment">/*======================*/</span></span><br><span class="line">        <span class="keyword">dict_index_t</span>*   index,  <span class="comment">/*!&lt; in: clustered index */</span></span><br><span class="line">        <span class="keyword">dtuple_t</span>*       entry,  <span class="comment">/*!&lt; in/out: index entry to insert */</span></span><br><span class="line">        <span class="keyword">que_thr_t</span>*      thr,    <span class="comment">/*!&lt; in: query thread */</span></span><br><span class="line">        ulint           n_ext)  <span class="comment">/*!&lt; in: number of externally stored columns */</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="keyword">if</span> (UT_LIST_GET_FIRST(index-&gt;table-&gt;foreign_list)) &#123;</span><br><span class="line">                err = row_ins_check_foreign_constraints(</span><br><span class="line">                        index-&gt;table, index, entry, thr);</span><br><span class="line">                <span class="keyword">if</span> (err != DB_SUCCESS) &#123;</span><br><span class="line">                        <span class="keyword">return</span>(err);</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">/* flush log，make checkpoint（如果需要） */</span></span><br><span class="line">        log_free_check();</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* 先尝试乐观插入，修改叶子节点 BTR_MODIFY_LEAF */</span></span><br><span class="line">        err = row_ins_clust_index_entry_low(</span><br><span class="line">                <span class="number">0</span>, BTR_MODIFY_LEAF, index, n_uniq, entry, n_ext, thr, </span><br><span class="line">                &amp;page_no, &amp;modify_clock);</span><br><span class="line">                </span><br><span class="line">        <span class="keyword">if</span> (err != DB_FAIL) &#123;</span><br><span class="line">                DEBUG_SYNC_C(<span class="string">"row_ins_clust_index_entry_leaf_after"</span>);</span><br><span class="line">                <span class="keyword">return</span>(err);</span><br><span class="line">        &#125;    </span><br><span class="line">		</span><br><span class="line">		<span class="comment">/* flush log，make checkpoint（如果需要） */</span></span><br><span class="line">        log_free_check();</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* 乐观插入失败，尝试悲观插入 BTR_MODIFY_TREE */</span></span><br><span class="line">        <span class="keyword">return</span>(row_ins_clust_index_entry_low(</span><br><span class="line">                        <span class="number">0</span>, BTR_MODIFY_TREE, index, n_uniq, entry, n_ext, thr,</span><br><span class="line">                        &amp;page_no, &amp;modify_clock));</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br></pre></td><td class="code"><pre><span class="line">UNIV_INTERN</span><br><span class="line"><span class="keyword">dberr_t</span></span><br><span class="line">row_ins_clust_index_entry_low(</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">/*启动mini transaction*/</span></span><br><span class="line">    mtr_start(&amp;mtr);</span><br><span class="line">    <span class="comment">/* 将cursor移动到索引上待插入的位置 */</span></span><br><span class="line">    btr_cur_search_to_nth_level(index, <span class="number">0</span>, entry, PAGE_CUR_LE, mode,                                                                                                                                     </span><br><span class="line">                                &amp;cursor, <span class="number">0</span>, __FILE__, __LINE__, &amp;mtr);</span><br><span class="line">                    <span class="comment">/*根据不同的flag检查主键冲突*/</span></span><br><span class="line">                    err = row_ins_duplicate_error_in_clust_online(</span><br><span class="line">                            n_uniq, entry, &amp;cursor,</span><br><span class="line">                            &amp;offsets, &amp;offsets_heap);</span><br><span class="line">                    err = row_ins_duplicate_error_in_clust(</span><br><span class="line">                            flags, &amp;cursor, entry, thr, &amp;mtr);</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      如果要插入的索引项已存在，则把insert操作改为update操作</span></span><br><span class="line"><span class="comment">      索引项已存在，且没有主键冲突，是因为之前的索引项对应的数据被标记为已删除</span></span><br><span class="line"><span class="comment">      本次插入的数据和上次删除的一样，而索引项并未删除，所以变为update操作		</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">if</span> (row_ins_must_modify_rec(&amp;cursor)) &#123;</span><br><span class="line">            <span class="comment">/* There is already an index entry with a long enough common</span></span><br><span class="line"><span class="comment">            prefix, we must convert the insert into a modify of an</span></span><br><span class="line"><span class="comment">            existing record */</span></span><br><span class="line">            <span class="keyword">mem_heap_t</span>*     entry_heap      = mem_heap_create(<span class="number">1024</span>);</span><br><span class="line">            </span><br><span class="line">            <span class="comment">/* 更新数据到存在的索引项 */</span></span><br><span class="line">            err = row_ins_clust_index_entry_by_modify(</span><br><span class="line">                    flags, mode, &amp;cursor, &amp;offsets, &amp;offsets_heap,</span><br><span class="line">                    entry_heap, &amp;big_rec, entry, thr, &amp;mtr);</span><br><span class="line">            </span><br><span class="line">            <span class="comment">/*如果索引正在online_ddl，先记录insert*/</span></span><br><span class="line">            <span class="keyword">if</span> (err == DB_SUCCESS &amp;&amp; dict_index_is_online_ddl(index)) &#123;</span><br><span class="line">                    row_log_table_insert(rec, index, offsets);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">/*提交mini transaction*/</span></span><br><span class="line">            mtr_commit(&amp;mtr);</span><br><span class="line">            mem_heap_free(entry_heap);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">rec_t</span>*  insert_rec;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (mode != BTR_MODIFY_TREE) &#123;</span><br><span class="line">                    <span class="comment">/*进行一次乐观插入*/</span></span><br><span class="line">                    err = btr_cur_optimistic_insert(</span><br><span class="line">                            flags, &amp;cursor, &amp;offsets, &amp;offsets_heap,</span><br><span class="line">                            entry, &amp;insert_rec, &amp;big_rec,</span><br><span class="line">                            n_ext, thr, &amp;mtr);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    <span class="comment">/*</span></span><br><span class="line"><span class="comment">                      如果buffer pool余量不足25%，插入失败，返回DB_LOCK_TABLE_FULL</span></span><br><span class="line"><span class="comment">                      处理DB_LOCK_TABLE_FULL错误时，会回滚事务</span></span><br><span class="line"><span class="comment">                      防止大事务的锁占满buffer pool(注释里写的)</span></span><br><span class="line"><span class="comment">                    */</span></span><br><span class="line">                    <span class="keyword">if</span> (buf_LRU_buf_pool_running_out()) &#123;</span><br><span class="line"></span><br><span class="line">                            err = DB_LOCK_TABLE_FULL;</span><br><span class="line">                            <span class="keyword">goto</span> err_exit;</span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">if</span> (<span class="comment">/*太长了，略*/</span>) &#123;</span><br><span class="line">                             <span class="comment">/*进行一次乐观插入*/</span></span><br><span class="line">                            err = btr_cur_optimistic_insert(</span><br><span class="line">                                    flags, &amp;cursor,</span><br><span class="line">                                    &amp;offsets, &amp;offsets_heap,</span><br><span class="line">                                    entry, &amp;insert_rec, &amp;big_rec,</span><br><span class="line">                                    n_ext, thr, &amp;mtr);</span><br><span class="line">                    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                            err = DB_FAIL;</span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">if</span> (err == DB_FAIL) &#123;</span><br><span class="line">                             <span class="comment">/*乐观插入失败，进行悲观插入*/</span></span><br><span class="line">                            err = btr_cur_pessimistic_insert(</span><br><span class="line">                                    flags, &amp;cursor,</span><br><span class="line">                                    &amp;offsets, &amp;offsets_heap,</span><br><span class="line">                                    entry, &amp;insert_rec, &amp;big_rec,</span><br><span class="line">                                    n_ext, thr, &amp;mtr);</span><br><span class="line">                    &#125;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>btr_cur_optimistic_insert 和 btr_cur_pessimistic_insert 涉及B+树的操作，内部细节很多，以后再做分析</p>
+<h5 id="2-提交mini-transaction"><a href="#2-提交mini-transaction" class="headerlink" title="2. 提交mini transaction"></a>2. 提交mini transaction</h5><p>在<code>row_ins_clust_index_entry_low</code>方法内部，会执行</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">mtr_start(&amp;mtr);</span><br><span class="line">/*提交mini transaction*/</span><br><span class="line">mtr_commit(&amp;mtr);</span><br></pre></td></tr></table></figure>
+
+<p>InnoDB会将事务执行过程拆分为若干个Mini Transaction（mtr），每个mtr包含一系列如加锁，写数据，写redo，放锁等操作</p>
+<p>更详细的请查看事务提交章节的mtr_t::commit()小节。</p>
+<h2 id="5-3、事务提交"><a href="#5-3、事务提交" class="headerlink" title="5.3、事务提交"></a>5.3、事务提交</h2><p>回到SQL解析部分，从源码上了解到，在执行完成insert后，会继续执行事务提交操作，从 <code>trans_commit(THD *thd)</code> 函数开始。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">trans_commit</span><span class="params">(THD *thd)</span></span>&#123;</span><br><span class="line">  <span class="comment">// 提交事务。</span></span><br><span class="line">  res = ha_commit_trans(thd, TRUE);</span><br><span class="line">  <span class="keyword">if</span> (res == FALSE)</span><br><span class="line">    <span class="keyword">if</span> (thd-&gt;rpl_thd_ctx.session_gtids_ctx().notify_after_transaction_commit(thd))</span><br><span class="line">      sql_print_warning(<span class="string">"Failed to collect GTID to send in the response packet!"</span>);</span><br><span class="line">  thd-&gt;server_status &amp;= ~SERVER_STATUS_IN_TRANS;</span><br><span class="line">  thd-&gt;variables.option_bits &amp;= ~OPTION_BEGIN;</span><br><span class="line">  thd-&gt;get_transaction()-&gt;reset_unsafe_rollback_flags(Transaction_ctx::SESSION);</span><br><span class="line">  thd-&gt;lex-&gt;start_transaction_opt = <span class="number">0</span>;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/* The transaction should be marked as complete in P_S. */</span></span><br><span class="line">  assert(thd-&gt;m_transaction_psi == <span class="literal">NULL</span>);</span><br><span class="line">  thd-&gt;tx_priority = <span class="number">0</span>;</span><br><span class="line">  trans_track_end_trx(thd);</span><br><span class="line">  DBUG_RETURN(MY_TEST(res));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-3-1、事务提交总流程"><a href="#5-3-1、事务提交总流程" class="headerlink" title="5.3.1、事务提交总流程"></a>5.3.1、事务提交总流程</h3><p>接下来进入<code>ha_commit_trans</code>执行堆栈如下：</p>
+<ul>
+<li>该函数负责处理 binlog 层和存储引擎层的提交。里面就涉及到了<font color="red"><strong>两阶段提交</strong></font></li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">ha_commit_trans // XA transaction 即可理解为 2PC 两阶段提交协议。</span><br><span class="line">                // 事务协调器（Transaction Coordinator）来处理各节点是回退还是前滚, tc_log即协调者日志。</span><br><span class="line">  |--&gt; tc_log-&gt;prepare()</span><br><span class="line">  |  |--&gt; MYSQL_BIN_LOG::prepare--&gt; ha_prepare_low/(ht-&gt;prepare)--&gt; innobase_xa_prepare // prepare binlog</span><br><span class="line">           // innodb 存储引擎初始化 innodb_init() /storage/innobase/handler/ha_innodb.cc</span><br><span class="line">           // innobase_hton-&gt;prepare = innobase_xa_prepare</span><br><span class="line">  |  |--&gt; innobase_xa_prepare --&gt;trx_prepare// prepare an X/Open XA 分布式事务</span><br><span class="line">  |  |  |--&gt; trx_prepare_low</span><br><span class="line">  |  |  |  |--&gt; mtr_start_sync()</span><br><span class="line">  |  |  |  |--&gt; trx_undo_set_state_at_prepare // undolog 状态从TRX_UNDO_ACTIVE设置为TRX_UNDO_PREPARED</span><br><span class="line">  |  |  |  |  |--&gt; trx_undo_page_get // 获得 undo page</span><br><span class="line">  |  |  |  |  |--&gt; trx_undo_gtid_write // 向undo header写GTID信息</span><br><span class="line">  |  |  |  |  |--&gt; trx_undo_write_xid // 向undo header写XID信息</span><br><span class="line">  |  |  |  |--&gt; mtr_commit</span><br><span class="line"></span><br><span class="line">  |--&gt; tc_log-&gt;commit()</span><br><span class="line">  |  |--&gt; MYSQL_BIN_LOG::commit</span><br><span class="line">  |  |  |--&gt; binlog_cache_data::finalize() // 写events到cache</span><br><span class="line">  |  |  |--&gt; MYSQL_BIN_LOG::ordered_commit() // 大接口，binlog commit</span><br><span class="line">// Step1: flushing transactions to binary log</span><br><span class="line">  |  |  |  |--&gt; MYSQL_BIN_LOG::process_flush_stage_queue() // flush cache</span><br><span class="line">  |  |  |  |  |--&gt; assign_automatic_gtids_to_flush_group // 生成GTID</span><br><span class="line">  |  |  |  |  |--&gt; flush_thread_caches // flush cache for session,Write the Gtid_log_event to the binary log</span><br><span class="line">  |  |  |  |--&gt; MYSQL_BIN_LOG::flush_cache_to_file() // Flush binary log I/O cache到binlog文件</span><br><span class="line">// Step2: Syncing binary log file to disk</span><br><span class="line">  |  |  |  |--&gt; MYSQL_BIN_LOG::sync_binlog_file--&gt; IO_CACHE_ostream::sync()--&gt; inline_mysql_file_sync()</span><br><span class="line">		--&gt; my_sync --&gt;fdatasync // call fsync() to sync the file to disk</span><br><span class="line">// Step3: Commit all transactions in order</span><br><span class="line">  |  |  |  |--&gt; MYSQL_BIN_LOG::process_commit_stage_queue() // flush cache</span><br><span class="line">  |  |  |  |  |--&gt; ha_commit_low // storage engine commit // innobase_hton-&gt;commit = innobase_commit;</span><br><span class="line">  |  |  |  |  |--&gt; innobase_commit --&gt;innobase_commit_low--&gt;trx_commit_for_mysql //此时rtx的状态为TRX_STATE_PREPARED</span><br><span class="line">  |  |  |  |  |  |--&gt; trx_commit</span><br><span class="line">  |  |  |  |  |  |  |--&gt; mtr_start_sync //mtr_start</span><br><span class="line">  |  |  |  |  |  |  |--&gt; trx_commit_low // Commits a transaction and a mini-transaction.</span><br><span class="line">  |  |  |  |  |  |  |  |--&gt; trx_write_serialisation_history // 为事务分配其历史序列号，并更新的undo日志记录写入分配的回滚段</span><br><span class="line">  |  |  |  |  |  |  |  |--&gt; mtr_commit </span><br><span class="line">  |  |  |  |  |  |  |  |--&gt; trx_commit_in_memory // Commits a transaction in memory</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>binlog既是二阶段的参与者，又是协调者，所以在源码实现中可以看到 prepare阶段 和 commit阶段函数入口都在MYSQL_BIN_LOG中。</li>
+<li>准备阶段：tc_log-&gt;prepare()</li>
+<li>提交阶段：tc_log-&gt;commit()</li>
+</ul>
+<p><code>ha_commit_trans</code>源码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*   </span></span><br><span class="line"><span class="comment">    提交事务。</span></span><br><span class="line"><span class="comment">    server层最后调用函数 ha_commit_trans(), 该函数负责处理 binlog 层和存储引擎层的提交。</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">ha_commit_trans</span><span class="params">(THD *thd, <span class="keyword">bool</span> all, <span class="keyword">bool</span> ignore_global_read_lock)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">// 读写事务 &amp;&amp; 不能忽略全局读锁</span></span><br><span class="line">    <span class="keyword">if</span> (rw_trans &amp;&amp; !ignore_global_read_lock)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="comment">/*</span></span><br><span class="line"><span class="comment">        获取一个 MDL_KEY::COMMIT 元数据锁, 该元数据锁将确保 commit 操作会被活跃的 FTWRL 锁阻止。</span></span><br><span class="line"><span class="comment">        FTWRL锁会阻塞 COMMIT 操作。</span></span><br><span class="line"><span class="comment">      */</span></span><br><span class="line">      MDL_REQUEST_INIT(&amp;mdl_request,</span><br><span class="line">                       MDL_key::COMMIT, <span class="string">""</span>, <span class="string">""</span>, MDL_INTENTION_EXCLUSIVE,</span><br><span class="line">                       MDL_EXPLICIT);</span><br><span class="line">      DBUG_PRINT(<span class="string">"debug"</span>, (<span class="string">"Acquire MDL commit lock"</span>));</span><br><span class="line">      <span class="comment">// 申请 MDL_key::COMMIT 锁, 申请失败</span></span><br><span class="line">      <span class="keyword">if</span> (thd-&gt;mdl_context.acquire_lock(&amp;mdl_request,</span><br><span class="line">                                        thd-&gt;variables.lock_wait_timeout))</span><br><span class="line">      &#123;</span><br><span class="line">        ha_rollback_trans(thd, all);</span><br><span class="line">        DBUG_RETURN(<span class="number">1</span>);</span><br><span class="line">      &#125;</span><br><span class="line">      release_mdl = <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 判断是否开启 xa 事务;</span></span><br><span class="line">    <span class="comment">// 所有的 entries 都支持 2pc &amp;&amp; 在事务 scope 中设置做读写更改的引擎数量 &gt; 1</span></span><br><span class="line">    <span class="keyword">if</span> (!trn_ctx-&gt;no_2pc(trx_scope) &amp;&amp; (trn_ctx-&gt;rw_ha_count(trx_scope) &gt; <span class="number">1</span>))</span><br><span class="line">      <span class="comment">// prepare; 在事务协调器中 prepare commit tx, 在引擎层生成一个 XA 事务。</span></span><br><span class="line">      <span class="comment">// tc_log: mysqld启动时生成的 MySQL_BIN_LOG 对象[XA控制对象]。</span></span><br><span class="line">      error = tc_log-&gt;prepare(thd, all);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    XA 事务的状态变更为 prepared, 中间态。最终会变成常规的 NOTR 状态。</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> (!error &amp;&amp; all &amp;&amp; xid_state-&gt;has_state(XID_STATE::XA_IDLE))</span><br><span class="line">  &#123;</span><br><span class="line">    assert(thd-&gt;lex-&gt;sql_command == SQLCOM_XA_COMMIT &amp;&amp;</span><br><span class="line">           <span class="keyword">static_cast</span>&lt;Sql_cmd_xa_commit *&gt;(thd-&gt;lex-&gt;m_sql_cmd)-&gt;get_xa_opt() == XA_ONE_PHASE);</span><br><span class="line">    <span class="comment">// 设置 XA 事务状态为 XA_PREPARED 状态。</span></span><br><span class="line">    xid_state-&gt;set_state(XID_STATE::XA_PREPARED);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * XA 事务提交</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> (error || (error = tc_log-&gt;commit(thd, all)))</span><br><span class="line">  &#123;</span><br><span class="line">    ha_rollback_trans(thd, all);</span><br><span class="line">    error = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">goto</span> end;</span><br><span class="line">  &#125;</span><br><span class="line">end:</span><br><span class="line">  <span class="comment">// 释放 mdl 锁。</span></span><br><span class="line">  <span class="keyword">if</span> (release_mdl &amp;&amp; mdl_request.ticket)</span><br><span class="line">  &#123;</span><br><span class="line">    thd-&gt;mdl_context.release_lock(mdl_request.ticket);</span><br><span class="line">  &#125;  <span class="comment">/*</span></span><br><span class="line"><span class="comment">   * 释放资源并执行其他清理。空事务也需要。</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> (is_real_trans)</span><br><span class="line">  &#123;</span><br><span class="line">    trn_ctx-&gt;cleanup();</span><br><span class="line">    thd-&gt;tx_priority = <span class="number">0</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-3-2、Prepare-阶段"><a href="#5-3-2、Prepare-阶段" class="headerlink" title="5.3.2、Prepare 阶段"></a>5.3.2、Prepare 阶段</h3><blockquote>
+<p><font color="red"><strong>prepare阶段分为binlog的prepare和innodb的prepare</strong></font>。进入binlog和innodb prepae前会设置durability_property = HA_IGNORE_DURABILITY, 表示在innodb prepare和finish_commit()时，不刷redo log到磁盘。</p>
+</blockquote>
+<p>MYSQL_BIN_LOG::prepare的执行逻辑如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">MYSQL_BIN_LOG::prepare</span><span class="params">(THD *thd, <span class="keyword">bool</span> all)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    设置 HA_IGNORE_DURABILITY 在 prepare 阶段不将事务的 prepare record 刷到 innodb redo log。</span></span><br><span class="line"><span class="comment">    这样在 binlog 组提交的 flush 阶段 flushing binlog 之前 flush prepare record 到 innodb redo log。</span></span><br><span class="line"><span class="comment">    在 innodb prepare 时, 不刷 redo log.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  thd-&gt;durability_property = HA_IGNORE_DURABILITY;</span><br><span class="line">  <span class="comment">//  在引擎中 prepare commit trx</span></span><br><span class="line">  <span class="keyword">int</span> error = ha_prepare_low(thd, all);</span><br><span class="line">  DBUG_RETURN(error);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>用户线程对象的 durability_property 属性值会被设置为 HA_IGNORE_DURABILITY。<ul>
+<li>这个属性和 redo 日志刷盘有关，InnoDB prepare 会用到。</li>
+</ul>
+</li>
+</ul>
+<p>继续执行 <code>ha_prepare_low</code>函数：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * prepare commit trx</span></span><br><span class="line"><span class="comment"> * 在引擎层 prepare commit trx</span></span><br><span class="line"><span class="comment"> * 包括 binlog引擎 和 innodb引擎</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">ha_prepare_low</span><span class="params">(THD *thd, <span class="keyword">bool</span> all)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="comment">// 遍历引擎</span></span><br><span class="line">  <span class="keyword">if</span> (ha_info)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">for</span> (; ha_info &amp;&amp; !error; ha_info = ha_info-&gt;next())</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="keyword">int</span> err = <span class="number">0</span>;</span><br><span class="line">      <span class="comment">// 引擎</span></span><br><span class="line">      handlerton *ht = ha_info-&gt;ht();</span><br><span class="line">      <span class="comment">/*</span></span><br><span class="line"><span class="comment">        如果这个特定事务是只读的, 不要调用两阶段提交。</span></span><br><span class="line"><span class="comment">      */</span></span><br><span class="line">      <span class="keyword">if</span> (!ha_info-&gt;is_trx_read_write())</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">      <span class="comment">/**</span></span><br><span class="line"><span class="comment">       * 调用引擎的 prepare 在存储层生成 XA 事务。</span></span><br><span class="line"><span class="comment">       * 先 binlog prepare, 再 innodb prepare;</span></span><br><span class="line"><span class="comment">       * binlog prepare: 将上一次 commit 队列中最大的 seq num 写入本次事务的 last_commit 中</span></span><br><span class="line"><span class="comment">       * innodb prepare: 在 innodb 中更改 undo 日志段的状态为 trx_undo_prepared, 并将 xid 写入 undo log header。</span></span><br><span class="line"><span class="comment">       * */</span></span><br><span class="line">      <span class="keyword">if</span> ((err = ht-&gt;prepare(ht, thd, all)))</span><br><span class="line">      &#123;</span><br><span class="line">        my_error(ER_ERROR_DURING_COMMIT, MYF(<span class="number">0</span>), err);</span><br><span class="line">        error = <span class="number">1</span>;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="comment">// ha_prepare_count++</span></span><br><span class="line">      thd-&gt;status_var.ha_prepare_count++;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>内部执行流程会执行<code>ht->prepare(ht, thd, all)</code></p>
+<ul>
+<li><font color="red"><strong>prepare阶段分为binlog的prepare和innodb的prepare.</strong></font></li>
+</ul>
+<h4 id="第一步：Binlog-Prepare"><a href="#第一步：Binlog-Prepare" class="headerlink" title="第一步：Binlog Prepare"></a>第一步：Binlog Prepare</h4><p>binlog 被看作一种存储引擎，它也有 prepare 阶段，代码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/binlog.cc</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">binlog_prepare</span><span class="params">(handlerton *, THD *thd, <span class="keyword">bool</span> all)</span> </span>&#123;</span><br><span class="line">  DBUG_TRACE;</span><br><span class="line">  <span class="keyword">if</span> (!all) &#123;</span><br><span class="line">    thd-&gt;get_transaction()-&gt;store_commit_parent(</span><br><span class="line">        mysql_bin_log.m_dependency_tracker.get_max_committed_timestamp());</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>二阶段提交时</p>
+<ul>
+<li>all = true，不会命中分支 if (!all)。也就是说，在 prepare 阶段，binlog 什么也不会干。</li>
+<li>对于all为false的事务，会更新该事务的last_commited为此时most recently commited事务的sequence_number，sequence_number是Binlog提交的逻辑时间戳，可用于在slave节点上并行执行Binlog事务，生成和自增策略参考Binlog事务依赖策略。</li>
+</ul>
+<h4 id="第二步：InnoDB-Prepare"><a href="#第二步：InnoDB-Prepare" class="headerlink" title="第二步：InnoDB Prepare"></a>第二步：InnoDB Prepare</h4><p>innodb prepare阶段堆栈信息如下；</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">innobase_xa_prepare()                             # innodb prepapre</span><br><span class="line">| ...</span><br><span class="line">|- trx_prepare_for_mysql()</span><br><span class="line">|  |- trx_prepare()</span><br><span class="line">|  |  |- trx_prepare_low()</span><br><span class="line">|  |  |  |- mtr_t::start（）                      # 开启一个mini-transaction</span><br><span class="line">|  |  |  |- mtr_t::commit()                      # 通过mtr,写redo到redo log buffer</span><br><span class="line">|  |  |  |  |- Command::execute()</span><br><span class="line">|  |  |  |  |  |- prepare_write()                # 准备写mtr log到redo-log buffer</span><br><span class="line">|  |  |  |  |  |- finish_write()</span><br><span class="line">|  |  |- trx-&gt;state = TRX_STATE_PREPARED</span><br></pre></td></tr></table></figure>
+
+<p>并没有写redo log到文件中，除非redo log buffer空间不足。以下可看出：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">finish_write()</span><br><span class="line">| ...</span><br><span class="line">|- log_reserve_and_open()</span><br><span class="line">|  |- # not enough space,do a write of buffer</span><br><span class="line">|  |- log_buffer_sync_in_background(false)       # not enough space,do a write of buffer</span><br><span class="line">|  |  |- log_write_up_to(lsn, false)             # write to redo log file,没有执行fsync</span><br><span class="line">|  |  |  |- log_group_write_buf()                # Writes a buffer to a log file group</span><br><span class="line">|...</span><br><span class="line">|- mtr_write_log_t::operator()                   # append blocks to redo log buffer</span><br><span class="line">|  |- log_write_low()                            # 写 redo log block 到 redo log buffer</span><br></pre></td></tr></table></figure>
+
+<p>从上面过程可以看出，prepare阶段并没有写redo log到文件中，只有一种情况会写入到文件中，那就是redo log buffer空间不足时，并且这里只是写入文件系统缓存，并不执行flush操作。</p>
+<blockquote>
+<p>二阶段提交的 prepare 阶段，InnoDB 主要做五件事。</p>
+<p><strong>第 1 件</strong>，把分配给事务的所有 undo 段的状态从 TRX_UNDO_ACTIVE 修改为 TRX_UNDO_PREPARED。<br>进入二阶段提交的事务，都至少改变过（插入、更新、删除）一个用户表的一条记录，最少会分配 1 个 undo 段，最多会分配 4 个 undo 段。<br>具体什么情况分配多少个 undo 段，后续关于 undo 模块的文章会有详细介绍。<br>不管 InnoDB 给事务分配了几个 undo 段，它们的状态都会被修改为 TRX_UNDO_PREPARED。<br><strong>第 2 件</strong>，把事务 Xid 写入所有 undo 段中当前提交事务的 undo 日志组头信息。<br>InnoDB 给当前提交事务分配的每个 undo 段中，都会有一组 undo 日志属于这个事务，事务 Xid 就写入 undo 日志组的头信息。<br>对于第 1、2 件事，如果事务改变了用户普通表的数据，修改 undo 段状态、把事务 Xid 写入 undo 日志组头信息，都会产生 redo 日志。<br><strong>第 3 件</strong>，把内存中的事务对象状态从 TRX_STATE_ACTIVE 修改为 TRX_STATE_PREPARED。<br>前面修改 undo 状态，是为了事务提交完成之前，MySQL 崩溃了，下次启动时，能够从 undo 段中恢复崩溃之前的事务状态。<br>这里修改事务对象状态，用于 MySQL 正常运行过程中，标识事务已经进入二阶段提交的 prepare 阶段。<br><strong>第 4 件</strong>，如果当前提交事务的隔离级别是读未提交（READ-UNCOMMITTED）或读已提交（READ-COMMITTED)，InnoDB 会释放事务给记录加的共享、排他 GAP 锁。<br>虽然读未提交、读已提交隔离级别一般都只加普通记录锁，不加 GAP 锁，但是，外键约束检查、插入记录重复值检查这两个场景下，还是会给相应的记录加 GAP 锁。<br><strong>第 5 件</strong>，调用 trx_flush_logs()，处理 redo 日志刷盘的相关逻辑。</p>
+</blockquote>
+<p>Innodb prepare 一个 X/Open XA 分布式事务，源码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*******************************************************************/</span> <span class="comment">/**</span></span><br><span class="line"><span class="comment">static int innobase_xa_prepare(</span></span><br><span class="line"><span class="comment">        /*================*/</span></span><br><span class="line">        handlerton *hton, <span class="comment">/*!&lt; in: InnoDB handlerton ; innodb引擎 */</span></span><br><span class="line">        THD *thd,                   <span class="comment">/*!&lt; in: handle to the MySQL thread of</span></span><br><span class="line"><span class="comment">                    the user whose XA transaction should</span></span><br><span class="line"><span class="comment">                    be prepared ; mysql线程 */</span></span><br><span class="line">        <span class="keyword">bool</span> prepare_trx) <span class="comment">/*!&lt; in: true - prepare transaction</span></span><br><span class="line"><span class="comment">                    false - the current SQL statement</span></span><br><span class="line"><span class="comment">                    ended ; true: prepare 事务</span></span><br><span class="line"><span class="comment">                            false: 当前 SQL 语句结束, 语句级别的提交 */</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// trx</span></span><br><span class="line">    <span class="keyword">trx_t</span> *trx = check_trx_exists(thd);</span><br><span class="line">    <span class="comment">// 获取thd的 xid, 同时设置到 trx -&gt; xid 中</span></span><br><span class="line">    thd_get_xid(thd, (MYSQL_XID *)trx-&gt;xid);</span><br><span class="line"> </span><br><span class="line">    <span class="comment">/* 释放可能的 FIFO ticket 和 search latch。</span></span><br><span class="line"><span class="comment">    因为我们要保留 trx_sys -&gt; mutex, 我们必须首先释放 search system latch 来遵守锁存顺序。</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    trx_search_latch_release_if_reserved(trx);</span><br><span class="line">    <span class="comment">// prepare trx</span></span><br><span class="line">    <span class="keyword">if</span> (prepare_trx || (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)))</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">/* preapre 整个事务, 或者这是一个SQL语句结束, autocommit 是打开状态 */</span></span><br><span class="line">        <span class="comment">// 事务已经在 mysql 2pc 协调器中注册。</span></span><br><span class="line">        ut_ad(trx_is_registered_for_2pc(trx));</span><br><span class="line">        <span class="comment">// trx prepare</span></span><br><span class="line">        <span class="keyword">dberr_t</span> err = trx_prepare_for_mysql(trx);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">/* 语句的提交动作, 而非真正的事务提交。 */</span></span><br><span class="line">        <span class="comment">// 需要释放语句 hold 的 auto_increment 锁</span></span><br><span class="line">        lock_unlock_table_autoinc(trx);</span><br><span class="line"> </span><br><span class="line">        <span class="comment">// 记录本语句的 undo 信息, 以便语句级的回滚</span></span><br><span class="line">        <span class="comment">// 标记最新SQL语句结束。</span></span><br><span class="line">        trx_mark_sql_stat_end(trx);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> (<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>继续执行<code>trx_prepare_for_mysql：</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * trx prepare</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="keyword">dberr_t</span></span><br><span class="line">trx_prepare_for_mysql(<span class="keyword">trx_t</span> *trx)</span><br><span class="line">&#123;</span><br><span class="line">    trx-&gt;op_info = <span class="string">"preparing"</span>;</span><br><span class="line">    <span class="comment">// prepare trx.</span></span><br><span class="line">    trx_prepare(trx);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>继续执行<code>trx_prepare:</code></p>
+<ul>
+<li>转换事物状态为，事物状态由 active 变为 prepare</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/****************************************************************/</span> <span class="comment">/**</span></span><br><span class="line"><span class="comment">prepare trx.*/</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">trx_prepare</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="comment">/*========*/</span></span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">trx_t</span> *trx)</span> <span class="comment">/*!&lt; in/out: transaction */</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">// 回滚段 != NULL &amp;&amp; redo 段被修改</span></span><br><span class="line">    <span class="keyword">if</span> (trx-&gt;rsegs.m_redo.rseg != <span class="literal">NULL</span> &amp;&amp; trx_is_redo_rseg_updated(trx))</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 为指定的回滚段 preapre 一个事务。lsn 为当前已 commit 的 lsn</span></span><br><span class="line">        lsn = trx_prepare_low(trx, &amp;trx-&gt;rsegs.m_redo, <span class="literal">false</span>);</span><br><span class="line">    &#125;</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">if</span> (trx-&gt;rsegs.m_noredo.rseg != <span class="literal">NULL</span> &amp;&amp; trx_is_noredo_rseg_updated(trx))</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 为指定的回滚段 preapre 一个事务。</span></span><br><span class="line">        trx_prepare_low(trx, &amp;trx-&gt;rsegs.m_noredo, <span class="literal">true</span>);</span><br><span class="line">    &#125;</span><br><span class="line"> </span><br><span class="line">    <span class="comment">/*--------------------------------------*/</span></span><br><span class="line">    <span class="comment">// 事务状态为 TRX_STATE_ACTIVE 状态, 修改事务状态</span></span><br><span class="line">    trx-&gt;state = TRX_STATE_PREPARED;</span><br><span class="line">    <span class="comment">// 事务系统中处于 xa prepared 状态的事务的数量</span></span><br><span class="line">    trx_sys-&gt;n_prepared_trx++;</span><br><span class="line">    <span class="comment">/*--------------------------------------*/</span></span><br><span class="line">    <span class="comment">/* Release read locks after PREPARE for READ COMMITTED</span></span><br><span class="line"><span class="comment">    and lower isolation.</span></span><br><span class="line"><span class="comment">    对 rc 隔离级别, 在 prepare 之后释放 read locks, 降低隔离度</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">if</span> (trx-&gt;isolation_level &lt;= TRX_ISO_READ_COMMITTED)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">/* Stop inheriting GAP locks.</span></span><br><span class="line"><span class="comment">        停止继承 GAP lock。</span></span><br><span class="line"><span class="comment">        */</span></span><br><span class="line">        trx-&gt;skip_lock_inheritance = <span class="literal">true</span>;</span><br><span class="line"> </span><br><span class="line">        <span class="comment">/* Release only GAP locks for now.</span></span><br><span class="line"><span class="comment">        释放 GAP lock。</span></span><br><span class="line"><span class="comment">        */</span></span><br><span class="line">        lock_trx_release_read_locks(trx, <span class="literal">true</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">switch</span> (thd_requested_durability(trx-&gt;mysql_thd))</span><br><span class="line">    &#123;</span><br><span class="line">    <span class="keyword">case</span> HA_IGNORE_DURABILITY:</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">        在 binlog group commit 的 prepare 阶段, 我们设置 HA_IGNORE_DURABILITY , 这样在这个阶段不会 flush redo log。</span></span><br><span class="line"><span class="comment">        这样我们就可以在 binlog group commit 的 flush 阶段在将 binary log写入二进制日志之前, 在一个组中 flush redo log。</span></span><br><span class="line"><span class="comment">        */</span></span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> ..</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>继续执行 <code>trx_prepare_low</code>，为指定的回滚段 preapre 一个事务。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/****************************************************************/</span> <span class="comment">/**</span></span><br><span class="line"><span class="comment">为指定的回滚段 preapre 一个事务。 */</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">lsn_t</span></span><br><span class="line">trx_prepare_low(</span><br><span class="line">        <span class="comment">/*============*/</span></span><br><span class="line">        <span class="keyword">trx_t</span> *trx,                             <span class="comment">/*!&lt; in/out: transaction */</span></span><br><span class="line">        <span class="keyword">trx_undo_ptr_t</span> *undo_ptr, <span class="comment">/*!&lt; in/out: pointer to rollback</span></span><br><span class="line"><span class="comment">                    segment scheduled for prepare. 指向回滚段的指针 */</span></span><br><span class="line">        <span class="keyword">bool</span> noredo_logging)            <span class="comment">/*!&lt; in: turn-off redo logging. 不需要redo log */</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">lsn_t</span> lsn;</span><br><span class="line">    <span class="comment">// insert 或者 undo 回滚段不为 NULL</span></span><br><span class="line">    <span class="keyword">if</span> (undo_ptr-&gt;insert_undo != <span class="literal">NULL</span> || undo_ptr-&gt;update_undo != <span class="literal">NULL</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// start a sync mtr</span></span><br><span class="line">        mtr_start_sync(&amp;mtr);</span><br><span class="line">        <span class="comment">// 设置 mtr mode</span></span><br><span class="line">        <span class="keyword">if</span> (noredo_logging)</span><br><span class="line">        &#123;</span><br><span class="line">            mtr_set_log_mode(&amp;mtr, MTR_LOG_NO_REDO);</span><br><span class="line">        &#125;</span><br><span class="line"> </span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">        将  undo 日志段状态从 trx_undo_active 修改为 trx_undo_prepared:</span></span><br><span class="line"><span class="comment">        更改 undo 回滚段将其设置为 prepare 状态。</span></span><br><span class="line"><span class="comment">        */</span></span><br><span class="line">        mutex_enter(&amp;rseg-&gt;mutex);</span><br><span class="line">        <span class="comment">// insert undo log 不为 NULL</span></span><br><span class="line">        <span class="keyword">if</span> (undo_ptr-&gt;insert_undo != <span class="literal">NULL</span>)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="comment">/*</span></span><br><span class="line"><span class="comment">            这里不需要获取 trx-&gt;undo_mutex, 因为只允许一个 OS 线程为该事务做事务准备。</span></span><br><span class="line"><span class="comment">            */</span></span><br><span class="line">            <span class="comment">// 将 undo 日志段状态从 trx_undo_active 修改为 trx_undo_prepared 状态</span></span><br><span class="line">            trx_undo_set_state_at_prepare(</span><br><span class="line">                    trx, undo_ptr-&gt;insert_undo, <span class="literal">false</span>, &amp;mtr);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 将 undo 日志段状态从 trx_undo_active 修改为 trx_undo_prepared 状态</span></span><br><span class="line">        <span class="keyword">if</span> (undo_ptr-&gt;update_undo != <span class="literal">NULL</span>)</span><br><span class="line">        &#123;</span><br><span class="line">            trx_undo_set_state_at_prepare(</span><br><span class="line">                    trx, undo_ptr-&gt;update_undo, <span class="literal">false</span>, &amp;mtr);</span><br><span class="line">        &#125;</span><br><span class="line"> </span><br><span class="line">        mutex_exit(&amp;rseg-&gt;mutex);</span><br><span class="line">        lsn = mtr.commit_lsn();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">        lsn = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> (lsn);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>继续执行<code>trx_undo_set_state_at_prepare</code>，修改 undo 日志段的状态：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* 修改 undo 日志段的状态*/</span></span><br><span class="line"><span class="keyword">page_t</span> *</span><br><span class="line">trx_undo_set_state_at_prepare(</span><br><span class="line">        <span class="keyword">trx_t</span> *trx,</span><br><span class="line">        <span class="keyword">trx_undo_t</span> *undo,</span><br><span class="line">        <span class="keyword">bool</span> rollback,</span><br><span class="line">        <span class="keyword">mtr_t</span> *mtr)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 获取 undo page 页, 并在其上加 x-latch</span></span><br><span class="line">    undo_page = trx_undo_page_get(</span><br><span class="line">            <span class="keyword">page_id_t</span>(undo-&gt;space, undo-&gt;hdr_page_no),</span><br><span class="line">            undo-&gt;page_size, mtr);</span><br><span class="line">    <span class="comment">// undo 段 header</span></span><br><span class="line">    seg_hdr = undo_page + TRX_UNDO_SEG_HDR;</span><br><span class="line">    <span class="comment">// 如果是 XA rollback</span></span><br><span class="line">    <span class="keyword">if</span> (rollback)</span><br><span class="line">    &#123;</span><br><span class="line">        ut_ad(undo-&gt;state == TRX_UNDO_PREPARED);</span><br><span class="line">        <span class="comment">// 将 undo 段的状态从 TRX_UNDO_PREPARED 修改为 TRX_UNDO_ACTIVE 状态</span></span><br><span class="line">        mlog_write_ulint(seg_hdr + TRX_UNDO_STATE, TRX_UNDO_ACTIVE,</span><br><span class="line">                                         MLOG_2BYTES, mtr);</span><br><span class="line">        <span class="keyword">return</span> (undo_page);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/*------------------------------*/</span></span><br><span class="line">    <span class="comment">// 是 XA prepare, 则将 undo 段的状态从 TRX_UNDO_ACTIVE 修改为 TRX_UNDO_PREPARED, 并将 xid 写入 undo。</span></span><br><span class="line">    ut_ad(undo-&gt;state == TRX_UNDO_ACTIVE);</span><br><span class="line">    undo-&gt;state = TRX_UNDO_PREPARED;</span><br><span class="line">    undo-&gt;xid = *trx-&gt;xid;</span><br><span class="line">    <span class="comment">/*------------------------------*/</span></span><br><span class="line">    <span class="comment">// 在 undo 段中更新当前 undo 段的状态</span></span><br><span class="line">    mlog_write_ulint(seg_hdr + TRX_UNDO_STATE, undo-&gt;state,</span><br><span class="line">                                     MLOG_2BYTES, mtr);</span><br><span class="line">    <span class="comment">// 在 undo 段 last undo log header 中写入 xid</span></span><br><span class="line">    offset = mach_read_from_2(seg_hdr + TRX_UNDO_LAST_LOG);</span><br><span class="line">    undo_header = undo_page + offset;</span><br><span class="line">    mlog_write_ulint(undo_header + TRX_UNDO_XID_EXISTS,</span><br><span class="line">                                     TRUE, MLOG_1BYTE, mtr);</span><br><span class="line">    trx_undo_write_xid(undo_header, &amp;undo-&gt;xid, mtr);</span><br><span class="line">    <span class="keyword">return</span> (undo_page);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-3-3、Commit-阶段"><a href="#5-3-3、Commit-阶段" class="headerlink" title="5.3.3、Commit 阶段"></a>5.3.3、Commit 阶段</h3><p>文章的书写顺序是先了解整体逻辑，再分析源码分析。</p>
+<h4 id="5-3-3-1、逻辑分析"><a href="#5-3-3-1、逻辑分析" class="headerlink" title="5.3.3.1、逻辑分析"></a>5.3.3.1、逻辑分析</h4><p>二阶段提交的 commit 阶段分为三个子阶段：flush 子阶段、sync 子阶段、commit 子阶段。</p>
+<h5 id="Stage-0-阶段"><a href="#Stage-0-阶段" class="headerlink" title="Stage 0 阶段"></a>Stage 0 阶段</h5><p>主要是 8.0 新增的一个阶段，主要是针对从库保证 commit order（顺序提交）。</p>
+<h5 id="Flush-子阶段"><a href="#Flush-子阶段" class="headerlink" title="Flush 子阶段"></a>Flush 子阶段</h5><ol>
+<li>根据 <code>innodb_flush_log_at_trx_commit</code> 参数进行 redo log 的刷盘操作<ul>
+<li>获取并清空 BINLOG_FLUSH_STAGE 和 COMMIT_ORDER_FLUSH_STAGE 队列</li>
+<li>存储引擎层将 prepare 状态的 redo log 根据 <code>innodb_flush_log_at_trx_commit</code> 参数刷盘</li>
+<li>不再阻塞 slave 的 preserve commit order 的执行</li>
+</ul>
+</li>
+<li>调用 get_server_sidno() 和 Gtid_state::get_automatic_gno() 生成 GTID</li>
+<li>Flush binlog_cache_mngr<ul>
+<li>Flush stmt_cache</li>
+<li>Flush trx_cache<ul>
+<li>生成 last_committed 和 sequence_number</li>
+<li>flush GTID log event</li>
+<li>将 trx_cache 中的数据 flush 到 binlog cache 中</li>
+<li>准备提交事务后的 Binlog pos</li>
+<li>递增 prepread XID</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>插桩调用after_flush，将已经 flush 的 binlog file 和 position 注册到半同步复制插件中</li>
+<li>如果 sync_binlog!=1，在 flush stage 更新 Binlog 位点，并广播 update 信号，从库的 Dump 线程可以由此感知 Binlog 的更新</li>
+</ol>
+<h5 id="Sync-子阶段"><a href="#Sync-子阶段" class="headerlink" title="Sync 子阶段"></a>Sync 子阶段</h5><ol>
+<li>根据 <code>sync_binlog</code> 的参数设置进行刷盘前的等待并调用 fsync() 进行刷盘</li>
+<li>如果 <code>sync_binlog==1</code>，在 sync stage 阶段更新 binog 位点，并广播 update 信号，从库的 Dump 线程可以由此感知 Binlog 的更新</li>
+</ol>
+<h5 id="Commit-子阶段"><a href="#Commit-子阶段" class="headerlink" title="Commit 子阶段"></a>Commit 子阶段</h5><ol>
+<li>after_sync hook（半同步复制 after_sync 的钩子）</li>
+<li>更新全局的 m_max_committed_transaction（用作后续事务的 last_committed），并初始化事务上下文的 sequence number</li>
+<li>Binlog 层提交，什么也不做</li>
+<li>存储引擎层提交<ul>
+<li>为持久化 GTID 提前分配 update undo segment</li>
+<li>更新数据字典中被修改表的 update_time 时间</li>
+<li>分配 Mini-transaction handle和buffer</li>
+<li>更新 undo 状态<ul>
+<li>对于 insert 状态从 TRX_UNDO_ACTIVE  修改为 TRX_UNDO_TO_FREE，update 修改为 TRX_UNDO_TO_PURGE</li>
+<li>如果事务为 update 还需要将 rollback segments 分配 trx no，并将其添加到 purge 队列中</li>
+</ul>
+</li>
+<li>将 update undo log header 添加到 history list 开头释放一些内存对象</li>
+<li>在系统事务表记录 binlog 位点</li>
+<li>关闭 mvcc read view</li>
+<li>持久化 GTID</li>
+<li>释放insert undo log</li>
+<li>唤醒后台线程开始干活，如 master thread、purge thread、page_cleaner</li>
+</ul>
+</li>
+<li>更新整组事务的 executed_gtid</li>
+<li>在存储引擎层提交之后，递减 Prepared 状态下的 XID 计数器</li>
+<li>after_sync hook（半同步复制 after_commit的钩子）</li>
+<li>广播 m_stage_cond_binlog 信号变量，唤醒挂起的 follower</li>
+</ol>
+<h4 id="5-3-3-2、源码分析"><a href="#5-3-3-2、源码分析" class="headerlink" title="5.3.3.2、源码分析"></a>5.3.3.2、源码分析</h4><p>了解完整体逻辑，对源码分析感兴趣的请继续往下。</p>
+<p>Commit 阶段的功能实现主要集中在 <code>MYSQL_BIN_LOG::ordered_commit</code> 函数中。</p>
+<h5 id="Flush-阶段"><a href="#Flush-阶段" class="headerlink" title="Flush 阶段"></a>Flush 阶段</h5><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">MYSQL_BIN_LOG::ordered_commit</span><span class="params">(THD *thd, <span class="keyword">bool</span> all, <span class="keyword">bool</span> skip_commit)</span> </span>&#123;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Stage #0: 保证从实例的 SQL 线程按照 Relay log 的事务顺序进行提交</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> (Commit_order_manager::wait_for_its_turn_before_flush_stage(thd) ||</span><br><span class="line">      ending_trans(thd, all) ||</span><br><span class="line">      Commit_order_manager::get_rollback_status(thd)) &#123;</span><br><span class="line">    <span class="keyword">if</span> (Commit_order_manager::wait(thd)) &#123;</span><br><span class="line">      <span class="keyword">return</span> thd-&gt;commit_error;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Stage #1: flushing transactions to binary log</span></span><br><span class="line"><span class="comment"> </span></span><br><span class="line"><span class="comment">    While flushing, we allow new threads to enter and will process</span></span><br><span class="line"><span class="comment">    them in due time. Once the queue was empty, we cannot reap</span></span><br><span class="line"><span class="comment">    anything more since it is possible that a thread entered and</span></span><br><span class="line"><span class="comment">    appointed itself leader for the flush phase.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (change_stage(thd, Commit_stage_manager::BINLOG_FLUSH_STAGE, thd, <span class="literal">nullptr</span>,</span><br><span class="line">                   &amp;LOCK_log)) &#123;</span><br><span class="line">    DBUG_PRINT(<span class="string">"return"</span>, (<span class="string">"Thread ID: %u, commit_error: %d"</span>, thd-&gt;thread_id(),</span><br><span class="line">                          thd-&gt;commit_error));</span><br><span class="line">    <span class="keyword">return</span> finish_commit(thd);</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  THD *wait_queue = <span class="literal">nullptr</span>, *final_queue = <span class="literal">nullptr</span>;</span><br><span class="line">  <span class="keyword">mysql_mutex_t</span> *leave_mutex_before_commit_stage = <span class="literal">nullptr</span>;</span><br><span class="line">  <span class="keyword">my_off_t</span> flush_end_pos = <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">bool</span> update_binlog_end_pos_after_sync;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">// Flush 阶段主要的处理逻辑</span></span><br><span class="line">  flush_error =</span><br><span class="line">      process_flush_stage_queue(&amp;total_bytes, &amp;do_rotate, &amp;wait_queue);</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (flush_error == <span class="number">0</span> &amp;&amp; total_bytes &gt; <span class="number">0</span>)</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      flush binlog cache到file cache</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    flush_error = flush_cache_to_file(&amp;flush_end_pos);</span><br><span class="line"> </span><br><span class="line">  <span class="comment">// 后面根据 sync_binlog 参数决定更新 binlog pos 的位置并广播 Binlog 更新信号</span></span><br><span class="line">  update_binlog_end_pos_after_sync = (get_sync_period() == <span class="number">1</span>);</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    If the flush finished successfully, we can call the after_flush</span></span><br><span class="line"><span class="comment">    hook. Being invoked here, we have the guarantee that the hook is</span></span><br><span class="line"><span class="comment">    executed before the before/after_send_hooks on the dump thread</span></span><br><span class="line"><span class="comment">    preventing race conditions among these plug-ins.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> (flush_error == <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">char</span> *file_name_ptr = log_file_name + dirname_length(log_file_name);</span><br><span class="line">    assert(flush_end_pos != <span class="number">0</span>);</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      插桩调用 after_flush，将已经 flush 的 binlog file 和 position 注册到半同步复制插件中，</span></span><br><span class="line"><span class="comment">      用于后续对比 slave 应答接受到的 binlog position。</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">if</span> (RUN_HOOK(binlog_storage, after_flush,</span><br><span class="line">                 (thd, file_name_ptr, flush_end_pos))) &#123;</span><br><span class="line">      LogErr(ERROR_LEVEL, ER_BINLOG_FAILED_TO_RUN_AFTER_FLUSH_HOOK);</span><br><span class="line">      flush_error = ER_ERROR_ON_WRITE;</span><br><span class="line">    &#125;</span><br><span class="line"> </span><br><span class="line">    <span class="comment">// 如果 sync_binlog!=1，在 flush stage 更新 binlog 位点并广播 update 信号，从库的 Dump 线程可以由此感知 Binlog 的更新</span></span><br><span class="line">    <span class="keyword">if</span> (!update_binlog_end_pos_after_sync) update_binlog_end_pos();</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>Flush stage 的主要处理逻辑集中在 process_flush_stage_queue：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">MYSQL_BIN_LOG::process_flush_stage_queue</span><span class="params">(<span class="keyword">my_off_t</span> *total_bytes_var,</span></span></span><br><span class="line"><span class="function"><span class="params">                                             <span class="keyword">bool</span> *rotate_var,</span></span></span><br><span class="line"><span class="function"><span class="params">                                             THD **out_queue_var)</span> </span>&#123;</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">int</span> no_flushes = <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">my_off_t</span> total_bytes = <span class="number">0</span>;</span><br><span class="line">  mysql_mutex_assert_owner(&amp;LOCK_log);</span><br><span class="line">  <span class="comment">// 根据 innodb_flush_log_at_trx_commit 参数进行 redo log 的刷盘操作</span></span><br><span class="line">  THD *first_seen = fetch_and_process_flush_stage_queue();</span><br><span class="line"> </span><br><span class="line">  <span class="comment">// 调用 get_server_sidno() 和 Gtid_state::get_automatic_gno 生成 GTID</span></span><br><span class="line">  assign_automatic_gtids_to_flush_group(first_seen);</span><br><span class="line">  <span class="comment">/* Flush thread caches to binary log. */</span></span><br><span class="line">  <span class="keyword">for</span> (THD *head = first_seen; head; head = head-&gt;next_to_commit) &#123;</span><br><span class="line">    <span class="function">Thd_backup_and_restore <span class="title">switch_thd</span><span class="params">(current_thd, head)</span></span>;</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      flush binlog_cache_mngr 的 stmt_cache和trx_cache。</span></span><br><span class="line"><span class="comment">      flush trx_cache：</span></span><br><span class="line"><span class="comment">        - 生成 last_committed 和 sequence_number</span></span><br><span class="line"><span class="comment">        - flush GTID log event</span></span><br><span class="line"><span class="comment">        - 将 trx_cache 中的数据 flush 到 binlog cache 中</span></span><br><span class="line"><span class="comment">        - 准备提交事务后的 Binlog pos</span></span><br><span class="line"><span class="comment">        - 递增 prepread XID</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="built_in">std</span>::pair&lt;<span class="keyword">int</span>, <span class="keyword">my_off_t</span>&gt; result = flush_thread_caches(head);</span><br><span class="line">    total_bytes += result.second;</span><br><span class="line">    <span class="keyword">if</span> (flush_error == <span class="number">1</span>) flush_error = result.first;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> NDEBUG</span></span><br><span class="line">    no_flushes++;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  *out_queue_var = first_seen;</span><br><span class="line">  *total_bytes_var = total_bytes;</span><br><span class="line">  <span class="keyword">if</span> (total_bytes &gt; <span class="number">0</span> &amp;&amp;</span><br><span class="line">      (m_binlog_file-&gt;get_real_file_size() &gt;= (<span class="keyword">my_off_t</span>)max_size ||</span><br><span class="line">       DBUG_EVALUATE_IF(<span class="string">"simulate_max_binlog_size"</span>, <span class="literal">true</span>, <span class="literal">false</span>)))</span><br><span class="line">    *rotate_var = <span class="literal">true</span>;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> NDEBUG</span></span><br><span class="line">  DBUG_PRINT(<span class="string">"info"</span>, (<span class="string">"no_flushes:= %d"</span>, no_flushes));</span><br><span class="line">  no_flushes = <span class="number">0</span>;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">  <span class="keyword">return</span> flush_error;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>redo log 刷盘的堆栈如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 获取并清空 BINLOG_FLUSH_STAGE 和 COMMIT_ORDER_FLUSH_STAGE 队列，flush 事务到磁盘；不再阻塞 slave 的 preserve commit order 的执行</span></span><br><span class="line">|fetch_and_process_flush_stage_queue  </span><br><span class="line"><span class="comment">// 存储引擎层将 prepare 状态的 redo log 根据 innodb_flush_log_at_trx_commit 参数刷盘</span></span><br><span class="line">|--ha_flush_logs                      </span><br><span class="line">|----innobase_flush_logs</span><br><span class="line">|------log_buffer_flush_to_disk</span><br></pre></td></tr></table></figure>
+
+<h5 id="SYNC-阶段"><a href="#SYNC-阶段" class="headerlink" title="SYNC 阶段"></a>SYNC 阶段</h5><p>Sync 阶段的代码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">  Stage #2: Syncing binary log file to disk</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"> </span><br><span class="line"><span class="keyword">if</span> (change_stage(thd, Commit_stage_manager::SYNC_STAGE, wait_queue, &amp;LOCK_log,</span><br><span class="line">                 &amp;LOCK_sync)) &#123;</span><br><span class="line">  DBUG_PRINT(<span class="string">"return"</span>, (<span class="string">"Thread ID: %u, commit_error: %d"</span>, thd-&gt;thread_id(),</span><br><span class="line">                        thd-&gt;commit_error));</span><br><span class="line">  <span class="keyword">return</span> finish_commit(thd);</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">  - sync_counter：commit group的数量</span></span><br><span class="line"><span class="comment">  - get_sync_period()：获取sync_binlog参数的值</span></span><br><span class="line"><span class="comment">  - 如果sync stage队列中的commit group大于等于sync_binlog的值，当前leader就调用fsync()进行刷盘操作（sync_binlog_file(false)），</span></span><br><span class="line"><span class="comment">    在sync之前可能会进行等待，等待更多的commit group入队，等待的时间为binlog_group_commit_sync_no_delay_count或binlog_group_commit_sync_delay，默认都为0。</span></span><br><span class="line"><span class="comment">  - 如果sync stage队列中的commit group小于sync_binlog的值，当前leader不会调用fsync()进行刷盘也不会等待</span></span><br><span class="line"><span class="comment">  - 如果sync_binlog为0，每个commit group都会触发等待动作，但是不会sync</span></span><br><span class="line"><span class="comment">  - 如果sync_binlog为1，每个commit group都会触发等待动作，且会sync</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="keyword">if</span> (!flush_error &amp;&amp; (sync_counter + <span class="number">1</span> &gt;= get_sync_period()))</span><br><span class="line">  Commit_stage_manager::get_instance().wait_count_or_timeout(</span><br><span class="line">      opt_binlog_group_commit_sync_no_delay_count,</span><br><span class="line">      opt_binlog_group_commit_sync_delay, Commit_stage_manager::SYNC_STAGE);</span><br><span class="line"> </span><br><span class="line">final_queue = Commit_stage_manager::get_instance().fetch_queue_acquire_lock(</span><br><span class="line">    Commit_stage_manager::SYNC_STAGE);</span><br><span class="line"> </span><br><span class="line"><span class="keyword">if</span> (flush_error == <span class="number">0</span> &amp;&amp; total_bytes &gt; <span class="number">0</span>) &#123;</span><br><span class="line">  DEBUG_SYNC(thd, <span class="string">"before_sync_binlog_file"</span>);</span><br><span class="line">  <span class="built_in">std</span>::pair&lt;<span class="keyword">bool</span>, <span class="keyword">bool</span>&gt; result = sync_binlog_file(<span class="literal">false</span>);</span><br><span class="line">  sync_error = result.first;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> 如果sync_binlog==1,在sync stage阶段更新binog位点，并广播update信号，从库的Dump线程可以由此感知Binlog的更新</span></span><br><span class="line"><span class="comment"> （位点在flush stage中的process_flush_stage_queue()</span></span><br><span class="line"><span class="comment">                       |--flush_thread_caches()</span></span><br><span class="line"><span class="comment">                       |-----set_trans_pos()函数中设置）</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="keyword">if</span> (update_binlog_end_pos_after_sync &amp;&amp; flush_error == <span class="number">0</span> &amp;&amp; sync_error == <span class="number">0</span>) &#123;</span><br><span class="line">  THD *tmp_thd = final_queue;</span><br><span class="line">  <span class="keyword">const</span> <span class="keyword">char</span> *binlog_file = <span class="literal">nullptr</span>;</span><br><span class="line">  <span class="keyword">my_off_t</span> pos = <span class="number">0</span>;</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">while</span> (tmp_thd != <span class="literal">nullptr</span>) &#123;</span><br><span class="line">    <span class="keyword">if</span> (tmp_thd-&gt;commit_error == THD::CE_NONE) &#123;</span><br><span class="line">      tmp_thd-&gt;get_trans_fixed_pos(&amp;binlog_file, &amp;pos);</span><br><span class="line">    &#125;</span><br><span class="line">    tmp_thd = tmp_thd-&gt;next_to_commit;</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (binlog_file != <span class="literal">nullptr</span> &amp;&amp; pos &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    update_binlog_end_pos(binlog_file, pos);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line">DEBUG_SYNC(thd, <span class="string">"bgc_after_sync_stage_before_commit_stage"</span>);</span><br><span class="line"> </span><br><span class="line">leave_mutex_before_commit_stage = &amp;LOCK_sync;</span><br></pre></td></tr></table></figure>
+
+<h5 id="COMMIT-阶段"><a href="#COMMIT-阶段" class="headerlink" title="COMMIT 阶段"></a>COMMIT 阶段</h5><p>Commit 阶段的代码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"> <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Stage #3: Commit all transactions in order.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">commit_stage:</span><br><span class="line">  <span class="comment">/* binlog_order_commits：是否进行 order commit，即保持 redo 和 binlog 的提交顺序一致 */</span></span><br><span class="line">  <span class="keyword">if</span> ((opt_binlog_order_commits || Clone_handler::need_commit_order()) &amp;&amp;</span><br><span class="line">      (sync_error == <span class="number">0</span> || binlog_error_action != ABORT_SERVER)) &#123;</span><br><span class="line">    <span class="keyword">if</span> (change_stage(thd, Commit_stage_manager::COMMIT_STAGE, final_queue,</span><br><span class="line">                     leave_mutex_before_commit_stage, &amp;LOCK_commit)) &#123;</span><br><span class="line">      DBUG_PRINT(<span class="string">"return"</span>, (<span class="string">"Thread ID: %u, commit_error: %d"</span>, thd-&gt;thread_id(),</span><br><span class="line">                            thd-&gt;commit_error));</span><br><span class="line">      <span class="keyword">return</span> finish_commit(thd);</span><br><span class="line">    &#125;</span><br><span class="line">    THD *commit_queue =</span><br><span class="line">        Commit_stage_manager::get_instance().fetch_queue_acquire_lock(</span><br><span class="line">            Commit_stage_manager::COMMIT_STAGE);</span><br><span class="line">    DBUG_EXECUTE_IF(<span class="string">"semi_sync_3-way_deadlock"</span>,</span><br><span class="line">                    DEBUG_SYNC(thd, <span class="string">"before_process_commit_stage_queue"</span>););</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">if</span> (flush_error == <span class="number">0</span> &amp;&amp; sync_error == <span class="number">0</span>)</span><br><span class="line">      <span class="comment">/* after_sync hook */</span></span><br><span class="line">      sync_error = call_after_sync_hook(commit_queue);</span><br><span class="line"> </span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      Commit 阶段的主要处理逻辑</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    process_commit_stage_queue(thd, commit_queue);</span><br><span class="line"> </span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * After commit stage</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">if</span> (change_stage(thd, Commit_stage_manager::AFTER_COMMIT_STAGE,</span><br><span class="line">                     commit_queue, &amp;LOCK_commit, &amp;LOCK_after_commit)) &#123;</span><br><span class="line">      DBUG_PRINT(<span class="string">"return"</span>, (<span class="string">"Thread ID: %u, commit_error: %d"</span>, thd-&gt;thread_id(),</span><br><span class="line">                            thd-&gt;commit_error));</span><br><span class="line">      <span class="keyword">return</span> finish_commit(thd);</span><br><span class="line">    &#125;</span><br><span class="line"> </span><br><span class="line">    THD *after_commit_queue =</span><br><span class="line">        Commit_stage_manager::get_instance().fetch_queue_acquire_lock(</span><br><span class="line">            Commit_stage_manager::AFTER_COMMIT_STAGE);</span><br><span class="line">    <span class="comment">/* after_commit hook */</span></span><br><span class="line">    process_after_commit_stage_queue(thd, after_commit_queue);</span><br><span class="line"> </span><br><span class="line">    final_queue = after_commit_queue;</span><br><span class="line">    mysql_mutex_unlock(&amp;LOCK_after_commit);</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (leave_mutex_before_commit_stage)</span><br><span class="line">      mysql_mutex_unlock(leave_mutex_before_commit_stage);</span><br><span class="line">    <span class="keyword">if</span> (flush_error == <span class="number">0</span> &amp;&amp; sync_error == <span class="number">0</span>)</span><br><span class="line">      sync_error = call_after_sync_hook(final_queue);</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line"> </span><br><span class="line">  <span class="comment">/* 广播 m_stage_cond_binlog 信号变量，唤醒挂起的 follower */</span></span><br><span class="line">  Commit_stage_manager::get_instance().signal_done(final_queue);</span><br><span class="line">  DBUG_EXECUTE_IF(<span class="string">"block_leader_after_delete"</span>, &#123;</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">char</span> action[] = <span class="string">"now SIGNAL leader_proceed"</span>;</span><br><span class="line">    assert(!debug_sync_set_action(thd, STRING_WITH_LEN(action)));</span><br><span class="line">  &#125;;);</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Finish the commit before executing a rotate, or run the risk of a</span></span><br><span class="line"><span class="comment">    deadlock. We don't need the return value here since it is in</span></span><br><span class="line"><span class="comment">    thd-&gt;commit_error, which is returned below.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  (<span class="keyword">void</span>)finish_commit(thd);</span><br><span class="line">  DEBUG_SYNC(thd, <span class="string">"bgc_after_commit_stage_before_rotation"</span>);</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">return</span> thd-&gt;commit_error == THD::CE_COMMIT_ERROR;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Commit 阶段的主要处理逻辑集中在 process_commit_stage_queue 函数中：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">MYSQL_BIN_LOG::process_commit_stage_queue</span><span class="params">(THD *thd, THD *first)</span> </span>&#123;</span><br><span class="line">  mysql_mutex_assert_owner(&amp;LOCK_commit);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> NDEBUG</span></span><br><span class="line">  thd-&gt;get_transaction()-&gt;m_flags.ready_preempt =</span><br><span class="line">      <span class="literal">true</span>;  <span class="comment">// formality by the leader</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">  <span class="keyword">for</span> (THD *head = first; head; head = head-&gt;next_to_commit) &#123;</span><br><span class="line">    DBUG_PRINT(<span class="string">"debug"</span>, (<span class="string">"Thread ID: %u, commit_error: %d, commit_pending: %s"</span>,</span><br><span class="line">                         head-&gt;thread_id(), head-&gt;commit_error,</span><br><span class="line">                         YESNO(head-&gt;tx_commit_pending)));</span><br><span class="line">    DBUG_EXECUTE_IF(</span><br><span class="line">        <span class="string">"block_leader_after_delete"</span>,</span><br><span class="line">        <span class="keyword">if</span> (thd != head) &#123; DBUG_SET(<span class="string">"+d,after_delete_wait"</span>); &#125;;);</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      If flushing failed, set commit_error for the session, skip the</span></span><br><span class="line"><span class="comment">      transaction and proceed with the next transaction instead. This</span></span><br><span class="line"><span class="comment">      will mark all threads as failed, since the flush failed.</span></span><br><span class="line"><span class="comment"> </span></span><br><span class="line"><span class="comment">      If flush succeeded, attach to the session and commit it in the</span></span><br><span class="line"><span class="comment">      engines.</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> NDEBUG</span></span><br><span class="line">    Commit_stage_manager::get_instance().clear_preempt_status(head);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      更新全局的 m_max_committed_transaction（用作后续事务的 last_committed），</span></span><br><span class="line"><span class="comment">      并初始本事务上下文的 sequence number</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">if</span> (head-&gt;get_transaction()-&gt;sequence_number != SEQ_UNINIT) &#123;</span><br><span class="line">      mysql_mutex_lock(&amp;LOCK_replica_trans_dep_tracker);</span><br><span class="line">      m_dependency_tracker.update_max_committed(head);</span><br><span class="line">      mysql_mutex_unlock(&amp;LOCK_replica_trans_dep_tracker);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      Flush/Sync error should be ignored and continue</span></span><br><span class="line"><span class="comment">      to commit phase. And thd-&gt;commit_error cannot be</span></span><br><span class="line"><span class="comment">      COMMIT_ERROR at this moment.</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    assert(head-&gt;commit_error != THD::CE_COMMIT_ERROR);</span><br><span class="line">    <span class="function">Thd_backup_and_restore <span class="title">switch_thd</span><span class="params">(thd, head)</span></span>;</span><br><span class="line">    <span class="keyword">bool</span> all = head-&gt;get_transaction()-&gt;m_flags.real_commit;</span><br><span class="line">    assert(!head-&gt;get_transaction()-&gt;m_flags.commit_low ||</span><br><span class="line">           head-&gt;get_transaction()-&gt;m_flags.ready_preempt);&lt;br&gt;  <span class="comment">// Binlog Commit、Innodb Commit</span></span><br><span class="line">    ::finish_transaction_in_engines(head, all, <span class="literal">false</span>);</span><br><span class="line">    DBUG_PRINT(<span class="string">"debug"</span>, (<span class="string">"commit_error: %d, commit_pending: %s"</span>,</span><br><span class="line">                         head-&gt;commit_error, YESNO(head-&gt;tx_commit_pending)));</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    锁定 sidno，更新整组事务 的executed_gtid</span></span><br><span class="line"><span class="comment">    - 如果没开启 binlog，@@GLOBAL.GTID_PURGED 的值是从 executed_gtid 获取的，</span></span><br><span class="line"><span class="comment">      此时 @@GLOBAL.GTID_PURGED 的值和 @@GLOBAL.GTID_EXECUTED 永远是一致的，</span></span><br><span class="line"><span class="comment">      就不需要在记录 lost_gtids</span></span><br><span class="line"><span class="comment">    - 如果开启了 binlog，但是未开启 log_replica_updates，slave 的 SQL 线程或 slave worker 线程</span></span><br><span class="line"><span class="comment">      将自身的 GTID 更新到 executed_gtids、lost_gtids</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  gtid_state-&gt;update_commit_group(first);</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">for</span> (THD *head = first; head; head = head-&gt;next_to_commit) &#123;</span><br><span class="line">    <span class="function">Thd_backup_and_restore <span class="title">switch_thd</span><span class="params">(thd, head)</span></span>;</span><br><span class="line">    <span class="keyword">auto</span> all = head-&gt;get_transaction()-&gt;m_flags.real_commit;</span><br><span class="line">    <span class="comment">// 只针对外部 XA 事务，在存储引擎层将事务标记为 Prepared</span></span><br><span class="line">    trx_coordinator::set_prepared_in_tc_in_engines(head, all);</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      在存储引擎层提交之后，递减 Prepared 状态下的 XID 计数器</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">if</span> (head-&gt;get_transaction()-&gt;m_flags.xid_written) dec_prep_xids(head);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>其中 ::finish_transaction_in_engines  函数是主要的存储引擎层提交逻辑，相关堆栈如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">|::finish_transaction_in_engines</span><br><span class="line">|--trx_coordinator::commit_in_engines</span><br><span class="line">|----ha_commit_low</span><br><span class="line">// Binlog 层提交什么也不做（空函数）</span><br><span class="line">|------binlog_commit</span><br><span class="line">// 存储引擎层提交</span><br><span class="line">|------innobase_commit                                </span><br><span class="line">|--------innobase_commit_low</span><br><span class="line">|----------trx_commit_for_mysql</span><br><span class="line">// 为持久化 GTID 提前分配 update undo segment</span><br><span class="line">|------------trx_undo_gtid_add_update_undo  </span><br><span class="line">// 更新数据字典中被修改表的 update_time 时间</span><br><span class="line">|------------trx_update_mod_tables_timestamp     </span><br><span class="line">// 分配 Mini-transaction handle 和 buffer</span><br><span class="line">|------------trx_commit          </span><br><span class="line">// 提交 mini-transaction</span><br><span class="line">|--------------trx_commit_low                         </span><br><span class="line">|----------------trx_write_serialisation_history</span><br><span class="line">// 更新 undo 状态：</span><br><span class="line">// 对于 insert 状态从 TRX_UNDO_ACTIVE 修改为 TRX_UNDO_TO_FREE</span><br><span class="line">// update 修改为 TRX_UNDO_TO_PURGE</span><br><span class="line">// 如果事务为 update 还需要将 rollback segments 分配 trx no，并将其添加到 purge 队列中</span><br><span class="line">|------------------trx_undo_set_state_at_finish      </span><br><span class="line">//将 update undo log header 添加到 history list 开头释放一些内存对象;</span><br><span class="line">|------------------trx_undo_update_cleanup  </span><br><span class="line"> // 在系统事务表记录 binlog 位点</span><br><span class="line">|------------------trx_sys_update_mysql_binlog_offset </span><br><span class="line">|----------------trx_commit_in_memory</span><br><span class="line">//- 关闭 mvcc read view</span><br><span class="line">//- 持久化 GTID</span><br><span class="line">//- 释放 insert undo log</span><br><span class="line">//- 唤醒后台线程开始干活，如：master thread、purge thread、page_cleaner</span><br></pre></td></tr></table></figure>
+
+<h4 id="5-3-3-3、commit阶段小结"><a href="#5-3-3-3、commit阶段小结" class="headerlink" title="5.3.3.3、commit阶段小结"></a>5.3.3.3、commit阶段小结</h4><p>二阶段提交的 commit 阶段分为三个子阶段：flush 子阶段、sync 子阶段、commit 子阶段。</p>
+<p>flush 子阶段会把 prepare 阶段及之前产生的 redo 日志都刷盘，把事务执行过程中产生的 binlog 日志写入 binlog 日志文件。</p>
+<p>sync 子阶段会根据系统变量 sync_binlog 的值决定是否把 binlog 日志刷盘。</p>
+<p>为了避免每个事务各自提交，触发操作系统对同一个页频繁的重复刷盘，InnoDB 引入了组提交。</p>
+<p>为了避免每个子阶段出现多个队长同时干活的情况，InnoDB 还引入了三个互斥量：LOCK_log、LOCK_sync、LOCK_commit。</p>
+<h3 id="5-3-4、mtr-t-commit"><a href="#5-3-4、mtr-t-commit" class="headerlink" title="5.3.4、mtr_t::commit()"></a>5.3.4、mtr_t::commit()</h3><p>InnoDB会将事务执行过程拆分为若干个Mini Transaction（mtr），每个mtr包含一系列如加锁，写数据，写redo，放锁等操作。</p>
+<p>在“执行insert语句”章节 和 “commit阶段”中都有提到这个内容。</p>
+<h4 id="5-3-4-1、如何使用？"><a href="#5-3-4-1、如何使用？" class="headerlink" title="5.3.4.1、如何使用？"></a>5.3.4.1、如何使用？</h4><p>以下是一个mtr大致的执行过程，这里仅需要知道mtr.commit()是开始写redo log的地方就可以了。</p>
+<ul>
+<li>mtr.start() 开启一个mini transaction</li>
+<li>mtr_x_lock() <font color="green"><strong>加锁</strong></font>，这个操作分成两步，1. 对space-&gt;latch加X锁；2. 将space-&gt;latch放入mtr_t::m_impl::memo中（这样在mtr.commit()后就可以将mtr之前加过的锁放掉）</li>
+<li>mlog_write_ull <font color="green"><strong>写数据</strong></font>，这个操作也分成两步，1. 直接修改page上的数据；2. 将该操作的redo log写入mtr::m_impl::m_log中</li>
+<li>mtr.commit() <font color="green"><strong>写redo log + 放锁</strong></font>，这个操作会将上一步m_log中的内容写入redo log file，并且在最后放锁</li>
+</ul>
+<h4 id="5-3-4-2、基本原理"><a href="#5-3-4-2、基本原理" class="headerlink" title="5.3.4.2、基本原理"></a>5.3.4.2、基本原理</h4><p>MTR 基于 WAL（Write - Ahead Logging）预写式日志的原理。在对数据页进行修改之前，先将修改操作记录到日志文件中。这样，即使在修改数据页的过程中出现系统崩溃，也可以通过重新执行日志中的操作来恢复数据。</p>
+<blockquote>
+<p>mini-transaction是mysql内部的对底层page的一个原子操作，保证并发事务操作下以及数据库异常时page中数据的一致性。<br>一般来说在一个MTR中会做两个事情.</p>
+<ul>
+<li>写redolog</li>
+<li>挂载脏页到flush list.</li>
+</ul>
+<p>mini transaction 的信息保存在结构体 mtr_t 中，结构体成员描述详见前文，其中m_memo和m_log最为重要。</p>
+<ul>
+<li>m_memo：管理mtr持有的锁信息。对于持有的page锁，还要保留page指针，这是为了在commit时，将修改的脏页加入flush list中。</li>
+<li>m_log：保存mtr修改操作对应的redo日志。在commit时，将redo日志一起拷贝到log_sys模块的公共日志buffer中。</li>
+</ul>
+<p>mini-transaction和我们理解的数据库事务不是一个东西。从一致性来讲，数据库事务是保证多条语句操作的一致性，往往涉及到多个页的修改。而mini-transaction是单页数据一致性，是避免内存页的并发更新影响。当然数据库事务一致性实现也是建立在mini-transaction的基础上的。<br>所有对页的操作都要在mini_transaction中执行。</p>
+</blockquote>
+<h4 id="5-3-4-3、执行流程"><a href="#5-3-4-3、执行流程" class="headerlink" title="5.3.4.3、执行流程"></a>5.3.4.3、执行流程</h4><p><img src="/2020/08/13/2020-08-13-mysql-源码分析-insert流程/mtr_commit.png" alt="mtr_commit"><br>mtr_t::commit()</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">mtr.commit() ③</span><br><span class="line">mtr_t::Command::execute()</span><br><span class="line">  |--&gt; struct mtr_write_log_t&#123;operator()&#125; // 这里使用operator()重载运算符，通过迭代函数遍历blocks</span><br><span class="line">  |  |--&gt; log_buffer_write // 把redo单个block写入 redo log buffer. [见下文]</span><br><span class="line">  |  |--&gt; log_buffer_write_completed // log buffer已完成 [见下文]</span><br><span class="line">  |--&gt; log_buffer_reserve // 这里涉及到 用户线程和write flush线程的广播关系。[见下文]</span><br><span class="line">  |--&gt; add_dirty_blocks_to_flush_list // mtr中修改的blocks加到 buffer_pool 的flush_list; 迭代函数</span><br><span class="line">  |--&gt; log_buffer_close // 对应 log_buffer_reserve，log buffer 结束 [见下文]</span><br><span class="line">  |--&gt; release_all -&gt; memo_slot_release // 释放mtr的所有latch和lock; 迭代函数 [见下图latch和lock的枚举]</span><br><span class="line">  |  |--&gt; buf_page_release_latch/rw_lock_s_unlock/.. </span><br><span class="line">  |--&gt; release_resources // 清理一些对象信息</span><br></pre></td></tr></table></figure>
+
+<p><strong>log_buffer_write()</strong>： 每个redo block写入redo log buffer。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">log_buffer_write (log_t &amp;log, const byte *str,..) //之前还有很多逻辑，公共buffer以512字节对齐</span><br><span class="line">  |--&gt; byte *ptr = log.buf + (start_lsn % log.buf_size); //最后日志从mtr拷贝到RedoLog Buffer(公共buffer)</span><br><span class="line">  |--&gt; std::memcpy(ptr, str, len);</span><br></pre></td></tr></table></figure>
+
+<p><strong>log_buffer_reserve()</strong> ：这里调用 log_write_up_to 把write和flush的任务异步下发给 log_writer 和 log_flusher去完成，同时 初始化判断 writer 和 flush是否正确完成的条件condition函数，开启异步等待events[]，待 log writer 和 log flusher完成后，再唤醒 用户线程，继续后面的工作。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">log_buffer_reserve</span><br><span class="line">  |--&gt; log_buffer_s_lock_enter_reserve -&gt; log.sn.fetch_add(len) //更新sn增量redo长度</span><br><span class="line">  |--&gt; if (end_sn &gt; log.buf_limit_sn.load()) log buffer空间不足 </span><br><span class="line">  |  |--&gt; log_wait_for_space_after_reserving -&gt; log_wait_for_space_in_log_buf</span><br><span class="line">  |  |  |--&gt; log_write_up_to //用户线程触发 write/flush线程，以及异步等待返回结果。</span><br><span class="line">  |  |  |  |--&gt; log_wait_for_write </span><br><span class="line">  |  |  |  |--&gt; log_wait_for_flush</span><br></pre></td></tr></table></figure>
+
+<p><strong>log_buffer_write_completed()</strong>：主要作用是把 要写的redo 添加到 link buf ，并更新link buf，更新m_tail、write_lsn、current_lsn，后面在 【无锁并发写入】会进一步说明。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">log_buffer_write_completed</span><br><span class="line">  |--&gt; !while(log.recent_written.has_space()) </span><br><span class="line">  |  |--&gt; os_event_set(log.writer_event) // Redo没空间了，立即write page cache 来释放。</span><br><span class="line">  |--&gt; log.recent_written.add_link_advance_tail() // 更新写redo对应的 link buf [见下图]</span><br><span class="line">  |--&gt; os_event_set(log.closer_event) // 如果有线程在等待 flush_list 上的数据刷脏，广播closer_event</span><br></pre></td></tr></table></figure>
+
+<p><strong>log_buffer_close()</strong>: 这个函数，逻辑走到这里，用户线程 可以认为 write和flush 任务都已经下发， 可以去更新 脏页数据 在 flush list 上的情况，为刷脏 check point 做准备。同redo 并发写 page cache，可能存在空洞，大lsn脏页已经挂到 flush list了，小lsn的脏页还没有的情况。recent_closed.m_tail表示之前的lsn已经挂载到flush list。log_closer 线程负责不停检查，推进 m_tail。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">log_buffer_close</span><br><span class="line">  |--&gt; log_buffer_s_lock_exit_close</span><br><span class="line">  |  |--&gt; log.recent_closed.add_link_advance_tail()</span><br></pre></td></tr></table></figure>
+
+<p>mtr_commit源码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">*<span class="comment">/** Commit a mini-transaction. */</span>*</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">mtr_t::commit</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  ut_ad(is_active());</span><br><span class="line">  ut_ad(!is_inside_ibuf());</span><br><span class="line">  ut_ad(m_impl.m_magic_n == MTR_MAGIC_N);</span><br><span class="line">  m_impl.m_state = MTR_STATE_COMMITTING;</span><br><span class="line"></span><br><span class="line">  <span class="function">Command <span class="title">cmd</span><span class="params">(<span class="keyword">this</span>)</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (m_impl.m_n_log_recs &gt; <span class="number">0</span> ||</span><br><span class="line">      (m_impl.m_modifications &amp;&amp; m_impl.m_log_mode == MTR_LOG_NO_REDO)) &#123;</span><br><span class="line">    ut_ad(!srv_read_only_mode || m_impl.m_log_mode == MTR_LOG_NO_REDO);</span><br><span class="line"></span><br><span class="line">    cmd.execute();</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    cmd.release_all();</span><br><span class="line">    cmd.release_resources();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Command::execute<br>因此我们来看最终的执行方法 execute</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> <span class="keyword">mtr_t</span>::Command::execute() &#123;</span><br><span class="line">  ut_ad(m_impl-&gt;m_log_mode != MTR_LOG_NONE);</span><br><span class="line"></span><br><span class="line">  ulint len;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> UNIV_HOTBACKUP</span></span><br><span class="line">  len = prepare_write();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (len &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="keyword">mtr_write_log_t</span> write_log;</span><br><span class="line"></span><br><span class="line">    write_log.m_left_to_write = len;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> handle = log_buffer_reserve(*log_sys, len);</span><br><span class="line"></span><br><span class="line">    write_log.m_handle = handle;</span><br><span class="line">    write_log.m_lsn = handle.start_lsn;</span><br><span class="line">    write_log.m_rec_group_start_lsn = handle.start_lsn;</span><br><span class="line"></span><br><span class="line">    m_impl-&gt;m_log.for_each_block(write_log);</span><br><span class="line"></span><br><span class="line">    ut_ad(write_log.m_left_to_write == <span class="number">0</span>);</span><br><span class="line">    ut_ad(write_log.m_lsn == handle.end_lsn);</span><br><span class="line"></span><br><span class="line">    log_wait_for_space_in_log_recent_closed(*log_sys, handle.start_lsn);</span><br><span class="line"></span><br><span class="line">    DEBUG_SYNC_C(<span class="string">"mtr_redo_before_add_dirty_blocks"</span>);</span><br><span class="line"></span><br><span class="line">    add_dirty_blocks_to_flush_list(handle.start_lsn, handle.end_lsn);</span><br><span class="line"></span><br><span class="line">    log_buffer_close(*log_sys, handle);</span><br><span class="line"></span><br><span class="line">    m_impl-&gt;m_mtr-&gt;m_commit_lsn = handle.end_lsn;</span><br><span class="line"></span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    DEBUG_SYNC_C(<span class="string">"mtr_noredo_before_add_dirty_blocks"</span>);</span><br><span class="line"></span><br><span class="line">    add_dirty_blocks_to_flush_list(<span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">  &#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span> *<span class="comment">/* !UNIV_HOTBACKUP */</span>*</span></span><br><span class="line"></span><br><span class="line">  release_all();</span><br><span class="line">  release_resources();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="5-3-4-4、小结"><a href="#5-3-4-4、小结" class="headerlink" title="5.3.4.4、小结"></a>5.3.4.4、小结</h4><p>从上文的解析中，我们可以看到多次调用<code>mtr.commit()</code>，那多次调用有什么区别呢？</p>
+<p><font color="green"><strong>mtr.commit()源码中在插入索引数据时和事务二阶段的prepare时都会调用，都会写入redo log ? 两次调用的区别是什么？</strong></font></p>
+<h5 id="1-相同点：写入-redo-log"><a href="#1-相同点：写入-redo-log" class="headerlink" title="1. 相同点：写入 redo log"></a>1. 相同点：写入 redo log</h5><p>无论是插入索引数据时调用 mtr.commit()，还是在事务二阶段提交的 prepare 阶段调用，都会将相关操作产生的修改信息写入 redo log。这是为了保证操作的原子性、持久性和数据一致性。当系统崩溃时，可以利用 redo log 恢复到一致状态。</p>
+<h5 id="2-两次调用的区别"><a href="#2-两次调用的区别" class="headerlink" title="2. 两次调用的区别"></a>2. 两次调用的区别</h5><ol>
+<li>调用时机<br>插入索引数据时：插入索引数据时调用 mtr.commit() 是在对索引页完成一组相关修改操作之后。例如，在插入新的索引项、调整索引结构（如索引页分裂）等操作完成后，就会调用 mtr.commit() 来结束这个迷你事务（MTR），将修改记录到 redo log。这个过程通常是在事务执行过程中的某个中间步骤，可能会多次发生，具体取决于插入操作的复杂性和涉及的索引页数量。<br>事务二阶段提交的 prepare 阶段：在事务二阶段提交的 prepare 阶段调用 mtr.commit() 是在事务已经完成了对数据（包括索引和数据记录）的所有修改操作之后，并且在准备向事务协调器表明自身准备好提交事务之前。这是事务提交过程中的一个关键节点，用于确保事务的修改已经被安全记录。</li>
+<li>写入内容<br>插入索引数据时：主要记录的是插入索引数据过程中对索引页的修改信息。比如，新索引项的插入位置、索引页的指针调整、键值的更新等。这些信息仅与索引结构的变化相关，用于在系统崩溃时恢复索引数据的一致性。<br>事务二阶段提交的 prepare 阶段：写入的内容更加全面，除了包含事务执行过程中对索引页的修改信息外，还包括对数据记录页的修改信息，如数据的插入、更新和删除操作。此外，还会记录事务的状态信息，将事务标记为 “准备提交（Prepared）” 状态，以便在后续的提交或回滚操作中使用。</li>
+<li>操作目的<br>插入索引数据时：目的是保证插入索引数据操作的原子性和持久性。通过将索引页的修改记录到 redo log，确保在系统崩溃时可以恢复到插入操作完成后的状态，避免索引数据出现不一致的情况。<br>事务二阶段提交的 prepare 阶段：目的是为整个事务的提交做准备，确保事务的所有修改操作都已经被持久化记录。在这个阶段，所有参与事务的资源管理器都需要完成 mtr.commit() 操作，将相关修改写入 redo log 并刷盘，以向事务协调器表明自己准备好提交事务，为后续的提交阶段奠定基础。</li>
+<li>后续操作<br>插入索引数据时：在 mtr.commit() 调用完成后，事务可能会继续进行其他操作，如插入更多的索引数据、修改数据记录等。后续的操作会开启新的 MTR 并重复类似的过程。<br>事务二阶段提交的 prepare 阶段：在 mtr.commit() 调用完成后，资源管理器会向事务协调器发送 “准备好提交（Ready to Commit）” 的消息。事务协调器会根据所有资源管理器的反馈来决定是否进入提交阶段。如果所有资源管理器都准备好，事务协调器会发起提交指令；如果有任何一个资源管理器无法准备好，事务协调器会发起回滚指令。<br>综上所述，虽然 mtr.commit() 在插入索引数据时和事务二阶段提交的 prepare 阶段都会写入 redo log，但它们在调用时机、写入内容、操作目的和后续操作等方面存在明显的区别。</li>
+</ol>
+<h3 id="5-3-5、事务提交小结"><a href="#5-3-5、事务提交小结" class="headerlink" title="5.3.5、事务提交小结"></a>5.3.5、事务提交小结</h3><p>由Binlog担任协调者的XA事务处理过程:<br><img src="/2020/08/13/2020-08-13-mysql-源码分析-insert流程/Binlog%E6%8B%85%E4%BB%BB%E5%8D%8F%E8%B0%83%E8%80%85%E7%9A%84XA%E4%BA%8B%E5%8A%A1%E5%A4%84%E7%90%86%E8%BF%87%E7%A8%8B.png" alt="Binlog担任协调者的XA事务处理过程"></p>
+<p><img src="/2020/08/13/2020-08-13-mysql-源码分析-insert流程/%E6%9B%B4%E6%96%B0%E6%80%BB%E7%BB%93.png" alt="更新总结"></p>
+<p>参考文章：<br><a href="https://www.cnblogs.com/juanmaofeifei/p/16111523.html" target="_blank" rel="noopener">MySQL启动过程详解二：核心模块启动 init_server_components()</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16129144.html" target="_blank" rel="noopener">MySQL启动过程详解三：Innodb存储引擎的启动</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16146201.html" target="_blank" rel="noopener">MySQL连接的建立与使用</a><br><a href="http://ilongda.com/knowledge/mysql/source_code_reading/server/connection.html" target="_blank" rel="noopener">MySQL 源码解读 – 连接管理</a><br><a href="https://www.aneasystone.com/archives/2018/06/insert-locks-via-mysql-source-code.html" target="_blank" rel="noopener">读 MySQL 源码再看 INSERT 加锁流程</a><br><a href="https://www.ctyun.cn/developer/article/403942519849029" target="_blank" rel="noopener">MySQL二阶段提交及组提交简析</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16040614.html" target="_blank" rel="noopener">MySQL事务提交流程详解</a><br><a href="https://opensource.actionsky.com/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-mysql-%E7%9A%84-commit-%E6%98%AF%E6%80%8E%E4%B9%88-commit-%E7%9A%84%EF%BC%9F/" target="_blank" rel="noopener">源码分析 | MySQL 的 commit 是怎么 commit 的？</a><br><a href="https://blog.csdn.net/bohu83/article/details/82903976" target="_blank" rel="noopener">MySQL · 源码分析 · 一条insert语句的执行过程</a><br><a href="https://zhuanlan.zhihu.com/p/451690418" target="_blank" rel="noopener">MySQL 引擎特性 · InnoDB Redo Log 解析</a><br><a href="http://mysql.taobao.org/monthly/2017/09/10/" target="_blank" rel="noopener">MySQL · 源码分析 · 一条insert语句的执行过程</a><br><a href="http://mysql.taobao.org/monthly/2021/09/04/" target="_blank" rel="noopener">MySQL · 源码详解 · mini transaction详解</a><br><a href="http://mysql.taobao.org/monthly/2019/03/03/" target="_blank" rel="noopener">MySQL · InnoDB · Redo log</a><br><a href="https://www.pagefault.info/2019/04/18/mtr-minitransaction-design-and-implementation.html" target="_blank" rel="noopener">MTR(mini-transaction)设计与实现</a></p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2020/08/11/2020-08-11-mysql-源码分析/" rel="next" title="《mysql》源码分析">
+                <i class="fa fa-chevron-left"></i> 《mysql》源码分析
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2020/08/16/2020-08-16-mysql-日志/" rel="prev" title="《mysql》日志">
+                《mysql》日志 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/touxiang.jpg" alt="chw">
+            
+              <p class="site-author-name" itemprop="name">chw</p>
+              <p class="site-description motion-element" itemprop="description">do somthing</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">121</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">90</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">26</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、mysql"><span class="nav-text">一、mysql</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、源码架构图"><span class="nav-text">二、源码架构图</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1、源码结构"><span class="nav-text">2.1、源码结构</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、一条Insert语句的执行过程"><span class="nav-text">三、一条Insert语句的执行过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1、-解析SQL"><span class="nav-text">5.1、 解析SQL</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-2、执行Insert语句"><span class="nav-text">5.2、执行Insert语句</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-1、innodb执行插入"><span class="nav-text">5.2.1、innodb执行插入</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#5-2-1-1、插入索引记录"><span class="nav-text">5.2.1.1、插入索引记录</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-聚合索引-Insert-Record流程"><span class="nav-text">1. 聚合索引 Insert Record流程</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-提交mini-transaction"><span class="nav-text">2. 提交mini transaction</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-3、事务提交"><span class="nav-text">5.3、事务提交</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-1、事务提交总流程"><span class="nav-text">5.3.1、事务提交总流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-2、Prepare-阶段"><span class="nav-text">5.3.2、Prepare 阶段</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#第一步：Binlog-Prepare"><span class="nav-text">第一步：Binlog Prepare</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#第二步：InnoDB-Prepare"><span class="nav-text">第二步：InnoDB Prepare</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-3、Commit-阶段"><span class="nav-text">5.3.3、Commit 阶段</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#5-3-3-1、逻辑分析"><span class="nav-text">5.3.3.1、逻辑分析</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Stage-0-阶段"><span class="nav-text">Stage 0 阶段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Flush-子阶段"><span class="nav-text">Flush 子阶段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Sync-子阶段"><span class="nav-text">Sync 子阶段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Commit-子阶段"><span class="nav-text">Commit 子阶段</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-3-3-2、源码分析"><span class="nav-text">5.3.3.2、源码分析</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Flush-阶段"><span class="nav-text">Flush 阶段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#SYNC-阶段"><span class="nav-text">SYNC 阶段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#COMMIT-阶段"><span class="nav-text">COMMIT 阶段</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-3-3-3、commit阶段小结"><span class="nav-text">5.3.3.3、commit阶段小结</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-4、mtr-t-commit"><span class="nav-text">5.3.4、mtr_t::commit()</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#5-3-4-1、如何使用？"><span class="nav-text">5.3.4.1、如何使用？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-3-4-2、基本原理"><span class="nav-text">5.3.4.2、基本原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-3-4-3、执行流程"><span class="nav-text">5.3.4.3、执行流程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-3-4-4、小结"><span class="nav-text">5.3.4.4、小结</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-相同点：写入-redo-log"><span class="nav-text">1. 相同点：写入 redo log</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-两次调用的区别"><span class="nav-text">2. 两次调用的区别</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-5、事务提交小结"><span class="nav-text">5.3.5、事务提交小结</span></a></li></ol></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+
+
+       <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+ 
+
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv">
+      <i class="fa fa-user"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_uv"></span>
+      
+    </span>
+  
+
+  
+    <span class="site-pv">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+      
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

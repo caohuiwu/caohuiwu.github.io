@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Hexo, NexT">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="这是“mysql”系列的第四篇文章，主要介绍的是部分源码。一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta name="keywords" content="java">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《mysql》源码分析">
+<meta property="og:url" content="http://yoursite.com/2020/08/11/2020-08-11-mysql-源码分析/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“mysql”系列的第四篇文章，主要介绍的是部分源码。一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="http://yoursite.com/2020/08/11/2020-08-11-mysql-源码分析/%E5%9F%BA%E6%9C%AC%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/11/2020-08-11-mysql-源码分析/%E6%BA%90%E7%A0%81%E6%9E%B6%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/11/2020-08-11-mysql-源码分析/%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/11/2020-08-11-mysql-源码分析/%E8%AF%B7%E6%B1%82%E8%B0%83%E7%94%A8%E5%A0%86%E6%A0%88.png">
+<meta property="og:updated_time" content="2025-02-19T07:03:43.438Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="《mysql》源码分析">
+<meta name="twitter:description" content="这是“mysql”系列的第四篇文章，主要介绍的是部分源码。一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta name="twitter:image" content="http://yoursite.com/2020/08/11/2020-08-11-mysql-源码分析/%E5%9F%BA%E6%9C%AC%E7%BB%93%E6%9E%84.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2020/08/11/2020-08-11-mysql-源码分析/">
+
+
+
+
+
+  <title>《mysql》源码分析 | CHW's Notes</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">CHW's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-fa fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/08/11/2020-08-11-mysql-源码分析/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/touxiang.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">《mysql》源码分析</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-08-11T18:19:31+08:00">
+                2020-08-11
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/" itemprop="url" rel="index">
+                    <span itemprop="name">数据库</span>
+                  </a>
+                </span>
+
+                
+                
+                  ， 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/mysql/" itemprop="url" rel="index">
+                    <span itemprop="name">mysql</span>
+                  </a>
+                </span>
+
+                
+                
+                  ， 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/mysql/源码/" itemprop="url" rel="index">
+                    <span itemprop="name">源码</span>
+                  </a>
+                </span>
+
+                
+                
+                  ， 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/mysql/源码/启动流程/" itemprop="url" rel="index">
+                    <span itemprop="name">启动流程</span>
+                  </a>
+                </span>
+
+                
+                
+                  ， 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/mysql/源码/连接处理/" itemprop="url" rel="index">
+                    <span itemprop="name">连接处理</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="page-pv">阅读数
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  5.4k
+                </span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">
+                  27
+                </span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <pre><code>这是“mysql”系列的第四篇文章，主要介绍的是部分源码。</code></pre><h1 id="一、mysql"><a href="#一、mysql" class="headerlink" title="一、mysql"></a>一、mysql</h1><p><code>MySQL</code> 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）</p>
+<a id="more"></a>
+<p>基本结构：<br><img src="/2020/08/11/2020-08-11-mysql-源码分析/%E5%9F%BA%E6%9C%AC%E7%BB%93%E6%9E%84.png" alt="基本结构"></p>
+<h1 id="二、源码架构图"><a href="#二、源码架构图" class="headerlink" title="二、源码架构图"></a>二、源码架构图</h1><p>首先看一下MySQL的源码架构图，主要可以分成三层。<br><img src="/2020/08/11/2020-08-11-mysql-源码分析/%E6%BA%90%E7%A0%81%E6%9E%B6%E6%9E%84.png" alt="源码架构"></p>
+<h2 id="2-1、源码结构"><a href="#2-1、源码结构" class="headerlink" title="2.1、源码结构"></a>2.1、源码结构</h2><p>下面是8.0.41版本的源码结构图：<br><img src="/2020/08/11/2020-08-11-mysql-源码分析/%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84%E5%9B%BE.png" alt="源码结构图"><br>MySql其实就两大块，一块是MySql Server层，一块就是Storage Engines层。</p>
+<ul>
+<li><strong>&lt;1&gt; Client</strong><br>不同语言的sdk遵守mysql协议就可以与mysqld进行互通。</li>
+<li><strong>&lt;2&gt; Connection/Thread Pool</strong><br>MySql使用C++编写，Connection是非常宝贵的，在初始化的时候维护一个池。</li>
+<li><strong>&lt;3&gt; SqlInterface,Parse,Optimizer,Cache</strong><br>对sql处理，解析，优化，缓存等处理和过滤模块，了解了解即可。</li>
+<li><strong>&lt;4&gt; Storage Engines</strong><br>负责存储的模块，官方，第三方，甚至是你自己都可以自定义实现这个数据存储，这就把生态做起来了，🐮👃。</li>
+</ul>
+<h1 id="三、源码分析"><a href="#三、源码分析" class="headerlink" title="三、源码分析"></a>三、源码分析</h1><h2 id="3-1、入口函数：main-gt-mysald-main"><a href="#3-1、入口函数：main-gt-mysald-main" class="headerlink" title="3.1、入口函数：main() -&gt; mysald_main()"></a>3.1、入口函数：main() -&gt; mysald_main()</h2><p>MySQL的启动入口是main()函数（位于sql/main.cc），但实际逻辑由<code>mysqld_main</code>函数（位于<code>sql/main.cc</code>）实现。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/main.cc</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> **argv)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">return</span> mysqld_main(argc, argv);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-2、初始化全局环境"><a href="#3-2、初始化全局环境" class="headerlink" title="3.2、初始化全局环境"></a>3.2、初始化全局环境</h2><p>在<code>mysqld_main</code> 函数中，首先进行全局初始化</p>
+<h3 id="3-2-1、基础初始化：my-init"><a href="#3-2-1、基础初始化：my-init" class="headerlink" title="3.2.1、基础初始化：my_init()"></a>3.2.1、基础初始化：my_init()</h3><ul>
+<li>初始化内存分配、线程库、信号处理等。</li>
+<li>设置程序名称和错误处理。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/mysqld.cc</span></span><br><span class="line">my_init(argv[<span class="number">0</span>]);<span class="comment">//初始化全局环境</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-2、加载配置：load-defaults"><a href="#3-2-2、加载配置：load-defaults" class="headerlink" title="3.2.2、加载配置：load_defaults()"></a>3.2.2、加载配置：load_defaults()</h3><ul>
+<li>解析命令行参数和配置文件（如my.cnf）。</li>
+<li>合并默认配置和用户自定义配置。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//加载配置文件（如my.cnf）</span></span><br><span class="line"><span class="keyword">if</span> (load_defaults(<span class="string">"my"</span>, load_default_groups, &amp;argc, &amp;argv) &#123;</span><br><span class="line">   <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//处理命令行参数</span></span><br><span class="line">handle_options(&amp;argc, &amp;argv, my_long_options, mysqld_get_one_option);</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-3、核心子系统初始化"><a href="#3-3、核心子系统初始化" class="headerlink" title="3.3、核心子系统初始化"></a>3.3、核心子系统初始化</h2><p>MySQL启动的核心在于初始化各个子系统，确保服务组件就绪</p>
+<details style="background-color: #dbdbdb;padding: 10px;">
+<summary><strong> > init_server_components源码</strong> (点击展开)</summary>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br><span class="line">240</span><br><span class="line">241</span><br><span class="line">242</span><br><span class="line">243</span><br><span class="line">244</span><br><span class="line">245</span><br><span class="line">246</span><br><span class="line">247</span><br><span class="line">248</span><br><span class="line">249</span><br><span class="line">250</span><br><span class="line">251</span><br><span class="line">252</span><br><span class="line">253</span><br><span class="line">254</span><br><span class="line">255</span><br><span class="line">256</span><br><span class="line">257</span><br><span class="line">258</span><br><span class="line">259</span><br><span class="line">260</span><br><span class="line">261</span><br><span class="line">262</span><br><span class="line">263</span><br><span class="line">264</span><br><span class="line">265</span><br><span class="line">266</span><br><span class="line">267</span><br><span class="line">268</span><br><span class="line">269</span><br><span class="line">270</span><br><span class="line">271</span><br><span class="line">272</span><br><span class="line">273</span><br><span class="line">274</span><br><span class="line">275</span><br><span class="line">276</span><br><span class="line">277</span><br><span class="line">278</span><br><span class="line">279</span><br><span class="line">280</span><br><span class="line">281</span><br><span class="line">282</span><br><span class="line">283</span><br><span class="line">284</span><br><span class="line">285</span><br><span class="line">286</span><br><span class="line">287</span><br><span class="line">288</span><br><span class="line">289</span><br><span class="line">290</span><br><span class="line">291</span><br><span class="line">292</span><br><span class="line">293</span><br><span class="line">294</span><br><span class="line">295</span><br><span class="line">296</span><br><span class="line">297</span><br><span class="line">298</span><br><span class="line">299</span><br><span class="line">300</span><br><span class="line">301</span><br><span class="line">302</span><br><span class="line">303</span><br><span class="line">304</span><br><span class="line">305</span><br><span class="line">306</span><br><span class="line">307</span><br><span class="line">308</span><br><span class="line">309</span><br><span class="line">310</span><br><span class="line">311</span><br><span class="line">312</span><br><span class="line">313</span><br><span class="line">314</span><br><span class="line">315</span><br><span class="line">316</span><br><span class="line">317</span><br><span class="line">318</span><br><span class="line">319</span><br><span class="line">320</span><br><span class="line">321</span><br><span class="line">322</span><br><span class="line">323</span><br><span class="line">324</span><br><span class="line">325</span><br><span class="line">326</span><br><span class="line">327</span><br><span class="line">328</span><br><span class="line">329</span><br><span class="line">330</span><br><span class="line">331</span><br><span class="line">332</span><br><span class="line">333</span><br><span class="line">334</span><br><span class="line">335</span><br><span class="line">336</span><br><span class="line">337</span><br><span class="line">338</span><br><span class="line">339</span><br><span class="line">340</span><br><span class="line">341</span><br><span class="line">342</span><br><span class="line">343</span><br><span class="line">344</span><br><span class="line">345</span><br><span class="line">346</span><br><span class="line">347</span><br><span class="line">348</span><br><span class="line">349</span><br><span class="line">350</span><br><span class="line">351</span><br><span class="line">352</span><br><span class="line">353</span><br><span class="line">354</span><br><span class="line">355</span><br><span class="line">356</span><br><span class="line">357</span><br><span class="line">358</span><br><span class="line">359</span><br><span class="line">360</span><br><span class="line">361</span><br><span class="line">362</span><br><span class="line">363</span><br><span class="line">364</span><br><span class="line">365</span><br><span class="line">366</span><br><span class="line">367</span><br><span class="line">368</span><br><span class="line">369</span><br><span class="line">370</span><br><span class="line">371</span><br><span class="line">372</span><br><span class="line">373</span><br><span class="line">374</span><br><span class="line">375</span><br><span class="line">376</span><br><span class="line">377</span><br><span class="line">378</span><br><span class="line">379</span><br><span class="line">380</span><br><span class="line">381</span><br><span class="line">382</span><br><span class="line">383</span><br><span class="line">384</span><br><span class="line">385</span><br><span class="line">386</span><br><span class="line">387</span><br><span class="line">388</span><br><span class="line">389</span><br><span class="line">390</span><br><span class="line">391</span><br><span class="line">392</span><br><span class="line">393</span><br><span class="line">394</span><br><span class="line">395</span><br><span class="line">396</span><br><span class="line">397</span><br><span class="line">398</span><br><span class="line">399</span><br><span class="line">400</span><br><span class="line">401</span><br><span class="line">402</span><br><span class="line">403</span><br><span class="line">404</span><br><span class="line">405</span><br><span class="line">406</span><br><span class="line">407</span><br><span class="line">408</span><br><span class="line">409</span><br><span class="line">410</span><br><span class="line">411</span><br><span class="line">412</span><br><span class="line">413</span><br><span class="line">414</span><br><span class="line">415</span><br><span class="line">416</span><br><span class="line">417</span><br><span class="line">418</span><br><span class="line">419</span><br><span class="line">420</span><br><span class="line">421</span><br><span class="line">422</span><br><span class="line">423</span><br><span class="line">424</span><br><span class="line">425</span><br><span class="line">426</span><br><span class="line">427</span><br><span class="line">428</span><br><span class="line">429</span><br><span class="line">430</span><br><span class="line">431</span><br><span class="line">432</span><br><span class="line">433</span><br><span class="line">434</span><br><span class="line">435</span><br><span class="line">436</span><br><span class="line">437</span><br><span class="line">438</span><br><span class="line">439</span><br><span class="line">440</span><br><span class="line">441</span><br><span class="line">442</span><br><span class="line">443</span><br><span class="line">444</span><br><span class="line">445</span><br><span class="line">446</span><br><span class="line">447</span><br><span class="line">448</span><br><span class="line">449</span><br><span class="line">450</span><br><span class="line">451</span><br><span class="line">452</span><br><span class="line">453</span><br><span class="line">454</span><br><span class="line">455</span><br><span class="line">456</span><br><span class="line">457</span><br><span class="line">458</span><br><span class="line">459</span><br><span class="line">460</span><br><span class="line">461</span><br><span class="line">462</span><br><span class="line">463</span><br><span class="line">464</span><br><span class="line">465</span><br><span class="line">466</span><br><span class="line">467</span><br><span class="line">468</span><br><span class="line">469</span><br><span class="line">470</span><br><span class="line">471</span><br><span class="line">472</span><br><span class="line">473</span><br><span class="line">474</span><br><span class="line">475</span><br><span class="line">476</span><br><span class="line">477</span><br><span class="line">478</span><br><span class="line">479</span><br><span class="line">480</span><br><span class="line">481</span><br><span class="line">482</span><br><span class="line">483</span><br><span class="line">484</span><br><span class="line">485</span><br><span class="line">486</span><br><span class="line">487</span><br><span class="line">488</span><br><span class="line">489</span><br><span class="line">490</span><br><span class="line">491</span><br><span class="line">492</span><br><span class="line">493</span><br><span class="line">494</span><br><span class="line">495</span><br><span class="line">496</span><br><span class="line">497</span><br><span class="line">498</span><br><span class="line">499</span><br><span class="line">500</span><br><span class="line">501</span><br><span class="line">502</span><br><span class="line">503</span><br><span class="line">504</span><br><span class="line">505</span><br><span class="line">506</span><br><span class="line">507</span><br><span class="line">508</span><br><span class="line">509</span><br><span class="line">510</span><br><span class="line">511</span><br><span class="line">512</span><br><span class="line">513</span><br><span class="line">514</span><br><span class="line">515</span><br><span class="line">516</span><br><span class="line">517</span><br><span class="line">518</span><br><span class="line">519</span><br><span class="line">520</span><br><span class="line">521</span><br><span class="line">522</span><br><span class="line">523</span><br><span class="line">524</span><br><span class="line">525</span><br><span class="line">526</span><br><span class="line">527</span><br><span class="line">528</span><br><span class="line">529</span><br><span class="line">530</span><br><span class="line">531</span><br><span class="line">532</span><br><span class="line">533</span><br><span class="line">534</span><br><span class="line">535</span><br><span class="line">536</span><br><span class="line">537</span><br><span class="line">538</span><br><span class="line">539</span><br><span class="line">540</span><br><span class="line">541</span><br><span class="line">542</span><br><span class="line">543</span><br><span class="line">544</span><br><span class="line">545</span><br><span class="line">546</span><br><span class="line">547</span><br><span class="line">548</span><br><span class="line">549</span><br><span class="line">550</span><br><span class="line">551</span><br><span class="line">552</span><br><span class="line">553</span><br><span class="line">554</span><br><span class="line">555</span><br><span class="line">556</span><br><span class="line">557</span><br><span class="line">558</span><br><span class="line">559</span><br><span class="line">560</span><br><span class="line">561</span><br><span class="line">562</span><br><span class="line">563</span><br><span class="line">564</span><br><span class="line">565</span><br><span class="line">566</span><br><span class="line">567</span><br><span class="line">568</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">* 核心模块</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">init_server_components</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  DBUG_ENTER(<span class="string">"init_server_components"</span>);</span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    We need to call each of these following functions to ensure that</span></span><br><span class="line"><span class="comment">    all things are initialized so that unireg_abort() doesn't fail</span></span><br><span class="line"><span class="comment">    需要调用以下每个函数来确保所有内容都已初始化</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="comment">// 初始化 mdl 子系统。特别是, 初始化新的全局变量锁和相关的条件变量: LOCK_mdl 和 COND_mdl。</span></span><br><span class="line">  mdl_init();</span><br><span class="line">  <span class="comment">// 初始化 partitioning, 当前只有 PSI Keys。</span></span><br><span class="line">  partitioning_init();</span><br><span class="line">  <span class="comment">// 初始化 table definition cache hash表 和 hostname cache hash表</span></span><br><span class="line">  <span class="keyword">if</span> (table_def_init() | hostname_cache_init(host_cache_size))</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  <span class="comment">// 初始化 timer 组件</span></span><br><span class="line">  <span class="keyword">if</span> (my_timer_initialize())</span><br><span class="line">    sql_print_error(<span class="string">"Failed to initialize timer component (errno %d)."</span>, errno);</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    have_statement_timeout = SHOW_OPTION_YES;</span><br><span class="line">  <span class="comment">// 初始化 query cache</span></span><br><span class="line">  init_server_query_cache();</span><br><span class="line">  <span class="comment">// 随机数模块初始化</span></span><br><span class="line">  randominit(&amp;sql_rand, (ulong)server_start_time, (ulong)server_start_time / <span class="number">2</span>);</span><br><span class="line">  <span class="comment">// 浮点运算器</span></span><br><span class="line">  setup_fpu();</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> HAVE_REPLICATION</span></span><br><span class="line">  <span class="comment">// 初始化 slave list</span></span><br><span class="line">  init_slave_list();</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"> </span><br><span class="line">  <span class="comment">/* Setup logs */</span></span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Enable old-fashioned error log, except when the user has requested</span></span><br><span class="line"><span class="comment">    help information. Since the implementation of plugin server</span></span><br><span class="line"><span class="comment">    variables the help output is now written much later.</span></span><br><span class="line"><span class="comment"> </span></span><br><span class="line"><span class="comment">    log_error_dest can be:</span></span><br><span class="line"><span class="comment">    disabled_my_option     --log-error was not used or --log-error=</span></span><br><span class="line"><span class="comment">    ""                     --log-error without arguments (no '=')</span></span><br><span class="line"><span class="comment">    filename               --log-error=filename</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> _WIN32</span></span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Enable the error log file only if console option is not specified</span></span><br><span class="line"><span class="comment">    and --help is not used.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">bool</span> log_errors_to_file = !opt_help &amp;&amp; !opt_console;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">else</span></span></span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Enable the error log file only if --log-error=filename or --log-error</span></span><br><span class="line"><span class="comment">    was used. Logging to file is disabled by default unlike on Windows.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="comment">// 是否启用 error log</span></span><br><span class="line">  <span class="keyword">bool</span> log_errors_to_file = !opt_help &amp;&amp; (log_error_dest != disabled_my_option);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">  <span class="comment">// 启用 error log</span></span><br><span class="line">  <span class="keyword">if</span> (log_errors_to_file)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">// Construct filename if no filename was given by the user.</span></span><br><span class="line">    <span class="comment">// 如果 没有指定 error log filename, 则自动生成</span></span><br><span class="line">    <span class="keyword">if</span> (!log_error_dest[<span class="number">0</span>] || log_error_dest == disabled_my_option)</span><br><span class="line">      fn_format(errorlog_filename_buff, pidfile_name, mysql_data_home, <span class="string">".err"</span>,</span><br><span class="line">                MY_REPLACE_EXT); <span class="comment">/* replace '.&lt;domain&gt;' by '.err', bug#4997 */</span></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">      fn_format(errorlog_filename_buff, log_error_dest, mysql_data_home, <span class="string">".err"</span>,</span><br><span class="line">                MY_UNPACK_FILENAME);</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      log_error_dest may have been set to disabled_my_option or "" if no</span></span><br><span class="line"><span class="comment">      argument was passed, but we need to show the real name in SHOW VARIABLES.</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    log_error_dest = errorlog_filename_buff;</span><br><span class="line">    <span class="comment">// open error log</span></span><br><span class="line">    <span class="keyword">if</span> (open_error_log(errorlog_filename_buff, <span class="literal">false</span>))</span><br><span class="line">      unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">// We are logging to stderr and SHOW VARIABLES should reflect that.</span></span><br><span class="line">    <span class="comment">// 记录 error log 到 stderr</span></span><br><span class="line">    log_error_dest = <span class="string">"stderr"</span>;</span><br><span class="line">    <span class="comment">// Flush messages buffered so far.</span></span><br><span class="line">    flush_error_log_messages();</span><br><span class="line">  &#125;</span><br><span class="line">    </span><br><span class="line">  enter_cond_hook = thd_enter_cond;</span><br><span class="line">  exit_cond_hook = thd_exit_cond;</span><br><span class="line">  is_killed_hook = (<span class="keyword">int</span> (*)(<span class="keyword">const</span> <span class="keyword">void</span> *))thd_killed;</span><br><span class="line">  <span class="comment">// transaction_cache init</span></span><br><span class="line">  <span class="keyword">if</span> (transaction_cache_init())</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"Out of memory"</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    initialize delegates for extension observers, errors have already</span></span><br><span class="line"><span class="comment">    been reported in the function</span></span><br><span class="line"><span class="comment">    初始化各种 xxx_delegate 类型的指针, 为他们分配对象, 对动态插件的支持</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> (delegates_init())</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/* need to configure logging before initializing storage engines</span></span><br><span class="line"><span class="comment">     在初始化 storage engines 之前需要配置 binlog.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> (opt_log_slave_updates &amp;&amp; !opt_bin_log)</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_warning(<span class="string">"You need to use --log-bin to make "</span></span><br><span class="line">                      <span class="string">"--log-slave-updates work."</span>);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (binlog_format_used &amp;&amp; !opt_bin_log)</span><br><span class="line">    sql_print_warning(<span class="string">"You need to use --log-bin to make "</span></span><br><span class="line">                      <span class="string">"--binlog-format work."</span>);</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/* Check that we have not let the format to unspecified at this point */</span></span><br><span class="line">  assert((uint)global_system_variables.binlog_format &lt;=</span><br><span class="line">         array_elements(binlog_format_names) - <span class="number">1</span>);</span><br><span class="line"> </span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> HAVE_REPLICATION</span></span><br><span class="line">  <span class="comment">// replicate_same_server_id</span></span><br><span class="line">  <span class="keyword">if</span> (opt_log_slave_updates &amp;&amp; replicate_same_server_id)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">if</span> (opt_bin_log)</span><br><span class="line">    &#123;</span><br><span class="line">      sql_print_error(<span class="string">"using --replicate-same-server-id in conjunction with \</span></span><br><span class="line"><span class="string">--log-slave-updates is impossible, it would lead to infinite loops in this \</span></span><br><span class="line"><span class="string">server."</span>);</span><br><span class="line">      unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">      sql_print_warning(<span class="string">"using --replicate-same-server-id in conjunction with \</span></span><br><span class="line"><span class="string">--log-slave-updates would lead to infinite loops in this server. However this \</span></span><br><span class="line"><span class="string">will be ignored as the --log-bin option is not defined."</span>);</span><br><span class="line">  &#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"> </span><br><span class="line">  opt_server_id_mask = ~ulong(<span class="number">0</span>);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> HAVE_REPLICATION</span></span><br><span class="line">  <span class="comment">// 检查 serverid 超长</span></span><br><span class="line">  opt_server_id_mask = (opt_server_id_bits == <span class="number">32</span>) ? ~ulong(<span class="number">0</span>) : (<span class="number">1</span> &lt;&lt; opt_server_id_bits) - <span class="number">1</span>;</span><br><span class="line">  <span class="keyword">if</span> (server_id != (server_id &amp; opt_server_id_mask))</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"server-id configured is too large to represent with"</span></span><br><span class="line">                    <span class="string">"server-id-bits configured."</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">  <span class="comment">//</span></span><br><span class="line">  <span class="keyword">if</span> (opt_bin_log)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">/* Reports an error and aborts, if the --log-bin's path</span></span><br><span class="line"><span class="comment">       is a directory.</span></span><br><span class="line"><span class="comment">       --log-bin 指向一个目录</span></span><br><span class="line"><span class="comment">       */</span></span><br><span class="line">    <span class="keyword">if</span> (opt_bin_logname &amp;&amp;</span><br><span class="line">        opt_bin_logname[<span class="built_in">strlen</span>(opt_bin_logname) - <span class="number">1</span>] == FN_LIBCHAR)</span><br><span class="line">    &#123;</span><br><span class="line">      sql_print_error(<span class="string">"Path '%s' is a directory name, please specify \</span></span><br><span class="line"><span class="string">a file name for --log-bin option"</span>,</span><br><span class="line">                      opt_bin_logname);</span><br><span class="line">      unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">    &#125;</span><br><span class="line"> </span><br><span class="line">    <span class="comment">/* Reports an error and aborts, if the --log-bin-index's path</span></span><br><span class="line"><span class="comment">       is a directory.</span></span><br><span class="line"><span class="comment">       --log-bin-index 指向一个目录</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">if</span> (opt_binlog_index_name &amp;&amp;</span><br><span class="line">        opt_binlog_index_name[<span class="built_in">strlen</span>(opt_binlog_index_name) - <span class="number">1</span>] == FN_LIBCHAR)</span><br><span class="line">    &#123;</span><br><span class="line">      sql_print_error(<span class="string">"Path '%s' is a directory name, please specify \</span></span><br><span class="line"><span class="string">a file name for --log-bin-index option"</span>,</span><br><span class="line">                      opt_binlog_index_name);</span><br><span class="line">      unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">    &#125;</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">char</span> buf[FN_REFLEN];</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">char</span> *ln;</span><br><span class="line">    ln = mysql_bin_log.generate_name(opt_bin_logname, <span class="string">"-bin"</span>, buf);</span><br><span class="line">    <span class="keyword">if</span> (!opt_bin_logname &amp;&amp; !opt_binlog_index_name)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="comment">/*</span></span><br><span class="line"><span class="comment">        User didn't give us info to name the binlog index file.</span></span><br><span class="line"><span class="comment">        Picking `hostname`-bin.index like did in 4.x, causes replication to</span></span><br><span class="line"><span class="comment">        fail if the hostname is changed later. So, we would like to instead</span></span><br><span class="line"><span class="comment">        require a name. But as we don't want to break many existing setups, we</span></span><br><span class="line"><span class="comment">        only give warning, not error.</span></span><br><span class="line"><span class="comment">      */</span></span><br><span class="line">      sql_print_warning(<span class="string">"No argument was provided to --log-bin, and "</span></span><br><span class="line">                        <span class="string">"--log-bin-index was not used; so replication "</span></span><br><span class="line">                        <span class="string">"may break when this MySQL server acts as a "</span></span><br><span class="line">                        <span class="string">"master and has his hostname changed!! Please "</span></span><br><span class="line">                        <span class="string">"use '--log-bin=%s' to avoid this problem."</span>,</span><br><span class="line">                        ln);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (ln == buf)</span><br><span class="line">    &#123;</span><br><span class="line">      my_free(opt_bin_logname);</span><br><span class="line">      opt_bin_logname = my_strdup(key_memory_opt_bin_logname,</span><br><span class="line">                                  buf, MYF(<span class="number">0</span>));</span><br><span class="line">    &#125;</span><br><span class="line"> </span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      Skip opening the index file if we start with --help. This is necessary</span></span><br><span class="line"><span class="comment">      to avoid creating the file in an otherwise empty datadir, which will</span></span><br><span class="line"><span class="comment">      cause a succeeding 'mysqld --initialize' to fail.</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">if</span> (!opt_help &amp;&amp; mysql_bin_log.open_index_file(opt_binlog_index_name, ln, TRUE))</span><br><span class="line">    &#123;</span><br><span class="line">      unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (opt_bin_log)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      opt_bin_logname[0] needs to be checked to make sure opt binlog name is</span></span><br><span class="line"><span class="comment">      not an empty string, incase it is an empty string default file</span></span><br><span class="line"><span class="comment">      extension will be passed</span></span><br><span class="line"><span class="comment">      log_bin basename 和 log_bin index 检查</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    log_bin_basename =</span><br><span class="line">        rpl_make_log_name(key_memory_MYSQL_BIN_LOG_basename,</span><br><span class="line">                          opt_bin_logname, default_logfile_name,</span><br><span class="line">                          (opt_bin_logname &amp;&amp; opt_bin_logname[<span class="number">0</span>]) ? <span class="string">""</span> : <span class="string">"-bin"</span>);</span><br><span class="line">    log_bin_index =</span><br><span class="line">        rpl_make_log_name(key_memory_MYSQL_BIN_LOG_index,</span><br><span class="line">                          opt_binlog_index_name, log_bin_basename, <span class="string">".index"</span>);</span><br><span class="line">    <span class="keyword">if</span> (log_bin_basename == <span class="literal">NULL</span> || log_bin_index == <span class="literal">NULL</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      sql_print_error(<span class="string">"Unable to create replication path names:"</span></span><br><span class="line">                      <span class="string">" out of memory or path names too long"</span></span><br><span class="line">                      <span class="string">" (path name exceeds "</span> STRINGIFY_ARG(FN_REFLEN) <span class="string">" or file name exceeds "</span> STRINGIFY_ARG(FN_LEN) <span class="string">")."</span>);</span><br><span class="line">      unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> EMBEDDED_LIBRARY</span></span><br><span class="line">  <span class="comment">// reply_log basename &amp; index</span></span><br><span class="line">  DBUG_PRINT(<span class="string">"debug"</span>,</span><br><span class="line">             (<span class="string">"opt_bin_logname: %s, opt_relay_logname: %s, pidfile_name: %s"</span>,</span><br><span class="line">              opt_bin_logname, opt_relay_logname, pidfile_name));</span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    opt_relay_logname[0] needs to be checked to make sure opt relaylog name is</span></span><br><span class="line"><span class="comment">    not an empty string, incase it is an empty string default file</span></span><br><span class="line"><span class="comment">    extension will be passed</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  relay_log_basename =</span><br><span class="line">      rpl_make_log_name(key_memory_MYSQL_RELAY_LOG_basename,</span><br><span class="line">                        opt_relay_logname, default_logfile_name,</span><br><span class="line">                        (opt_relay_logname &amp;&amp; opt_relay_logname[<span class="number">0</span>]) ? <span class="string">""</span> : <span class="string">"-relay-bin"</span>);</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (relay_log_basename != <span class="literal">NULL</span>)</span><br><span class="line">    relay_log_index =</span><br><span class="line">        rpl_make_log_name(key_memory_MYSQL_RELAY_LOG_index,</span><br><span class="line">                          opt_relaylog_index_name, relay_log_basename, <span class="string">".index"</span>);</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (relay_log_basename == <span class="literal">NULL</span> || relay_log_index == <span class="literal">NULL</span>)</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"Unable to create replication path names:"</span></span><br><span class="line">                    <span class="string">" out of memory or path names too long"</span></span><br><span class="line">                    <span class="string">" (path name exceeds "</span> STRINGIFY_ARG(FN_REFLEN) <span class="string">" or file name exceeds "</span> STRINGIFY_ARG(FN_LEN) <span class="string">")."</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span> <span class="comment">/* !EMBEDDED_LIBRARY */</span></span></span><br><span class="line"> </span><br><span class="line">  <span class="comment">/* call ha_init_key_cache() on all key caches to init them</span></span><br><span class="line"><span class="comment">  key cache handle, 仅适用于ISAM 表</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  process_key_caches(&amp;ha_init_key_cache);</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/* Allow storage engine to give real error messages */</span></span><br><span class="line">  <span class="keyword">if</span> (ha_init_errors())</span><br><span class="line">    DBUG_RETURN(<span class="number">1</span>);</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (opt_ignore_builtin_innodb)</span><br><span class="line">    sql_print_warning(<span class="string">"ignore-builtin-innodb is ignored "</span></span><br><span class="line">                      <span class="string">"and will be removed in future releases."</span>);</span><br><span class="line">  <span class="comment">// 初始化 GTID server</span></span><br><span class="line">  <span class="keyword">if</span> (gtid_server_init())</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"Failed to initialize GTID structures."</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Set tc_log to point to TC_LOG_DUMMY early in order to allow plugin_init()</span></span><br><span class="line"><span class="comment">    to commit attachable transaction after reading from mysql.plugin table.</span></span><br><span class="line"><span class="comment">    If necessary tc_log will be adjusted to point to correct TC_LOG instance</span></span><br><span class="line"><span class="comment">    later.</span></span><br><span class="line"><span class="comment">    tc_log 尽早指向 TC_LOG_DUMMY, 以便允许 plugin_init() 在读取 mysql.plugin 表之后提交附加的事务。</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  tc_log = &amp;tc_log_dummy;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*Load early plugins */</span></span><br><span class="line">  <span class="keyword">if</span> (plugin_register_early_plugins(&amp;remaining_argc, remaining_argv,</span><br><span class="line">                                    opt_help ? PLUGIN_INIT_SKIP_INITIALIZATION : <span class="number">0</span>))</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"Failed to initialize early plugins."</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">/* Load builtin plugins, initialize MyISAM, CSV and InnoDB</span></span><br><span class="line"><span class="comment">  注册内置插件, 初始化 MyYSAM, CSV, InnoDB</span></span><br><span class="line"><span class="comment">  核心部分。</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> (plugin_register_builtin_and_init_core_se(&amp;remaining_argc,</span><br><span class="line">                                               remaining_argv))</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"Failed to initialize builtin plugins."</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Skip reading the plugin table when starting with --help in order</span></span><br><span class="line"><span class="comment">    to also skip initializing InnoDB. This provides a simpler and more</span></span><br><span class="line"><span class="comment">    uniform handling of various startup use cases, e.g. when the data</span></span><br><span class="line"><span class="comment">    directory does not exist, exists but is empty, exists with InnoDB</span></span><br><span class="line"><span class="comment">    system tablespaces present etc.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="comment">// 注册并初始化动态插件。还要初始化尚未初始化的内置插件[MyISAM CSV INNODB 外的其他内置插件]。</span></span><br><span class="line">  <span class="keyword">if</span> (plugin_register_dynamic_and_init_all(&amp;remaining_argc, remaining_argv,</span><br><span class="line">                                           (opt_noacl ? PLUGIN_INIT_SKIP_PLUGIN_TABLE : <span class="number">0</span>) |</span><br><span class="line">                                               (opt_help ? (PLUGIN_INIT_SKIP_INITIALIZATION |</span><br><span class="line">                                                            PLUGIN_INIT_SKIP_PLUGIN_TABLE)</span><br><span class="line">                                                         : <span class="number">0</span>)))</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"Failed to initialize dynamic plugins."</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line">  plugins_are_initialized = TRUE; <span class="comment">/* Don't separate from init function */</span></span><br><span class="line">  <span class="comment">// session_track_system_variables变量检查: 控制server是否跟踪分配给会话系统变量的任务</span></span><br><span class="line">  Session_tracker session_track_system_variables_check;</span><br><span class="line">  LEX_STRING var_list;</span><br><span class="line">  <span class="keyword">char</span> *tmp_str;</span><br><span class="line">  <span class="keyword">size_t</span> len = <span class="built_in">strlen</span>(global_system_variables.track_sysvars_ptr);</span><br><span class="line">  tmp_str = (<span class="keyword">char</span> *)my_malloc(PSI_NOT_INSTRUMENTED, len * <span class="keyword">sizeof</span>(<span class="keyword">char</span>) + <span class="number">2</span>,</span><br><span class="line">                              MYF(MY_WME));</span><br><span class="line">  <span class="built_in">strcpy</span>(tmp_str, global_system_variables.track_sysvars_ptr);</span><br><span class="line">  var_list.length = len;</span><br><span class="line">  var_list.str = tmp_str;</span><br><span class="line">  <span class="keyword">if</span> (session_track_system_variables_check.server_boot_verify(system_charset_info,</span><br><span class="line">                                                              var_list))</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"The variable session_track_system_variables either has "</span></span><br><span class="line">                    <span class="string">"duplicate values or invalid values."</span>);</span><br><span class="line">    <span class="keyword">if</span> (tmp_str)</span><br><span class="line">      my_free(tmp_str);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (tmp_str)</span><br><span class="line">    my_free(tmp_str);</span><br><span class="line">  <span class="comment">/* we do want to exit if there are any other unknown options */</span></span><br><span class="line">  <span class="keyword">if</span> (remaining_argc &gt; <span class="number">1</span>)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">int</span> ho_error;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">my_option</span> <span class="title">no_opts</span>[] =</span></span><br><span class="line"><span class="class">        &#123;</span></span><br><span class="line">            &#123;<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, GET_NO_ARG, NO_ARG, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>&#125;&#125;;</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      We need to eat any 'loose' arguments first before we conclude</span></span><br><span class="line"><span class="comment">      that there are unprocessed options.</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    my_getopt_skip_unknown = <span class="number">0</span>;</span><br><span class="line">    <span class="comment">// 处理命令行选项</span></span><br><span class="line">    <span class="keyword">if</span> ((ho_error = handle_options(&amp;remaining_argc, &amp;remaining_argv, no_opts,</span><br><span class="line">                                   mysqld_get_one_option)))</span><br><span class="line">      unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">    <span class="comment">/* Add back the program name handle_options removes */</span></span><br><span class="line">    remaining_argc++;</span><br><span class="line">    remaining_argv--;</span><br><span class="line">    my_getopt_skip_unknown = TRUE;</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">if</span> (remaining_argc &gt; <span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      sql_print_error(<span class="string">"Too many arguments (first extra is '%s')."</span>,</span><br><span class="line">                      remaining_argv[<span class="number">1</span>]);</span><br><span class="line">      sql_print_information(<span class="string">"Use --verbose --help to get a list "</span></span><br><span class="line">                            <span class="string">"of available options!"</span>);</span><br><span class="line">      unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (opt_help)</span><br><span class="line">    unireg_abort(MYSQLD_SUCCESS_EXIT);</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/* if the errmsg.sys is not loaded, terminate to maintain behaviour</span></span><br><span class="line"><span class="comment">  如果 errmsg.sys 未加载, 则中止</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> (!my_default_lc_messages-&gt;errmsgs-&gt;is_loaded())</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"Unable to read errmsg.sys file"</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/* We have to initialize the storage engines before CSV logging</span></span><br><span class="line"><span class="comment">  在 CSV logging之前, 我们必须初始化存储引擎</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="comment">// 初始化 system database name cache【当前system database 只有 mysql】</span></span><br><span class="line">  <span class="keyword">if</span> (ha_init())</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"Can't init databases"</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line">   </span><br><span class="line">  <span class="keyword">if</span> (opt_bootstrap)</span><br><span class="line">    log_output_options = LOG_FILE;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Issue a warning if there were specified additional options to the</span></span><br><span class="line"><span class="comment">    log-output along with NONE. Probably this wasn't what user wanted.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> ((log_output_options &amp; LOG_NONE) &amp;&amp; (log_output_options &amp; ~LOG_NONE))</span><br><span class="line">    sql_print_warning(<span class="string">"There were other values specified to "</span></span><br><span class="line">                      <span class="string">"log-output besides NONE. Disabling slow "</span></span><br><span class="line">                      <span class="string">"and general logs anyway."</span>);</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (log_output_options &amp; LOG_TABLE)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">/* Fall back to log files if the csv engine is not loaded. */</span></span><br><span class="line">    LEX_CSTRING csv_name = &#123;C_STRING_WITH_LEN(<span class="string">"csv"</span>)&#125;;</span><br><span class="line">    <span class="keyword">if</span> (!plugin_is_ready(csv_name, MYSQL_STORAGE_ENGINE_PLUGIN))</span><br><span class="line">    &#123;</span><br><span class="line">      sql_print_error(<span class="string">"CSV engine is not present, falling back to the "</span></span><br><span class="line">                      <span class="string">"log files"</span>);</span><br><span class="line">      log_output_options = (log_output_options &amp; ~LOG_TABLE) | LOG_FILE;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  query_logger.set_handlers(log_output_options);</span><br><span class="line"> </span><br><span class="line">  <span class="comment">// Open slow log file if enabled.  打开 slow log 文件</span></span><br><span class="line">  <span class="keyword">if</span> (opt_slow_log &amp;&amp; query_logger.reopen_log_file(QUERY_LOG_SLOW))</span><br><span class="line">    opt_slow_log = <span class="literal">false</span>;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">// Open general log file if enabled.  打开 general log 文件</span></span><br><span class="line">  <span class="keyword">if</span> (opt_general_log &amp;&amp; query_logger.reopen_log_file(QUERY_LOG_GENERAL))</span><br><span class="line">    opt_general_log = <span class="literal">false</span>;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    Set the default storage engines; 设置默认存储引擎</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="comment">// 检查Innodb存储引擎是否初始化</span></span><br><span class="line">  <span class="keyword">if</span> (initialize_storage_engine(default_storage_engine, <span class="string">""</span>,</span><br><span class="line">                                &amp;global_system_variables.table_plugin))</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  <span class="comment">// 检查 Innodb 存储引擎</span></span><br><span class="line">  <span class="keyword">if</span> (initialize_storage_engine(default_tmp_storage_engine, <span class="string">" temp"</span>,</span><br><span class="line">                                &amp;global_system_variables.temp_table_plugin))</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (!opt_bootstrap &amp;&amp; !opt_noacl)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="function"><span class="built_in">std</span>::<span class="built_in">string</span> <span class="title">disabled_se_str</span><span class="params">(opt_disabled_storage_engines)</span></span>;</span><br><span class="line">    ha_set_normalized_disabled_se_str(disabled_se_str);</span><br><span class="line"> </span><br><span class="line">    <span class="comment">// Log warning if default_storage_engine is a disabled storage engine.</span></span><br><span class="line">    handlerton *default_se_handle =</span><br><span class="line">        plugin_data&lt;handlerton *&gt;(global_system_variables.table_plugin);</span><br><span class="line">    <span class="keyword">if</span> (ha_is_storage_engine_disabled(default_se_handle))</span><br><span class="line">      sql_print_warning(<span class="string">"default_storage_engine is set to a "</span></span><br><span class="line">                        <span class="string">"disabled storage engine %s."</span>,</span><br><span class="line">                        default_storage_engine);</span><br><span class="line"> </span><br><span class="line">    <span class="comment">// Log warning if default_tmp_storage_engine is a disabled storage engine.</span></span><br><span class="line">    handlerton *default_tmp_se_handle =</span><br><span class="line">        plugin_data&lt;handlerton *&gt;(global_system_variables.temp_table_plugin);</span><br><span class="line">    <span class="keyword">if</span> (ha_is_storage_engine_disabled(default_tmp_se_handle))</span><br><span class="line">      sql_print_warning(<span class="string">"default_tmp_storage_engine is set to a "</span></span><br><span class="line">                        <span class="string">"disabled storage engine %s."</span>,</span><br><span class="line">                        default_tmp_storage_engine);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 两阶段提交 tc_log</span></span><br><span class="line">  <span class="keyword">if</span> (total_ha_2pc &gt; <span class="number">1</span> || (<span class="number">1</span> == total_ha_2pc &amp;&amp; opt_bin_log))</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">if</span> (opt_bin_log)</span><br><span class="line">      tc_log = &amp;mysql_bin_log;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">      tc_log = &amp;tc_log_mmap;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// init tc_log</span></span><br><span class="line">  <span class="keyword">if</span> (tc_log-&gt;open(opt_bin_log ? opt_bin_logname : opt_tc_log_file))</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"Can't init tc log"</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// before recovery</span></span><br><span class="line">  (<span class="keyword">void</span>)RUN_HOOK(server_state, before_recovery, (<span class="literal">NULL</span>));</span><br><span class="line">  <span class="comment">// xa recovery 操作</span></span><br><span class="line">  <span class="keyword">if</span> (ha_recover(<span class="number">0</span>))</span><br><span class="line">  &#123;</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/// @todo: this looks suspicious, revisit this /sven</span></span><br><span class="line">  <span class="comment">// gtid_mode</span></span><br><span class="line">  enum_gtid_mode gtid_mode = get_gtid_mode(GTID_MODE_LOCK_NONE);</span><br><span class="line">  <span class="comment">// ENFORCE_GTID_CONSISTENCY</span></span><br><span class="line">  <span class="keyword">if</span> (gtid_mode == GTID_MODE_ON &amp;&amp;</span><br><span class="line">      _gtid_consistency_mode != GTID_CONSISTENCY_MODE_ON)</span><br><span class="line">  &#123;</span><br><span class="line">    sql_print_error(<span class="string">"GTID_MODE = ON requires ENFORCE_GTID_CONSISTENCY = ON."</span>);</span><br><span class="line">    unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (opt_bin_log)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      Configures what object is used by the current log to store processed</span></span><br><span class="line"><span class="comment">      gtid(s). This is necessary in the MYSQL_BIN_LOG::MYSQL_BIN_LOG to</span></span><br><span class="line"><span class="comment">      corretly compute the set of previous gtids.</span></span><br><span class="line"><span class="comment">       </span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    assert(!mysql_bin_log.is_relay_log);</span><br><span class="line">    <span class="keyword">mysql_mutex_t</span> *log_lock = mysql_bin_log.get_log_lock();</span><br><span class="line">    mysql_mutex_lock(log_lock);</span><br><span class="line">    <span class="comment">// 打开 binlog 文件</span></span><br><span class="line">    <span class="keyword">if</span> (mysql_bin_log.open_binlog(opt_bin_logname, <span class="number">0</span>,</span><br><span class="line">                                  max_binlog_size, <span class="literal">false</span>,</span><br><span class="line">                                  <span class="literal">true</span> <span class="comment">/*need_lock_index=true*/</span>,</span><br><span class="line">                                  <span class="literal">true</span> <span class="comment">/*need_sid_lock=true*/</span>,</span><br><span class="line">                                  <span class="literal">NULL</span>))</span><br><span class="line">    &#123;</span><br><span class="line">      mysql_mutex_unlock(log_lock);</span><br><span class="line">      unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">    &#125;</span><br><span class="line">    mysql_mutex_unlock(log_lock);</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (opt_myisam_log)</span><br><span class="line">    (<span class="keyword">void</span>)mi_log(<span class="number">1</span>);</span><br><span class="line"> </span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> defined(HAVE_MLOCKALL) &amp;&amp; defined(MCL_CURRENT) &amp;&amp; !defined(EMBEDDED_LIBRARY)</span></span><br><span class="line">  <span class="keyword">if</span> (locked_in_memory &amp;&amp; !getuid())</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">if</span> (setreuid((<span class="keyword">uid_t</span>)<span class="number">-1</span>, <span class="number">0</span>) == <span class="number">-1</span>)</span><br><span class="line">    &#123; <span class="comment">// this should never happen</span></span><br><span class="line">      sql_print_error(<span class="string">"setreuid: %s"</span>, strerror(errno));</span><br><span class="line">      unireg_abort(MYSQLD_ABORT_EXIT);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (mlockall(MCL_CURRENT))</span><br><span class="line">    &#123;</span><br><span class="line">      sql_print_warning(<span class="string">"Failed to lock memory. Errno: %d\n"</span>, errno); <span class="comment">/* purecov: inspected */</span></span><br><span class="line">      locked_in_memory = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> _WIN32</span></span><br><span class="line">    <span class="keyword">if</span> (user_info)</span><br><span class="line">      set_user(mysqld_user, user_info);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">#endif</span><br><span class="line">    locked_in_memory = <span class="number">0</span>;</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/* Initialize the optimizer cost module</span></span><br><span class="line"><span class="comment">  初始化优化器成本模块</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  init_optimizer_cost_module(<span class="literal">true</span>);</span><br><span class="line">  ft_init_stopwords();</span><br><span class="line">  <span class="comment">// 初始化 max_user_conns</span></span><br><span class="line">  init_max_user_conn();</span><br><span class="line">  <span class="comment">// 初始化 sql_command_flags 和 server_command_flags 数组。</span></span><br><span class="line">  init_update_queries();</span><br><span class="line">  DBUG_RETURN(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</details>
+
+
+<h3 id="3-3-1、日志系统初始化"><a href="#3-3-1、日志系统初始化" class="headerlink" title="3.3.1、日志系统初始化"></a>3.3.1、日志系统初始化</h3><ul>
+<li>初始化错误日志、慢程序日志、通用日志等。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">log_tables();</span><br><span class="line">error_log();</span><br><span class="line">slow_log();</span><br><span class="line">general_log();</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-3-2、存储引擎初始化"><a href="#3-3-2、存储引擎初始化" class="headerlink" title="3.3.2、存储引擎初始化"></a>3.3.2、存储引擎初始化</h3><p>加载并初始化存储引擎插件（如innodb、myisam）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//初始化插件系统</span></span><br><span class="line">plugin_init(&amp;argc, &amp;argv, PLUGIN_INIT_SKIP_PLUGIN_TABLE);</span><br><span class="line"><span class="comment">//初始化存储引擎接口</span></span><br><span class="line">ha_init();</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>plugin_init()</code>(sql/sql_plugin.cc)会调用存储引擎的初始化函数。<ul>
+<li>例如，innodb的入口是<code>innodb_init()</code>(storage/innobase/handler/ha_innodb.cc).</li>
+</ul>
+</li>
+<li><code>ha_init()</code>(sql/handler.cc)初始化Handler API，注册存储引擎</li>
+</ul>
+<h3 id="3-3-3、网络模块初始化"><a href="#3-3-3、网络模块初始化" class="headerlink" title="3.3.3、网络模块初始化"></a>3.3.3、网络模块初始化</h3><p>创建监听套接字，绑定端口，准备接收客户端连接。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//初始化网络模块</span></span><br><span class="line">network_init();<span class="comment">//初始化网络协议（TCP/IP、Socket）</span></span><br><span class="line">create_socket();<span class="comment">//创建监听套接字并绑定端口</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>关键函数 <code>network_init()</code>(sql/conn_handler/socket_connection.cc)和 create_socket（）</li>
+</ul>
+<h3 id="3-3-4、线程池与后台线程"><a href="#3-3-4、线程池与后台线程" class="headerlink" title="3.3.4、线程池与后台线程"></a>3.3.4、线程池与后台线程</h3><p>初始化线程池、启动后台线程（如主线程、IO线程）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//初始化线程池</span></span><br><span class="line">thread_pool_init();</span><br><span class="line"><span class="comment">//启动信号处理线程</span></span><br><span class="line">start_signal_handler()</span><br><span class="line"><span class="comment">//启动后台线程（如 innodb的主线程）</span></span><br><span class="line">start_handle_manager();</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>innodb的主线程 <code>srv_master_thread</code>(storage/innobase/srv/srv0start.cc)负责脏页刷新、检查点等任务。</li>
+</ul>
+<h2 id="3-4、启动服务主循环"><a href="#3-4、启动服务主循环" class="headerlink" title="3.4、启动服务主循环"></a>3.4、启动服务主循环</h2><p>初始化完成后，MySQL进入服务主循环，监听客户端请求。</p>
+<h3 id="3-4-1、处理客户端连接"><a href="#3-4-1、处理客户端连接" class="headerlink" title="3.4.1、处理客户端连接"></a>3.4.1、处理客户端连接</h3><p>调用<code>handle_connection_sockets()</code> (sql/conn_handler/socket_connection.cc)进入事件循环，监听连接。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">mysqld_main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> **argv)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">//创建服务监听线程</span></span><br><span class="line">    handle_connections_sockets();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">handle_connections_sockets</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">     <span class="comment">//监听连接</span></span><br><span class="line">     new_sock= mysql_socket_accept(key_socket_client_connection, sock,</span><br><span class="line">                                    (struct sockaddr *)(&amp;cAddr), &amp;length);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (mysql_socket_getfd(sock) == mysql_socket_getfd(unix_sock))</span><br><span class="line">      thd-&gt;security_ctx-&gt;set_host((<span class="keyword">char</span>*) my_localhost);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//创建连接</span></span><br><span class="line">    create_new_thread(thd);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//创建新线程处理处理用户连接</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">create_new_thread</span><span class="params">(THD *thd)</span></span>&#123;</span><br><span class="line">   </span><br><span class="line">   thd-&gt;thread_id= thd-&gt;variables.pseudo_thread_id= thread_id++;</span><br><span class="line">   </span><br><span class="line">   <span class="comment">//线程进了线程调度器</span></span><br><span class="line">   MYSQL_CALLBACK(thread_scheduler, add_connection, (thd));   </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>该函数使用poll()或epoll()监听套接字，接受新连接并为每个连接创建线程（或使用线程池）。</li>
+<li>MySQL 后续<code>Connection_handler_manager （sql/conn_handler/connection_handler_manager.cc）</code>替代handle_connections_sockets，这个类是连接处理的核心管理类，负责管理不同类型的连接处理程序。<ul>
+<li>mysqld_socket_acceptor-&gt;connection_event_loop();//一个无限循环，不断从事件多路复用器中获取就绪的事件，并根据事件类型进行处理。</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">    Connection acceptor loop to accept connections from clients.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">connection_event_loop</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    Connection_handler_manager *mgr =</span><br><span class="line">        Connection_handler_manager::get_instance();</span><br><span class="line">    <span class="keyword">while</span> (!connection_events_loop_aborted()) &#123;</span><br><span class="line">      Channel_info *channel_info = m_listener-&gt;listen_for_connection_event();</span><br><span class="line">      <span class="keyword">if</span> (channel_info != <span class="literal">nullptr</span>) mgr-&gt;process_new_connection(channel_info);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p><font color="green"><strong>更多内容查看第四章节。</strong></font></p>
+<h3 id="3-4-2、请求处理"><a href="#3-4-2、请求处理" class="headerlink" title="3.4.2、请求处理"></a>3.4.2、请求处理</h3><p>每个客户端连接由 THD（线程描述符）管理，执行SQL解析、优化、执行等流程。<br>请求处理入口为 do_command() (sql/sql_parse.cc)</p>
+<p><font color="green"><strong>更多内容查看第四章节。</strong></font></p>
+<h2 id="3-5、信号处理与优雅关闭"><a href="#3-5、信号处理与优雅关闭" class="headerlink" title="3.5、信号处理与优雅关闭"></a>3.5、信号处理与优雅关闭</h2><p>MySQL注册信号处理函数，响应 SIGTERM、SIGINT等信号，执行优雅关闭。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//注册信号处理函数</span></span><br><span class="line">my_init_signals()</span><br><span class="line"><span class="comment">//信号处理逻辑（如 shutdown）</span></span><br><span class="line">signal_hand_thd = <span class="keyword">new</span> Signal_handler_thread();</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>关闭时调用 clean_up() (sql/mysqld.cc)，释放资源并退出。</li>
+</ul>
+<h1 id="四、MySQL连接的建立与使用"><a href="#四、MySQL连接的建立与使用" class="headerlink" title="四、MySQL连接的建立与使用"></a>四、MySQL连接的建立与使用</h1><p>在 MYSQL的启动过程中，可以看到在 <code>mysqld_main()</code> 函数的最后调用了 <code>mysqld_socket_acceptor->connection_event_loop()</code> 函数用来处理MySQL的连接，这里通过源码分析一下MySQL连接的建立与使用过程：</p>
+<h2 id="4-1、第一步，等待连接进入"><a href="#4-1、第一步，等待连接进入" class="headerlink" title="4.1、第一步，等待连接进入"></a>4.1、第一步，等待连接进入</h2><p>在死循环中调用 m_listener-&gt;listen_for_connection_event() 等待连接进入</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">connection_event_loop</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    Connection_handler_manager *mgr =</span><br><span class="line">        Connection_handler_manager::get_instance();</span><br><span class="line">    <span class="keyword">while</span> (!connection_events_loop_aborted()) &#123;</span><br><span class="line">      Channel_info *channel_info = m_listener-&gt;listen_for_connection_event();</span><br><span class="line">      <span class="keyword">if</span> (channel_info != <span class="literal">nullptr</span>) mgr-&gt;process_new_connection(channel_info);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="4-2、第二步：处理连接"><a href="#4-2、第二步：处理连接" class="headerlink" title="4.2、第二步：处理连接"></a>4.2、第二步：处理连接</h2><p>如果有连接进入，则调用 precess_new_connection() 处理连接</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 如果有连接进入，处理连接void</span></span><br><span class="line">Connection_handler_manager::process_new_connection(Channel_info* channel_info)</span><br><span class="line">&#123;　 <span class="comment">// check_and_incr_conn_count() 检查是否有空余连接, 如果没有空余连接, 结束处理流程</span></span><br><span class="line">  <span class="keyword">if</span> (abort_loop || !check_and_incr_conn_count())</span><br><span class="line">  &#123;</span><br><span class="line">    channel_info-&gt;send_error_and_close_channel(ER_CON_COUNT_ERROR, <span class="number">0</span>, <span class="literal">true</span>);</span><br><span class="line">    <span class="keyword">delete</span> channel_info;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 这里有空余连接, connection_accepted = true</span></span><br><span class="line">  <span class="keyword">if</span> (m_connection_handler-&gt;add_connection(channel_info))</span><br><span class="line">  &#123;</span><br><span class="line">    inc_aborted_connects();</span><br><span class="line">    <span class="keyword">delete</span> channel_info;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>调用 check_and_incr_conn_count() 检查是否有空余连接[当前连接数是否大于 max_connections], 如果没有空余连接, 结束处理流程；<br>注意：这里允许 max_connections + 1 个连接，最后一个连接是为 super user保留的。</li>
+<li>如果存在空余连接，则对连接进行处理</li>
+</ul>
+<h2 id="4-3、第三步：获取线程，处理连接"><a href="#4-3、第三步：获取线程，处理连接" class="headerlink" title="4.3、第三步：获取线程，处理连接"></a>4.3、第三步：获取线程，处理连接</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 在这里创建连接bool </span></span><br><span class="line">Per_thread_connection_handler::add_connection(Channel_info *channel_info)</span><br><span class="line">&#123;</span><br><span class="line">  <span class="keyword">int</span> error = <span class="number">0</span>;</span><br><span class="line">  my_thread_handle id;</span><br><span class="line"> </span><br><span class="line">  DBUG_ENTER(<span class="string">"Per_thread_connection_handler::add_connection"</span>);</span><br><span class="line"> </span><br><span class="line">  <span class="comment">// Simulate thread creation for test case before we check thread cache</span></span><br><span class="line">  DBUG_EXECUTE_IF(<span class="string">"fail_thread_create"</span>, error = <span class="number">1</span>; <span class="keyword">goto</span> handle_error;);</span><br><span class="line">  <span class="comment">// 检查 thread cache 中是否有空闲 thread，如果有，使用 cached thread</span></span><br><span class="line">  <span class="keyword">if</span> (!check_idle_thread_and_enqueue_connection(channel_info))</span><br><span class="line">    DBUG_RETURN(<span class="literal">false</span>);</span><br><span class="line"> </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    There are no idle threads avaliable to take up the new</span></span><br><span class="line"><span class="comment">    connection. Create a new thread to handle the connection    没有可用的空闲线程来处理新的连接，创建一个新的线程来处理这个连接。</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  channel_info-&gt;set_prior_thr_create_utime();</span><br><span class="line">  error = mysql_thread_create(key_thread_one_connection, &amp;id,</span><br><span class="line">                              &amp;connection_attrib,</span><br><span class="line">                              handle_connection,</span><br><span class="line">                              (<span class="keyword">void</span> *)channel_info);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> NDEBUG</span></span><br><span class="line">handle_error:</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span> <span class="comment">// !NDEBUG</span></span></span><br><span class="line"> </span><br><span class="line">  <span class="keyword">if</span> (error)</span><br><span class="line">  &#123;</span><br><span class="line">    connection_errors_internal++;</span><br><span class="line">    <span class="keyword">if</span> (!create_thd_err_log_throttle.<span class="built_in">log</span>())</span><br><span class="line">      sql_print_error(<span class="string">"Can't create thread to handle new connection(errno= %d)"</span>,</span><br><span class="line">                      error);</span><br><span class="line">    channel_info-&gt;send_error_and_close_channel(ER_CANT_CREATE_THREAD,</span><br><span class="line">                                               error, <span class="literal">true</span>);</span><br><span class="line">    Connection_handler_manager::dec_connection_count();</span><br><span class="line">    DBUG_RETURN(<span class="literal">true</span>);</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  Global_THD_manager::get_instance()-&gt;inc_thread_created();</span><br><span class="line">  DBUG_PRINT(<span class="string">"info"</span>, (<span class="string">"Thread created"</span>));</span><br><span class="line">  DBUG_RETURN(<span class="literal">false</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>查看 thread cache 中是否有空闲 thread，如果有，使用 cached thread</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">Per_thread_connection_handler::check_idle_thread_and_enqueue_connection</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">    Channel_info *channel_info)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">bool</span> res = <span class="literal">true</span>;</span><br><span class="line"> </span><br><span class="line">  mysql_mutex_lock(&amp;LOCK_thread_cache);&lt;br&gt;  <span class="comment">// 如果 blocked_pthread &gt; wake_thread，则 thread cache 中存在空闲 thread</span></span><br><span class="line">  <span class="keyword">if</span> (Per_thread_connection_handler::blocked_pthread_count &gt; wake_pthread)</span><br><span class="line">  &#123;</span><br><span class="line">    DBUG_PRINT(<span class="string">"info"</span>, (<span class="string">"waiting_channel_info_list-&gt;push %p"</span>, channel_info));&lt;br&gt;    <span class="comment">// 将 channel_info 放入 waiting_channel_info_list，wake_pthread ++</span></span><br><span class="line">    waiting_channel_info_list-&gt;push_back(channel_info);</span><br><span class="line">    wake_pthread++;</span><br><span class="line">    mysql_cond_signal(&amp;COND_thread_cache);</span><br><span class="line">    res = <span class="literal">false</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  mysql_mutex_unlock(&amp;LOCK_thread_cache);</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>如果不存在，则创建一个新的线程来处理这个连接</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">  Block the current pthread for reuse by new connections.</span></span><br><span class="line"><span class="comment">  阻塞当前的物理线程，供新的连接使用</span></span><br><span class="line"><span class="comment">  @retval NULL   Too many pthreads blocked already or shutdown in progress.</span></span><br><span class="line"><span class="comment">  @retval !NULL  Pointer to Channel_info object representing the new connection</span></span><br><span class="line"><span class="comment">                 to be served by this pthread.</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"> </span><br><span class="line"><span class="function">Channel_info *<span class="title">Per_thread_connection_handler::block_until_new_connection</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  Channel_info *new_conn = <span class="literal">NULL</span>;</span><br><span class="line">  mysql_mutex_lock(&amp;LOCK_thread_cache);</span><br><span class="line">  <span class="keyword">if</span> (blocked_pthread_count &lt; max_blocked_pthreads &amp;&amp;</span><br><span class="line">      !kill_blocked_pthreads_flag)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">/* Don't kill the pthread, just block it for reuse */</span></span><br><span class="line">    DBUG_PRINT(<span class="string">"info"</span>, (<span class="string">"Blocking pthread for reuse"</span>));</span><br><span class="line"> </span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">      mysys_var is bound to the physical thread,</span></span><br><span class="line"><span class="comment">      so make sure mysys_var-&gt;dbug is reset to a clean state</span></span><br><span class="line"><span class="comment">      before picking another session in the thread cache.</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    DBUG_POP();</span><br><span class="line">    assert(!_db_is_pushed_());</span><br><span class="line"> </span><br><span class="line">    <span class="comment">// Block pthread ++</span></span><br><span class="line">    blocked_pthread_count++;</span><br><span class="line">    <span class="keyword">while</span> (!abort_loop &amp;&amp; !wake_pthread &amp;&amp; !kill_blocked_pthreads_flag)&lt;br&gt;      <span class="comment">// 这里等待信号</span></span><br><span class="line">      mysql_cond_wait(&amp;COND_thread_cache, &amp;LOCK_thread_cache);</span><br><span class="line">    blocked_pthread_count--;</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">if</span> (kill_blocked_pthreads_flag)</span><br><span class="line">      mysql_cond_signal(&amp;COND_flush_thread_cache);</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (wake_pthread)</span><br><span class="line">    &#123;&lt;br&gt;      <span class="comment">// wake_pthread 计数器 -1</span></span><br><span class="line">      wake_pthread--;</span><br><span class="line">      <span class="keyword">if</span> (!waiting_channel_info_list-&gt;empty())</span><br><span class="line">      &#123;&lt;br&gt;        <span class="comment">// 如果 waiting_channel_info_list 不是空的, 则取出第一个</span></span><br><span class="line">        new_conn = waiting_channel_info_list-&gt;front();</span><br><span class="line">        waiting_channel_info_list-&gt;pop_front();</span><br><span class="line">        DBUG_PRINT(<span class="string">"info"</span>, (<span class="string">"waiting_channel_info_list-&gt;pop %p"</span>, new_conn));</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">else</span></span><br><span class="line">      &#123;</span><br><span class="line">        assert(<span class="number">0</span>);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  mysql_mutex_unlock(&amp;LOCK_thread_cache);</span><br><span class="line">  <span class="keyword">return</span> new_conn;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h2 id="4-4、第四步：开始处理-handle-connection"><a href="#4-4、第四步：开始处理-handle-connection" class="headerlink" title="4.4、第四步：开始处理 handle_connection"></a>4.4、第四步：开始处理 handle_connection</h2><p>线程调用 <code>handle_connection()</code> 线程处理函数，初始化一个 thd 对象，并将其加入 thd list; 并初始化 lex 词法解析器，进行连接身份验证，初始化 thd，准备执行语句。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">  Thread handler for a connection</span></span><br><span class="line"><span class="comment">  线程处理函数。</span></span><br><span class="line"><span class="comment">  @param arg   Connection object (Channel_info)</span></span><br><span class="line"><span class="comment"> </span></span><br><span class="line"><span class="comment">  This function (normally) does the following:</span></span><br><span class="line"><span class="comment">  - Initialize thread</span></span><br><span class="line"><span class="comment">  - Initialize THD to be used with this thread</span></span><br><span class="line"><span class="comment">  - Authenticate user</span></span><br><span class="line"><span class="comment">  - Execute all queries sent on the connection</span></span><br><span class="line"><span class="comment">  - Take connection down</span></span><br><span class="line"><span class="comment">  - End thread  / Handle next connection using thread from thread cache</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="keyword">extern</span> <span class="string">"C"</span> <span class="function"><span class="keyword">void</span> *<span class="title">handle_connection</span><span class="params">(<span class="keyword">void</span> *arg)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();</span><br><span class="line">  Connection_handler_manager *handler_manager =</span><br><span class="line">      Connection_handler_manager::get_instance();</span><br><span class="line">  Channel_info *channel_info = <span class="keyword">static_cast</span>&lt;Channel_info *&gt;(arg);</span><br><span class="line">  <span class="function"><span class="keyword">bool</span> pthread_reused <span class="title">MY_ATTRIBUTE</span><span class="params">((unused))</span> </span>= <span class="literal">false</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (my_thread_init())</span><br><span class="line">  &#123;</span><br><span class="line">    connection_errors_internal++;</span><br><span class="line">    channel_info-&gt;send_error_and_close_channel(ER_OUT_OF_RESOURCES, <span class="number">0</span>, <span class="literal">false</span>);</span><br><span class="line">    handler_manager-&gt;inc_aborted_connects();</span><br><span class="line">    Connection_handler_manager::dec_connection_count();</span><br><span class="line">    <span class="keyword">delete</span> channel_info;</span><br><span class="line">    my_thread_exit(<span class="number">0</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">for</span> (;;)</span><br><span class="line">  &#123;    <span class="comment">// 初始化一个 thd 对象</span></span><br><span class="line">    THD *thd = init_new_thd(channel_info);</span><br><span class="line">    <span class="keyword">if</span> (thd == <span class="literal">NULL</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      connection_errors_internal++;</span><br><span class="line">      handler_manager-&gt;inc_aborted_connects();</span><br><span class="line">      Connection_handler_manager::dec_connection_count();</span><br><span class="line">      <span class="keyword">break</span>; <span class="comment">// We are out of resources, no sense in continuing.</span></span><br><span class="line">    &#125;</span><br><span class="line"> </span><br><span class="line">    <span class="comment">// 将新创建的 thd 添加到 thd list；</span></span><br><span class="line">    thd_manager-&gt;add_thd(thd);</span><br><span class="line">    <span class="comment">/**     1. 初始化 lex 词法解析器     2. 进行连接身份验证     3. 初始化 thd , 准备执行语句    */</span></span><br><span class="line">    <span class="keyword">if</span> (thd_prepare_connection(thd))</span><br><span class="line">      handler_manager-&gt;inc_aborted_connects();</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    &#123;      <span class="comment">// 只要连接 alive，就会一直循环下去</span></span><br><span class="line">      <span class="keyword">while</span> (thd_connection_alive(thd))</span><br><span class="line">      &#123;        <span class="comment">// 处理命令，这是 MySQL 的核心操作</span></span><br><span class="line">        <span class="keyword">if</span> (do_command(thd))</span><br><span class="line">          <span class="keyword">break</span>;</span><br><span class="line">      &#125;      <span class="comment">// 减少当前用户的连接计数等</span></span><br><span class="line">      end_connection(thd);</span><br><span class="line">    &#125;    <span class="comment">// 关闭一个连接</span></span><br><span class="line">    close_connection(thd, <span class="number">0</span>, <span class="literal">false</span>, <span class="literal">false</span>);</span><br><span class="line">    <span class="comment">// 释放资源</span></span><br><span class="line">    thd-&gt;get_stmt_da()-&gt;reset_diagnostics_area();</span><br><span class="line">    thd-&gt;release_resources();</span><br><span class="line"> </span><br><span class="line">    <span class="comment">// Clean up errors now, before possibly waiting for a new connection.</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> OPENSSL_VERSION_NUMBER &lt; 0x10100000L</span></span><br><span class="line">    ERR_remove_thread_state(<span class="number">0</span>);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span> <span class="comment">/* OPENSSL_VERSION_NUMBER &lt; 0x10100000L */</span></span></span><br><span class="line">    <span class="comment">// 从 thd list 中移除 thd</span></span><br><span class="line">    thd_manager-&gt;remove_thd(thd);    <span class="comment">// 减少当前连接数</span></span><br><span class="line">    Connection_handler_manager::dec_connection_count();</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">delete</span> thd;</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">if</span> (abort_loop) <span class="comment">// Server is shutting down so end the pthread.</span></span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line">    <span class="comment">// 阻塞当前的物理线程，使得物理线程被新的连接重用</span></span><br><span class="line">    channel_info = Per_thread_connection_handler::block_until_new_connection();</span><br><span class="line">    <span class="keyword">if</span> (channel_info == <span class="literal">NULL</span>)</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line">    pthread_reused = <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">if</span> (abort_loop)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="comment">// Close the channel and exit as server is undergoing shutdown.</span></span><br><span class="line">      channel_info-&gt;send_error_and_close_channel(ER_SERVER_SHUTDOWN, <span class="number">0</span>, <span class="literal">false</span>);</span><br><span class="line">      <span class="keyword">delete</span> channel_info;</span><br><span class="line">      channel_info = <span class="literal">NULL</span>;</span><br><span class="line">      Connection_handler_manager::dec_connection_count();</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  my_thread_end();</span><br><span class="line">  my_thread_exit(<span class="number">0</span>);</span><br><span class="line">  <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="4-5、第五步：处理用户命令"><a href="#4-5、第五步：处理用户命令" class="headerlink" title="4.5、第五步：处理用户命令"></a>4.5、第五步：处理用户命令</h2><p>调用 <code>do_command()</code>. 处理用户命令。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//继续分发</span></span><br><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">do_command</span><span class="params">(THD *thd)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    return_value= dispatch_command(command, thd, packet+<span class="number">1</span>, (uint) (packet_length<span class="number">-1</span>));</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">dispatch_command</span><span class="params">(<span class="keyword">enum</span> enum_server_command command, THD *thd, <span class="keyword">char</span>* packet, uint packet_length)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">      <span class="keyword">switch</span> (command) &#123;</span><br><span class="line">         <span class="keyword">case</span> COM_INIT_DB: ....  <span class="keyword">break</span>;</span><br><span class="line">         ...</span><br><span class="line">         <span class="keyword">case</span> COM_QUERY:   <span class="comment">//查询语句：  insert xxxx</span></span><br><span class="line">             mysql_parse(thd, thd-&gt;query(), thd-&gt;query_length(), &amp;parser_state);  <span class="comment">//sql解析</span></span><br><span class="line">           <span class="keyword">break</span>;</span><br><span class="line">      &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//sql解析模块</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">mysql_parse</span><span class="params">(THD *thd, <span class="keyword">char</span> *rawbuf, uint length, Parser_state *parser_state)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">      error= mysql_execute_command(thd);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>继续执行<code>mysql_execute_command</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//继续执行</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">mysql_execute_command</span><span class="params">(THD *thd)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">switch</span> (lex-&gt;sql_command) </span><br><span class="line">  &#123;</span><br><span class="line">      <span class="keyword">case</span> SQLCOM_SELECT:  res= execute_sqlcom_select(thd, all_tables);  <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">      <span class="comment">//这个 insert 就是我要追的</span></span><br><span class="line">      <span class="keyword">case</span> SQLCOM_INSERT:   res= mysql_insert(thd, all_tables, lex-&gt;field_list, lex-&gt;many_values,</span><br><span class="line">		                                      lex-&gt;update_list, lex-&gt;value_list,</span><br><span class="line">                                              lex-&gt;duplicates, lex-&gt;ignore);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//insert插入操作处理</span></span><br><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">mysql_insert</span><span class="params">(THD *thd,TABLE_LIST *table_list,List&lt;Item&gt; &amp;fields, List&lt;List_item&gt; &amp;values_list,</span></span></span><br><span class="line"><span class="function"><span class="params">                  List&lt;Item&gt; &amp;update_fields, List&lt;Item&gt; &amp;update_values, </span></span></span><br><span class="line"><span class="function"><span class="params">                  enum_duplicates duplic, <span class="keyword">bool</span> ignore)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">      <span class="keyword">while</span> ((values= its++))</span><br><span class="line">      &#123;</span><br><span class="line">           error= write_record(thd, table, &amp;info, &amp;update);</span><br><span class="line">      &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//写入记录</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">write_record</span><span class="params">(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (duplicate_handling == DUP_REPLACE || duplicate_handling == DUP_UPDATE)</span><br><span class="line">    &#123;</span><br><span class="line">         <span class="comment">// ha_write_row  重点是这个函数</span></span><br><span class="line">         <span class="keyword">while</span> ((error=table-&gt;file-&gt;ha_write_row(table-&gt;record[<span class="number">0</span>])))</span><br><span class="line">         &#123;</span><br><span class="line">             ....</span><br><span class="line">         &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>继续挖 ha_write_row</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">handler::ha_write_row</span><span class="params">(uchar *buf)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_WRITE_ROW, MAX_KEY, <span class="number">0</span>,&#123; error= write_row(buf); &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//这是一个虚方法</span></span><br><span class="line"><span class="function"><span class="keyword">virtual</span> <span class="keyword">int</span> <span class="title">write_row</span><span class="params">(uchar *buf __attribute__((unused)))</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> HA_ERR_WRONG_COMMAND;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>write_row是个虚方法，也就是给底层方法实现的，在这里就是给各大Storage Engines的哈</p>
+<h2 id="4-6、小结"><a href="#4-6、小结" class="headerlink" title="4.6、小结"></a>4.6、小结</h2><p>总的请求调用堆栈如下：<br><img src="/2020/08/11/2020-08-11-mysql-源码分析/%E8%AF%B7%E6%B1%82%E8%B0%83%E7%94%A8%E5%A0%86%E6%A0%88.png" alt="请求调用堆栈"></p>
+<p>方法调用总结如下：</p>
+<ol>
+<li>在死循环中调用 m_listener-&gt;listen_for_connection_event() 等待连接进入</li>
+<li>如果有连接进入，则调用 precess_new_connection() 处理连接</li>
+<li>调用 check_and_incr_conn_count() 检查是否有空余连接[当前连接数是否大于 max_connections], 如果没有空余连接, 结束处理流程；<br>注意：这里允许 max_connections + 1 个连接，最后一个连接是为 super user保留的。</li>
+<li>如果存在空余连接，则对连接进行处理</li>
+<li>查看 thread cache 中是否有空闲 thread，如果有，使用 cached thread</li>
+<li>如果不存在，则创建一个新的线程来处理这个连接</li>
+<li>线程调用 handle_connection() 线程处理函数，初始化一个 thd 对象，并将其加入 thd list; 并初始化 lex 词法解析器，进行连接身份验证，初始化 thd，准备执行语句。</li>
+<li>调用 do_command(). 处理用户命令。<ol start="9">
+<li>后续流程，可查看“一条Insert语句的执行过程”</li>
+</ol>
+</li>
+</ol>
+<p>参考文章：<br><a href="https://www.cnblogs.com/juanmaofeifei/p/16111523.html" target="_blank" rel="noopener">MySQL启动过程详解二：核心模块启动 init_server_components()</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16129144.html" target="_blank" rel="noopener">MySQL启动过程详解三：Innodb存储引擎的启动</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16146201.html" target="_blank" rel="noopener">MySQL连接的建立与使用</a><br><a href="http://ilongda.com/knowledge/mysql/source_code_reading/server/connection.html" target="_blank" rel="noopener">MySQL 源码解读 – 连接管理</a><br><a href="http://mysql.taobao.org/monthly/2017/09/10/" target="_blank" rel="noopener">MySQL · 源码分析 · 一条insert语句的执行过程</a><br><a href="https://www.aneasystone.com/archives/2018/06/insert-locks-via-mysql-source-code.html" target="_blank" rel="noopener">读 MySQL 源码再看 INSERT 加锁流程</a></p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2020/08/10/2020-08-10-mysql-索引/" rel="next" title="《mysql》索引">
+                <i class="fa fa-chevron-left"></i> 《mysql》索引
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2020/08/13/2020-08-13-mysql-源码分析-insert流程/" rel="prev" title="《mysql》源码分析-Insert流程">
+                《mysql》源码分析-Insert流程 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/touxiang.jpg" alt="chw">
+            
+              <p class="site-author-name" itemprop="name">chw</p>
+              <p class="site-description motion-element" itemprop="description">do somthing</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">121</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">90</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">26</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#一、mysql"><span class="nav-text">一、mysql</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#二、源码架构图"><span class="nav-text">二、源码架构图</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1、源码结构"><span class="nav-text">2.1、源码结构</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三、源码分析"><span class="nav-text">三、源码分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1、入口函数：main-gt-mysald-main"><span class="nav-text">3.1、入口函数：main() -&gt; mysald_main()</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2、初始化全局环境"><span class="nav-text">3.2、初始化全局环境</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1、基础初始化：my-init"><span class="nav-text">3.2.1、基础初始化：my_init()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-2、加载配置：load-defaults"><span class="nav-text">3.2.2、加载配置：load_defaults()</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3、核心子系统初始化"><span class="nav-text">3.3、核心子系统初始化</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-1、日志系统初始化"><span class="nav-text">3.3.1、日志系统初始化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-2、存储引擎初始化"><span class="nav-text">3.3.2、存储引擎初始化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-3、网络模块初始化"><span class="nav-text">3.3.3、网络模块初始化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-4、线程池与后台线程"><span class="nav-text">3.3.4、线程池与后台线程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4、启动服务主循环"><span class="nav-text">3.4、启动服务主循环</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-1、处理客户端连接"><span class="nav-text">3.4.1、处理客户端连接</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-2、请求处理"><span class="nav-text">3.4.2、请求处理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-5、信号处理与优雅关闭"><span class="nav-text">3.5、信号处理与优雅关闭</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#四、MySQL连接的建立与使用"><span class="nav-text">四、MySQL连接的建立与使用</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1、第一步，等待连接进入"><span class="nav-text">4.1、第一步，等待连接进入</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2、第二步：处理连接"><span class="nav-text">4.2、第二步：处理连接</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3、第三步：获取线程，处理连接"><span class="nav-text">4.3、第三步：获取线程，处理连接</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-4、第四步：开始处理-handle-connection"><span class="nav-text">4.4、第四步：开始处理 handle_connection</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-5、第五步：处理用户命令"><span class="nav-text">4.5、第五步：处理用户命令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-6、小结"><span class="nav-text">4.6、小结</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+
+
+       <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+ 
+
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv">
+      <i class="fa fa-user"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_uv"></span>
+      
+    </span>
+  
+
+  
+    <span class="site-pv">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+      
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
