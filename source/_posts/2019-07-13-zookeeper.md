@@ -1,7 +1,7 @@
 ---
 title: zookeeper
 date: 2019-07-13 20:46:40
-tags:
+category: zookeeper
 ---
 
 # 一、什么是zk
