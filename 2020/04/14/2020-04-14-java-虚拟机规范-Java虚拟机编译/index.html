@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是Java虚拟机规范系列的第三篇文章，主要介绍的是虚拟机规范中的虚拟机编译过程、编译原理。  一、JAVA 虚拟机编译Java 虚拟机是为了支持 Java 语言而的设计的。Oracle 的 JDK 包括两部分内容：一部分是将 Java 源代码编译成 Java 虚拟机的指令集的编译器，另一部分是用于 Java 虚拟机的运行时环境。理解编译器是如何与 Java 虚拟机协同工作的，对编译器开发人员来说">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Java》Java虚拟机编译">
+<meta property="og:url" content="http://yoursite.com/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是Java虚拟机规范系列的第三篇文章，主要介绍的是虚拟机规范中的虚拟机编译过程、编译原理。  一、JAVA 虚拟机编译Java 虚拟机是为了支持 Java 语言而的设计的。Oracle 的 JDK 包括两部分内容：一部分是将 Java 源代码编译成 Java 虚拟机的指令集的编译器，另一部分是用于 Java 虚拟机的运行时环境。理解编译器是如何与 Java 虚拟机协同工作的，对编译器开发人员来说">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/Java%E8%AF%AD%E8%A8%80%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/%E7%AC%AC%E4%B8%80%E6%AC%A1%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/%E7%AC%AC%E4%BA%8C%E6%AC%A1%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png">
+<meta property="article:published_time" content="2020-04-14T04:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.238Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Java》Java虚拟机编译 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Java》Java虚拟机编译
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-14 12:19:31" itemprop="dateCreated datePublished" datetime="2020-04-14T12:19:31+08:00">2020-04-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/" itemprop="url" rel="index"><span itemprop="name">java</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/" itemprop="url" rel="index"><span itemprop="name">jvm</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/" itemprop="url" rel="index"><span itemprop="name">虚拟机规范</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/" itemprop="url" rel="index"><span itemprop="name">Java虚拟机编译</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>4k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>10 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是Java虚拟机规范系列的第三篇文章，主要介绍的是虚拟机规范中的虚拟机编译过程、编译原理。
+</code></pre>
+<h3 id="一、JAVA-虚拟机编译"><a href="#一、JAVA-虚拟机编译" class="headerlink" title="一、JAVA 虚拟机编译"></a>一、JAVA 虚拟机编译</h3><p>Java 虚拟机是为了支持 Java 语言而的设计的。Oracle 的 JDK 包括两部分内容：一部分是将 Java 源代码编译成 Java 虚拟机的指令集的编译器，另一部分是用于 Java 虚拟机的运行时环境。理解编译器是如何与 Java 虚拟机协同工作的，对编译器开发人员来说很有好处，同样也有助于理解 Java 虚拟机本身。</p>
+<span id="more"></span>
+
+
+<h4 id="1-1、指令"><a href="#1-1、指令" class="headerlink" title="1.1、指令"></a>1.1、指令</h4><p>主要指令如下：</p>
+<table>
+<thead>
+<tr>
+<th align="left">指令名称</th>
+<th align="right">作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">javac</td>
+<td align="right">将java源代码编译成字节码</td>
+</tr>
+<tr>
+<td align="left">javap</td>
+<td align="right">反编译字节码</td>
+</tr>
+<tr>
+<td align="left">java</td>
+<td align="right">将字节码加载到jvm中运行</td>
+</tr>
+</tbody></table>
+<h4 id="1-2、编译过程"><a href="#1-2、编译过程" class="headerlink" title="1.2、编译过程"></a>1.2、编译过程</h4><h5 id="1-2-1、基本编译过程"><a href="#1-2-1、基本编译过程" class="headerlink" title="1.2.1、基本编译过程"></a>1.2.1、基本编译过程</h5><p>编译过程就是将 .java 源码编译成 .class 字节码，这个过程可以通过软件工具 javac 来实现。<br><img src="/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B.png" alt="编译过程"></p>
+<h5 id="1-2-2、JVM中的编译器-解释器"><a href="#1-2-2、JVM中的编译器-解释器" class="headerlink" title="1.2.2、JVM中的编译器 &amp; 解释器"></a>1.2.2、JVM中的编译器 &amp; 解释器</h5><p><strong>JAVA编译器（javac.exe）</strong> 的作用是将java源程序编译成中间代码字节码文件，是最基本的开发工具。<br><strong>JAVA解释器（java.exe）（英语：Interpreter）</strong>，又译为直译器，是一种电脑程序，能够把高级编程语言一行一行直接转译运行。解释器不会一次把整个程序转译出来，只像一位“中间人”，每次运行程序时都要先转成另一种语言再作运行，因此解释器的程序运行速度比较缓慢。它每转译一行程序叙述就立刻运行，然后再转译下一行，再运行，如此不停地进行下去。<br><strong>Java 即时编译器（Just - In - Time Compiler，JIT）</strong> 是 Java 虚拟机（JVM）的一个关键组件。它的主要作用是在程序运行过程中，将热点（频繁执行）的 Java 字节码动态地编译成机器码。</p>
+<p><img src="/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/Java%E8%AF%AD%E8%A8%80%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png" alt="Java语言执行流程"></p>
+<h6 id="第一次运行代码：编译-解释-生成机器码（即生成Test-class文件）"><a href="#第一次运行代码：编译-解释-生成机器码（即生成Test-class文件）" class="headerlink" title="第一次运行代码：编译-&gt;解释-&gt;生成机器码（即生成Test.class文件）"></a>第一次运行代码：编译-&gt;解释-&gt;生成机器码（即生成Test.class文件）</h6><p><img src="/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/%E7%AC%AC%E4%B8%80%E6%AC%A1%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png" alt="第一次执行流程"><br>在运行时，JIT会把翻译过来的机器码保存起来，以备下次使用。</p>
+<h6 id="第二次编译：编译-执行（JIT即时编译-不用再生成-class文件，提高运行效率）"><a href="#第二次编译：编译-执行（JIT即时编译-不用再生成-class文件，提高运行效率）" class="headerlink" title="第二次编译：编译-&gt;执行（JIT即时编译,不用再生成.class文件，提高运行效率）"></a>第二次编译：编译-&gt;执行（JIT即时编译,不用再生成.class文件，提高运行效率）</h6><p>未修改源代码的情况下，不用再修改.class文件或生成相应的机器码<br><img src="/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/%E7%AC%AC%E4%BA%8C%E6%AC%A1%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png" alt="第二次执行流程"></p>
+<h5 id="1-2-3、即时编译器"><a href="#1-2-3、即时编译器" class="headerlink" title="1.2.3、即时编译器"></a>1.2.3、即时编译器</h5><p>为了优化Java的性能 ，JVM在解释器之外引入了即时（Just In Time）编译器：当程序运行时，解释器首先发挥作用，代码可以直接执行。随着时间推移，即时编译器逐渐发挥作用，把越来越多的代码编译优化成本地代码，来获取更高的执行效率。解释器这时可以作为编译运行的降级手段，在一些不可靠的编译优化出现问题时，再切换回解释执行，保证程序可以正常运行。</p>
+<h6 id="触发时机"><a href="#触发时机" class="headerlink" title="触发时机"></a>触发时机</h6><p>Java虚拟机根据方法的调用次数以及循环回边的执行次数来触发即时编译。循环回边是一个控制流图中的概念，程序中可以简单理解为往回跳转的指令，比如下面这段代码：</p>
+<p>循环回边</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">nlp</span><span class="params">(Object obj)</span> &#123;</span><br><span class="line">  <span class="type">int</span> <span class="variable">sum</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">200</span>; i++) &#123;</span><br><span class="line">    sum += i;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面这段代码经过编译生成下面的字节码。其中，偏移量为18的字节码将往回跳至偏移量为4的字节码中。在解释执行时，每当运行一次该指令，Java虚拟机便会将该方法的循环回边计数器加1。</p>
+<p>字节码</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">public void nlp(java.lang.Object);</span><br><span class="line">    Code:</span><br><span class="line">       0: iconst_0</span><br><span class="line">       1: istore_1</span><br><span class="line">       2: iconst_0</span><br><span class="line">       3: istore_2</span><br><span class="line">       4: iload_2</span><br><span class="line">       5: sipush        200</span><br><span class="line">       8: if_icmpge     21</span><br><span class="line">      11: iload_1</span><br><span class="line">      12: iload_2</span><br><span class="line">      13: iadd</span><br><span class="line">      14: istore_1</span><br><span class="line">      15: iinc          2, 1</span><br><span class="line">      18: goto          4</span><br><span class="line">      21: return</span><br></pre></td></tr></table></figure>
+<p>在即时编译过程中，编译器会识别循环的头部和尾部。上面这段字节码中，循环体的头部和尾部分别为偏移量为11的字节码和偏移量为15的字节码。编译器将在循环体结尾增加循环回边计数器的代码，来对循环进行计数。</p>
+<p>当方法的调用次数和循环回边的次数的和，超过由参数-XX:CompileThreshold指定的阈值时（使用C1时，默认值为1500；使用C2时，默认值为10000），就会触发即时编译。</p>
+<p>开启分层编译的情况下，-XX:CompileThreshold参数设置的阈值将会失效，触发编译会由以下的条件来判断：</p>
+<p>方法调用次数大于由参数-XX:TierXInvocationThreshold指定的阈值乘以系数。<br>方法调用次数大于由参数-XX:TierXMINInvocationThreshold指定的阈值乘以系数，并且方法调用次数和循环回边次数之和大于由参数-XX:TierXCompileThreshold指定的阈值乘以系数时。<br>分层编译触发条件公式</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">i &gt; TierXInvocationThreshold * s || (i &gt; TierXMinInvocationThreshold * s  &amp;&amp; i + b &gt; TierXCompileThreshold * s) </span><br><span class="line">i为调用次数，b是循环回边次数</span><br></pre></td></tr></table></figure>
+<p>上述满足其中一个条件就会触发即时编译，并且JVM会根据当前的编译方法数以及编译线程数动态调整系数s。</p>
+<h6 id="编译原理"><a href="#编译原理" class="headerlink" title="编译原理"></a>编译原理</h6><p><strong>方法调用计数与热点探测</strong><br>JVM 内部有一个机制用于统计方法的调用次数。当一个方法的调用次数达到一定的阈值（这个阈值可以根据 JVM 的配置和实现而不同）时，JVM 会将这个方法标记为热点方法。例如，HotSpot JVM 使用了基于计数器的热点探测技术，它有两种计数器：方法调用计数器和回边计数器。方法调用计数器用于统计方法的调用次数，回边计数器用于统计循环体的执行次数。当这些计数器的值超过预设的阈值时，就会触发 JIT 编译。</p>
+<p><strong>字节码编译为机器码</strong><br>一旦一个方法被确定为热点方法，JIT 编译器就会获取这个方法的字节码。它会对字节码进行一系列复杂的编译优化，包括但不限于常量折叠（如将表达式 “2 + 3” 在编译阶段计算为 5）、方法内联（将被调用的方法的代码直接嵌入到调用处）、循环展开（将循环体展开以减少循环控制的开销）等操作。然后，将经过优化后的字节码编译成机器码，并存储在代码缓存（Code Cache）中。之后，当程序再次调用这个热点方法时，就可以直接从代码缓存中获取机器码并执行。</p>
+<h3 id="二、编译示例"><a href="#二、编译示例" class="headerlink" title="二、编译示例"></a>二、编译示例</h3><h4 id="2-1、常量、局部变量的使用和控制结构"><a href="#2-1、常量、局部变量的使用和控制结构" class="headerlink" title="2.1、常量、局部变量的使用和控制结构"></a>2.1、常量、局部变量的使用和控制结构</h4><p>spin()是一个很简单的方法，它进行了 100 次空循环：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> <span class="title function_">spin</span><span class="params">()</span> &#123;</span><br><span class="line">  <span class="type">int</span> i;</span><br><span class="line">  <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">    ; <span class="comment">// Loop body is empty</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>编译后代码如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">Method void spin()</span><br><span class="line">0 iconst_0 // Push int constant 0 将0推到栈顶</span><br><span class="line">1 istore_1 // Store into local variable 1 (i=0)  将1存储到局部变量表</span><br><span class="line">2 goto 8 // First time through don’t increment</span><br><span class="line">5 iinc 1 1 // Increment local variable 1 by 1 (i++)</span><br><span class="line">8 iload_1 // Push local variable 1 (i)</span><br><span class="line">9 bipush 100 // Push int constant 100</span><br><span class="line">11 if_icmplt 5 // Compare and loop if less than (i &lt; 100)</span><br><span class="line">14 return // Return void when done</span><br></pre></td></tr></table></figure>
+
+
+<h4 id="2-2、同步"><a href="#2-2、同步" class="headerlink" title="2.2、同步"></a>2.2、同步</h4><p>Java 虚拟机中的同步（Synchronization）基于进入和退出管程（Monitor）对象实现。无论是显式同步（有明确的 monitorenter 和 monitorexit 指令）还是隐式同步（依赖方法调用和返回指令实现的）都是如此</p>
+<p>示例代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> <span class="title function_">onlyMe</span><span class="params">(Foo f)</span> &#123;</span><br><span class="line"> <span class="keyword">synchronized</span>(f) &#123;</span><br><span class="line">   doSomething();</span><br><span class="line"> &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>编译后：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">Method void onlyMe(Foo)</span><br><span class="line">0 aload_1 // Push f                                    将第二个引用类型局部变量（f）推送到栈顶</span><br><span class="line">1 dup // Duplicate it on the stack                     复制栈顶数值并将复制值压入栈顶</span><br><span class="line">2 astore_2 // Store duplicate in local variable 2      将栈顶引用类型数值存入第三个局部变量</span><br><span class="line">3 monitorenter // Enter the monitor associated with f  获得对象的monitor，用于同步方法或同步块</span><br><span class="line">4 aload_0 // Holding the monitor, pass this and...     将第一个引用类型局部变量推送到栈顶</span><br><span class="line">5 invokevirtual #5 // ...call Example.doSomething()V   调用实例方法</span><br><span class="line">8 aload_2 // Push local variable 2 (f)                 将第二个引用类型局部变量推送到栈顶</span><br><span class="line">9 monitorexit // Exit the monitor associated with f</span><br><span class="line">10 goto 18 // Complete the method normally</span><br><span class="line">13 astore_3 // In case of any throw, end up here</span><br><span class="line">14 aload_2 // Push local variable 2 (f)</span><br><span class="line">15 monitorexit // Be sure to exit the monitor!</span><br><span class="line">16 aload_3 // Push thrown exception...</span><br><span class="line">17 athrow // ...then rethrow the value to the invoker</span><br><span class="line">18 return // Return in the normal case</span><br><span class="line">Exception table:</span><br><span class="line">FromTo Target Type</span><br><span class="line"> 4 10 13 any</span><br><span class="line"> 13 16 13 any</span><br></pre></td></tr></table></figure>
+
+
+
+
+<p>参考文章：<br><a href="https://tech.meituan.com/2020/10/22/java-jit-practice-in-meituan.html">基本功 | Java即时编译器原理解析及实践</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/13/2020-04-13-ThreadLocal/" rel="prev" title="ThreadLocal">
+      <i class="fa fa-chevron-left"></i> ThreadLocal
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/15/2020-04-15-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-class%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F/" rel="next" title="《Java》class文件格式">
+      《Java》class文件格式 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81JAVA-%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91"><span class="nav-text">一、JAVA 虚拟机编译</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-1%E3%80%81%E6%8C%87%E4%BB%A4"><span class="nav-text">1.1、指令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1-2%E3%80%81%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B"><span class="nav-text">1.2、编译过程</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-2-1%E3%80%81%E5%9F%BA%E6%9C%AC%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B"><span class="nav-text">1.2.1、基本编译过程</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-2-2%E3%80%81JVM%E4%B8%AD%E7%9A%84%E7%BC%96%E8%AF%91%E5%99%A8-%E8%A7%A3%E9%87%8A%E5%99%A8"><span class="nav-text">1.2.2、JVM中的编译器 &amp; 解释器</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80%E6%AC%A1%E8%BF%90%E8%A1%8C%E4%BB%A3%E7%A0%81%EF%BC%9A%E7%BC%96%E8%AF%91-%E8%A7%A3%E9%87%8A-%E7%94%9F%E6%88%90%E6%9C%BA%E5%99%A8%E7%A0%81%EF%BC%88%E5%8D%B3%E7%94%9F%E6%88%90Test-class%E6%96%87%E4%BB%B6%EF%BC%89"><span class="nav-text">第一次运行代码：编译-&gt;解释-&gt;生成机器码（即生成Test.class文件）</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#%E7%AC%AC%E4%BA%8C%E6%AC%A1%E7%BC%96%E8%AF%91%EF%BC%9A%E7%BC%96%E8%AF%91-%E6%89%A7%E8%A1%8C%EF%BC%88JIT%E5%8D%B3%E6%97%B6%E7%BC%96%E8%AF%91-%E4%B8%8D%E7%94%A8%E5%86%8D%E7%94%9F%E6%88%90-class%E6%96%87%E4%BB%B6%EF%BC%8C%E6%8F%90%E9%AB%98%E8%BF%90%E8%A1%8C%E6%95%88%E7%8E%87%EF%BC%89"><span class="nav-text">第二次编译：编译-&gt;执行（JIT即时编译,不用再生成.class文件，提高运行效率）</span></a></li></ol></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-2-3%E3%80%81%E5%8D%B3%E6%97%B6%E7%BC%96%E8%AF%91%E5%99%A8"><span class="nav-text">1.2.3、即时编译器</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#%E8%A7%A6%E5%8F%91%E6%97%B6%E6%9C%BA"><span class="nav-text">触发时机</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#%E7%BC%96%E8%AF%91%E5%8E%9F%E7%90%86"><span class="nav-text">编译原理</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E7%BC%96%E8%AF%91%E7%A4%BA%E4%BE%8B"><span class="nav-text">二、编译示例</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1%E3%80%81%E5%B8%B8%E9%87%8F%E3%80%81%E5%B1%80%E9%83%A8%E5%8F%98%E9%87%8F%E7%9A%84%E4%BD%BF%E7%94%A8%E5%92%8C%E6%8E%A7%E5%88%B6%E7%BB%93%E6%9E%84"><span class="nav-text">2.1、常量、局部变量的使用和控制结构</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2%E3%80%81%E5%90%8C%E6%AD%A5"><span class="nav-text">2.2、同步</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

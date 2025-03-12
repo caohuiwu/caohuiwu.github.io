@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是“并发”系列的第一篇文章，主要介绍的是线程。  一、并发并发不一定要依赖多线程，但是在Java里面讨论并发，基本上都与线程脱不开关系。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Java》线程">
+<meta property="og:url" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“并发”系列的第一篇文章，主要介绍的是线程。  一、并发并发不一定要依赖多线程，但是在Java里面讨论并发，基本上都与线程脱不开关系。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0_%E5%86%85%E6%A0%B8%E7%BA%BF%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0_%E7%94%A8%E6%88%B7%E7%BA%BF%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0_%E6%B7%B7%E5%90%88%E6%A8%A1%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/1-start0.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/3-new-javathread.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/4-create-thread.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/5-pthread_create.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/thread_native_entry.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/run-method-name.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E5%AE%8F%E8%A7%82%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E7%BA%BF%E7%A8%8B%E7%8A%B6%E6%80%81.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/futuretask.png">
+<meta property="article:published_time" content="2020-05-16T04:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.314Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0_%E5%86%85%E6%A0%B8%E7%BA%BF%E7%A8%8B.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Java》线程 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Java》线程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-05-16 12:19:31" itemprop="dateCreated datePublished" datetime="2020-05-16T12:19:31+08:00">2020-05-16</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/" itemprop="url" rel="index"><span itemprop="name">java</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/%E5%B9%B6%E5%8F%91/" itemprop="url" rel="index"><span itemprop="name">并发</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/%E5%B9%B6%E5%8F%91/%E7%BA%BF%E7%A8%8B/" itemprop="url" rel="index"><span itemprop="name">线程</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>9.2k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>23 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是“并发”系列的第一篇文章，主要介绍的是线程。
+</code></pre>
+<h1 id="一、并发"><a href="#一、并发" class="headerlink" title="一、并发"></a>一、并发</h1><p>并发不一定要依赖多线程，但是在Java里面讨论并发，基本上都与线程脱不开关系。</p>
+<span id="more"></span>
+
+<h1 id="二、线程的实现"><a href="#二、线程的实现" class="headerlink" title="二、线程的实现"></a>二、线程的实现</h1><p>线程是比进程更轻量级的调度执行单位，线程的引入，可以把一个进程的资源分配和执行调度分开，各个线程共享进程资源（内存地址、文件IO等），又可以独立调度。</p>
+<p><strong>目前线程是Java里面进行处理器资源调度的最基本单位。</strong></p>
+<h2 id="2-1、线程的实现方式"><a href="#2-1、线程的实现方式" class="headerlink" title="2.1、线程的实现方式"></a>2.1、线程的实现方式</h2><h3 id="2-1-1、内核线程实现"><a href="#2-1-1、内核线程实现" class="headerlink" title="2.1.1、内核线程实现"></a>2.1.1、内核线程实现</h3><p><strong>内核线程（Kernel-Level Thread，KLT）：</strong> 由内核来完成线程切换，内核通过调度器对线程进行调度，并负责将线程的任务映射到各个处理器上。 <font color="green">程序一般不会直接去使用内核线程，而是使用内核线程的一种高级接口</font>—— <font color="red"><strong>轻量级进程（Light Weight Process，LWP）</strong></font>，也就是通常意义上的线程。<br><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0_%E5%86%85%E6%A0%B8%E7%BA%BF%E7%A8%8B.png" alt="线程的实现_内核线程"></p>
+<ul>
+<li><strong>优点：</strong> 每个LWP都是独立的调度单元。一个LWP被阻塞，不影响其他LWP。</li>
+<li><strong>缺点：</strong> 基于KLT，耗资源。线程的创建、析构、同步都需要进行系统调用，频繁的用户态、内核态切换。</li>
+</ul>
+<h3 id="2-1-2、用户线程实现（User-Thread，UT）"><a href="#2-1-2、用户线程实现（User-Thread，UT）" class="headerlink" title="2.1.2、用户线程实现（User Thread，UT）"></a>2.1.2、用户线程实现（User Thread，UT）</h3><p><strong>广义：</strong> 非内核线程，都可认为是用户线程。（包括LWT，虽然LWT的大多操作都要映射到KLT）<br><strong>狭义：</strong> 完全建立在用户空间的线程库上，系统内核不能感知线程存在的实现。UT也只感知到掌管这些UT的进程P。<br><strong>优点：</strong> 用户线程的创建、同步、销毁和调度完全在用户态中完成，不需要内核的帮助。<br><strong>缺点：</strong> 线程的创建、销毁、切换和调度都是用户必须考虑到问题。“阻塞如何处理”、“多处理器系统中如何将线程映射到其他处理器上”这类问题解决起来将会异常困难。</p>
+<p><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0_%E7%94%A8%E6%88%B7%E7%BA%BF%E7%A8%8B.png" alt="线程的实现_用户线程"></p>
+<h3 id="2-1-3、混合模式"><a href="#2-1-3、混合模式" class="headerlink" title="2.1.3、混合模式"></a>2.1.3、混合模式</h3><p>混合模式下，即存在用户线程，也存在轻量级进程。用户线程的创建、切换、析构等操作依然廉价，可以支持大规模的用户线程并发，且可以使用内核线程提供的线程调度功能及处理器映射。<br><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0_%E6%B7%B7%E5%90%88%E6%A8%A1%E5%BC%8F.png" alt="线程的实现_混合模式"></p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>从通用的应用程序的角度来看看线程是如何实现的：</p>
+<ul>
+<li>使用内核线程（1:1实现）</li>
+<li>使用用户线程实现（1:N实现）</li>
+<li>使用用户线程加轻量级进程混合实现（N:M实现）</li>
+</ul>
+<p>线程的实现依赖操作系统支持的线程模型。在主流的操作系统上，hotspot、classic、art等虚拟机默认是 1:1的线程模型。在Solaris平台上，hotspot支持1:1、N：M两种线程模型。</p>
+<p><font color="red"><strong>在 HotSpot JVM 中，pthread_create函数用于创建与 Java 线程对应的 Linux 轻量级进程（LWP）。</strong></font></p>
+<h2 id="2-2、Linux传统进程创建"><a href="#2-2、Linux传统进程创建" class="headerlink" title="2.2、Linux传统进程创建"></a>2.2、Linux传统进程创建</h2><h3 id="1-fork系统调用"><a href="#1-fork系统调用" class="headerlink" title="1 fork系统调用"></a>1 fork系统调用</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line">#include &lt;sys/types.h&gt;</span><br><span class="line">#include &lt;unistd.h&gt;</span><br><span class="line">int main() &#123;</span><br><span class="line">  pid_t pid = fork();</span><br><span class="line">  if (pid == -1) &#123;</span><br><span class="line">    // fork失败</span><br><span class="line">    perror(&quot;fork&quot;);</span><br><span class="line">  &#125; else if (pid == 0) &#123;</span><br><span class="line">    // 子进程</span><br><span class="line">    printf(&quot;我是子进程，我的PID是 %d，我的父进程PID是 %d\n&quot;, getpid(), getppid());</span><br><span class="line">  &#125; else &#123;</span><br><span class="line">    // 父进程</span><br><span class="line">    printf(&quot;我是父进程，我创建的子进程PID是 %d，我的PID是 %d\n&quot;, pid, getpid());</span><br><span class="line">  &#125;</span><br><span class="line">  return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="基本原理"><a href="#基本原理" class="headerlink" title="基本原理"></a>基本原理</h4><p>fork是在 Linux 中创建进程最基本的系统调用之一。当一个进程调用fork时，操作系统会创建一个新的进程，这个新进程几乎是父进程的副本。它会复制父进程的地址空间（包括代码段、数据段和堆等），使得子进程和父进程有相同的内存内容。</p>
+<h4 id="返回值"><a href="#返回值" class="headerlink" title="返回值"></a>返回值</h4><p>fork函数会返回两次。在父进程中，它返回子进程的 PID（进程标识符），而在子进程中，它返回 0。这个特性可以被用来区分父进程和子进程，以便它们执行不同的代码路径。</p>
+<h3 id="2-vfork系统调用"><a href="#2-vfork系统调用" class="headerlink" title="2 vfork系统调用"></a>2 vfork系统调用</h3><p>与fork的区别<br>vfork和fork的主要区别在于vfork创建的子进程会暂时共享父进程的地址空间。这是为了更高效地创建子进程，特别是在子进程会立即调用exec系列函数（用于执行新的程序）的情况下。</p>
+<h3 id="3-clone系统调用"><a href="#3-clone系统调用" class="headerlink" title="3 clone系统调用"></a>3 clone系统调用</h3><p>高级进程创建方式<br>clone系统调用提供了一种更灵活的进程创建方式。它允许程序员指定子进程与父进程共享的资源种类。通过设置不同的标志位，可以实现从几乎完全复制父进程（类似fork）到只共享部分资源（如只共享地址空间或者只共享文件描述符等）的多种模式。</p>
+<h2 id="2-3、Linux轻量级进程创建"><a href="#2-3、Linux轻量级进程创建" class="headerlink" title="2.3、Linux轻量级进程创建"></a>2.3、Linux轻量级进程创建</h2><p>可以使用clone()系统调用创建轻量级进程。clone()系统调用的参数可以指定新创建的轻量级进程与父进程共享的资源范围。它可以通过设置不同的标志位来决定是否共享地址空间、文件描述符等资源。</p>
+<h2 id="2-4、Java创建线程原理"><a href="#2-4、Java创建线程原理" class="headerlink" title="2.4、Java创建线程原理"></a>2.4、Java创建线程原理</h2><p>通过分析JVM源码梳理Java hotspot虚拟机创建线程的逻辑。</p>
+<h3 id="2-4-1、示例代码"><a href="#2-4-1、示例代码" class="headerlink" title="2.4.1、示例代码"></a>2.4.1、示例代码</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">MyThread</span> <span class="keyword">extends</span> <span class="title class_">Thread</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;a&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">MyThread</span> <span class="variable">myThread</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MyThread</span>();</span><br><span class="line">        myThread.start();       </span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p><font color="red"><strong>start方法才会创建并启动操作系统原生线程。</strong></font></p>
+<h3 id="2-4-2、源码解析"><a href="#2-4-2、源码解析" class="headerlink" title="2.4.2、源码解析"></a>2.4.2、源码解析</h3><h4 id="1、start0-native方法"><a href="#1、start0-native方法" class="headerlink" title="1、start0 native方法"></a>1、start0 native方法</h4><p><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/1-start0.png" alt="start0"><br>start0 对应的就是 JVM_StartThread 的函数指针, 函数源码在 jvm.cpp 文件中.</p>
+<h4 id="2、JVM-StartThread虚拟机函数"><a href="#2、JVM-StartThread虚拟机函数" class="headerlink" title="2、JVM_StartThread虚拟机函数"></a>2、JVM_StartThread虚拟机函数</h4><p>JVM_StartThread函数所做的事情主要是:</p>
+<ul>
+<li>1、创建JavaThread 并初始化：new JavaThread(&amp;thread_entry, sz);</li>
+<li>2、调用 Thread::start 启动线程：线程状态设置成  <font color="red">RUNNABLE</font></li>
+</ul>
+<h5 id="2-1、创建-JavaThread-并初始化"><a href="#2-1、创建-JavaThread-并初始化" class="headerlink" title="2.1、创建 JavaThread 并初始化"></a>2.1、创建 JavaThread 并初始化</h5><p>代码如下：关注入参&amp;thread_entry，是一个回调函数，详细查看后文<br>  <img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/3-new-javathread.png" alt="3-new-javathread"></p>
+<h5 id="2-3、调用-Thread-start-启动线程"><a href="#2-3、调用-Thread-start-启动线程" class="headerlink" title="2.3、调用 Thread::start 启动线程"></a>2.3、调用 Thread::start 启动线程</h5><p>Thread::start 设置 Java 的 Thread 类的 threadState 字段的值为 RUNNABLE 对应的值, 并通过 os::start_thread 运行操作系统线程.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">void Thread::start(Thread* thread) &#123;</span><br><span class="line">  if (thread-&gt;is_Java_thread()) &#123;</span><br><span class="line">  // 设置Java平台线程对象的状态</span><br><span class="line">  java_lang_Thread::set_thread_status(JavaThread::cast(thread)-&gt;threadObj(),</span><br><span class="line">  JavaThreadStatus::RUNNABLE);</span><br><span class="line">  &#125;</span><br><span class="line">  // 启动OS线程</span><br><span class="line">  os::start_thread(thread);</span><br><span class="line">  &#125;</span><br><span class="line">  void os::start_thread(Thread* thread) &#123;</span><br><span class="line">  OSThread* osthread = thread-&gt;osthread();</span><br><span class="line">  osthread-&gt;set_state(RUNNABLE);</span><br><span class="line">  // 启动线程, 不同平台实现不同</span><br><span class="line">  pd_start_thread(thread);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3、new-Javathread"><a href="#3、new-Javathread" class="headerlink" title="3、new Javathread"></a>3、new Javathread</h4><p>这里做了两个动作，</p>
+<ul>
+<li>1、首先通过 set_entry_point 将要执行的方法thread_entry 函数，使用 entry_point 保存了起来，以便之后调用。</li>
+<li>2、然后又调用了 os::create_thread 方法，通过调用OS底层创建Java线程对应的内核线程。<br><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/4-create-thread.png" alt="create-thread"></li>
+</ul>
+<h4 id="4、create-thread"><a href="#4、create-thread" class="headerlink" title="4、create_thread"></a>4、create_thread</h4><p>** <font color="gray"> os::create_thread(this, thr_type, stack_sz); </font> **<br><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/5-pthread_create.png" alt="pthread_create"><br>最终，我们发现是调用Linux提供的pthread-create方法：</p>
+<ul>
+<li>关注第3个入参：thread_native_entry</li>
+</ul>
+<h4 id="5、pthread-create"><a href="#5、pthread-create" class="headerlink" title="5、pthread-create"></a>5、pthread-create</h4><p>os_linux.cpp的pthread_create， 创建内核线程</p>
+<blockquote>
+<p><font color="green">pthread_create是POSIX标准线程库中的一个函数，用于创建新线程。在C语言中，多线程编程成为了许多程序员必备的技能之一，而pthread_create则是实现多线程的关键之一。</font></p>
+<p><font color="red">在 HotSpot JVM 中，pthread_create函数用于创建与 Java 线程对应的 Linux 轻量级进程（LWP）。</font></p>
+</blockquote>
+<p>使用pthread_create函数创建线程。这个函数的原型是</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">pthread_create</span><span class="params">(<span class="type">pthread_t</span> *thread, <span class="type">const</span> <span class="type">pthread_attr_t</span> *attr, <span class="type">void</span> *(*start_routine)(<span class="type">void</span> *), <span class="type">void</span> *arg)</span></span>;。</span><br></pre></td></tr></table></figure>
+<ul>
+<li>pthread_t *thread：是一个指针，用于存储新创建线程的标识符；</li>
+<li>const pthread_attr_t *attr：可以用于设置线程的属性（如果使用默认属性，可以传递NULL）；</li>
+<li>void *(*start_routine)(void *)： 以函数指针的方式指明新建线程需要执行的函数，该函数的参数最多有 1 个（可以省略不写），形参和返回值的类型都必须为 void</li>
+<li>void *arg：是传递给线程函数的参数。</li>
+</ul>
+<p>通过Linux相关文档了解到，当 pthread_create 函数执行创建完线程之后会调用第三个参数（thread_native_entry 方法）传递过去的回调函数。</p>
+<h4 id="6、thread-native-entry"><a href="#6、thread-native-entry" class="headerlink" title="6、thread_native_entry"></a>6、thread_native_entry</h4><p><strong>thread_native_entry解析：</strong><br><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/thread_native_entry.png" alt="thread_native_entry"></p>
+<p>而这个此刻 entry_point 就是我们 执行 native_thread &#x3D; new JavaThread(&amp;thread_entry, sz) 创建线程时穿进的构造参数 &amp;thread_entry，我们再回到最开始的这里，接着理解 native_thread &#x3D; new JavaThread(&amp;thread_entry, sz) 第二步，其入参 &amp;thread_entry 方法内部干了什么：</p>
+<h4 id="7、-thread-entry"><a href="#7、-thread-entry" class="headerlink" title="7、&amp;thread_entry"></a>7、&amp;thread_entry</h4><p><font color="red"><strong>thread_entry()函数：</strong> </font> 是一个回调方法，函数逻辑如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">static void thread_entry(JavaThread* thread, TRAPS) &#123;</span><br><span class="line">  HandleMark hm(THREAD);</span><br><span class="line">  Handle obj(THREAD, thread-&gt;threadObj());</span><br><span class="line">  JavaValue result(T_VOID);</span><br><span class="line">  JavaCalls::call_virtual(&amp;result,</span><br><span class="line">                          obj,</span><br><span class="line">                          SystemDictionary::Thread_klass(),</span><br><span class="line">                          vmSymbols::run_method_name(),</span><br><span class="line">                          vmSymbols::void_method_signature(),</span><br><span class="line">                          THREAD);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>JavaCalls::call_virtual表示调用了call_virtual这个方法。这里面最重要的代码就是这行：执行run()方法<br>vmSymbols::run_method_name()<br><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/run-method-name.png" alt="run-method-name"><br>可见vmSymbols::run_method_name()就是调用了run方法。</p>
+<h3 id="线程创建总结：宏观流程分析"><a href="#线程创建总结：宏观流程分析" class="headerlink" title="线程创建总结：宏观流程分析"></a>线程创建总结：宏观流程分析</h3><p><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E5%AE%8F%E8%A7%82%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90.png" alt="宏观流程分析"></p>
+<h1 id="三、Java线程状态"><a href="#三、Java线程状态" class="headerlink" title="三、Java线程状态"></a>三、Java线程状态</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">public enum State &#123;</span><br><span class="line">    //新建状态，未启动</span><br><span class="line">    NEW,</span><br><span class="line">    //就绪状态，在JVM中运行，但是在操作系统中可能是等待执行。</span><br><span class="line">    RUNNABLE,</span><br><span class="line">    //阻塞状态，表示线程阻塞于锁</span><br><span class="line">    BLOCKED,</span><br><span class="line">    //等待状态，需要等待其他线程做出一些特定动作（通知或中断）</span><br><span class="line">    WAITING,</span><br><span class="line">   //超时等待，可以在指定的时间后自行返回</span><br><span class="line">   TIMED_WAITING,</span><br><span class="line">   //表示该线程已经执行完毕。</span><br><span class="line">   TERMINATED;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/%E7%BA%BF%E7%A8%8B%E7%8A%B6%E6%80%81.png" alt="线程状态"></p>
+<h2 id="3-1、-NEW"><a href="#3-1、-NEW" class="headerlink" title="3.1、 NEW"></a>3.1、 NEW</h2><p>新建状态，未启动，线程被创建出来，但是未调用start()方法</p>
+<h2 id="3-2、RUNNABLE"><a href="#3-2、RUNNABLE" class="headerlink" title="3.2、RUNNABLE"></a>3.2、RUNNABLE</h2><p>就绪状态，在JVM中运行，但是在操作系统中可能是等待执行。线程调用了start()方法<br>可能对应OS进程的Ready、RUNNING2个状态</p>
+<h2 id="3-3、BLOCKED"><a href="#3-3、BLOCKED" class="headerlink" title="3.3、BLOCKED"></a>3.3、BLOCKED</h2><p>阻塞状态，表示线程阻塞于锁</p>
+<h2 id="3-4、WAITING"><a href="#3-4、WAITING" class="headerlink" title="3.4、WAITING"></a>3.4、WAITING</h2><p>等待状态，需要等待其他线程做出一些特定动作（通知或中断）</p>
+<h2 id="3-5、TIMED-WAITING"><a href="#3-5、TIMED-WAITING" class="headerlink" title="3.5、TIMED_WAITING"></a>3.5、TIMED_WAITING</h2><p>超时等待，可以在指定的时间后自行返回</p>
+<h2 id="3-6、TERMINATED"><a href="#3-6、TERMINATED" class="headerlink" title="3.6、TERMINATED"></a>3.6、TERMINATED</h2><p>表示该线程已经执行完毕。</p>
+<h1 id="四、线程的相应方法"><a href="#四、线程的相应方法" class="headerlink" title="四、线程的相应方法"></a>四、线程的相应方法</h1><h2 id="4-1、sleep"><a href="#4-1、sleep" class="headerlink" title="4.1、sleep"></a>4.1、sleep</h2><p>线程暂时停止运行，但是未失去对锁的拥有<br>线程等待指定的时间后，该线程不一定会立马&#x2F;确定运行<br>线程等待，进入_EntryList队列中</p>
+<h2 id="4-2、join"><a href="#4-2、join" class="headerlink" title="4.2、join"></a>4.2、join</h2><p>源码分析：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title function_">join</span><span class="params">(<span class="type">long</span> millis)</span></span><br><span class="line">  <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line">  <span class="type">long</span> <span class="variable">base</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line">  <span class="type">long</span> <span class="variable">now</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (millis &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(<span class="string">&quot;timeout value is negative&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (millis == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">while</span> (isAlive()) &#123;</span><br><span class="line">            wait(<span class="number">0</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>join方法为synchronized方法<br>使用示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">Thread</span> <span class="variable">t1</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Thread</span>(()-&gt;&#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;Thread t1 run&quot;</span>);</span><br><span class="line">        count=<span class="number">10</span>;</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line">    t1.start();</span><br><span class="line">    t1.join();<span class="comment">//若把这一行注释掉，则打印的count为0</span></span><br><span class="line"></span><br><span class="line">    System.out.println(<span class="string">&quot;count=&quot;</span>+count);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><font color="red">主线程，获取t1对象的锁；然后调用wait()方法，则主线程会被阻塞</font></p>
+<h2 id="4-3、yield"><a href="#4-3、yield" class="headerlink" title="4.3、yield"></a>4.3、yield</h2><p>一个线索、示意调度器当前线程将会放弃他当前的处理器使用权<br>yield()方法不会使线程失去资源，只是失去了处理器使用权</p>
+<h2 id="4-4、start"><a href="#4-4、start" class="headerlink" title="4.4、start"></a>4.4、start</h2><h3 id="如果start-方法调用2次？"><a href="#如果start-方法调用2次？" class="headerlink" title="如果start()方法调用2次？"></a>如果start()方法调用2次？</h3><p>在调用 start 之后，threadStatus 的值会改变（threadStatus !&#x3D;0），再次调用 start 方法会抛出 IllegalThreadStateException 异常。<br><strong>会去判断线程的状态，抛出异常</strong></p>
+<h3 id="执行原理"><a href="#执行原理" class="headerlink" title="执行原理"></a>执行原理</h3><p>查看上文的线程的创建。	</p>
+<h2 id="4-5、run"><a href="#4-5、run" class="headerlink" title="4.5、run"></a>4.5、run</h2><p>run()方法只是类的一个普通方法而已，如果直接调用Run方法，程序中依然只有主线程这一个线程，其程序执行路径还是只有一条，还是要顺序执行。</p>
+<h2 id="4-6、wait"><a href="#4-6、wait" class="headerlink" title="4.6、wait()"></a>4.6、wait()</h2><p>wait()方法必须在同步代码块或同步方法中被调用，并且这个同步代码块或方法需要使用与当前对象相关的锁。<br>                当一个线程执行到wait()方法时，它会释放当前持有的对象锁，然后进入等待队列。</p>
+<h1 id="五、创建线程【start方法才会创建并启动操作系统原生线程】"><a href="#五、创建线程【start方法才会创建并启动操作系统原生线程】" class="headerlink" title="五、创建线程【start方法才会创建并启动操作系统原生线程】"></a>五、创建线程【start方法才会创建并启动操作系统原生线程】</h1><h2 id="5-1、继承Thread类，并复写run方法"><a href="#5-1、继承Thread类，并复写run方法" class="headerlink" title="5.1、继承Thread类，并复写run方法"></a>5.1、继承Thread类，并复写run方法</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">MyThread</span> <span class="keyword">extends</span> <span class="title class_">Thread</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;a&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">  <span class="type">MyThread</span> <span class="variable">myThread</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MyThread</span>();</span><br><span class="line">  myThread.start();       </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="5-2、实现Runnable接口，复写run方法"><a href="#5-2、实现Runnable接口，复写run方法" class="headerlink" title="5.2、实现Runnable接口，复写run方法"></a>5.2、实现Runnable接口，复写run方法</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">MyRunnable</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;b&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;       </span><br><span class="line">    <span class="type">MyRunnable</span> <span class="variable">myRunnable</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MyRunnable</span>();</span><br><span class="line">    <span class="type">Thread</span> <span class="variable">thread</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Thread</span>(myRunnable);</span><br><span class="line">    thread.start();</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="5-3、使用Callable和Future"><a href="#5-3、使用Callable和Future" class="headerlink" title="5.3、使用Callable和Future"></a>5.3、使用Callable和Future</h2><h3 id="5-3-1、Callable"><a href="#5-3-1、Callable" class="headerlink" title="5.3.1、Callable"></a>5.3.1、Callable</h3><p><font color="red">方法作用：》》》》【具体的任务逻辑，在这里实现】</font><br>Callable位于java.util.concurrent包下，它也是一个接口，在它里面也只声明了一个方法，只不过这个方法叫做call()：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Callable</span>&lt;V&gt; &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Computes a result, or throws an exception if unable to do so.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@return</span> computed result</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@throws</span> Exception if unable to compute a result</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    V <span class="title function_">call</span><span class="params">()</span> <span class="keyword">throws</span> Exception;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>那么怎么使用Callable呢？一般情况下是配合ExecutorService来使用的，在ExecutorService接口中声明了若干个submit方法的重载版本：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&lt;T&gt; Future&lt;T&gt; submit(Callable&lt;T&gt; task);</span><br><span class="line">&lt;T&gt; Future&lt;T&gt; submit(Runnable task, T result);</span><br><span class="line">Future&lt;?&gt; submit(Runnable task);</span><br></pre></td></tr></table></figure>
+<p>第一个submit方法里面的参数类型就是Callable。</p>
+<h3 id="5-3-2、Future"><a href="#5-3-2、Future" class="headerlink" title="5.3.2、Future"></a>5.3.2、Future</h3><p><font color="red">方法作用：》》》》【获取Callable任务的执行结果】</font><br>Future就是对于具体的Runnable或者Callable任务的<font color="red"><strong>执行结果进行取消、查询是否完成、获取结果</strong></font>。必要时可以通过get方法获取执行结果，该方法会阻塞直到任务返回结果。</p>
+<p>Future类位于java.util.concurrent包下，它是一个接口：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">public interface Future&lt;V&gt; &#123;</span><br><span class="line">    boolean cancel(boolean mayInterruptIfRunning);</span><br><span class="line">    boolean isCancelled();</span><br><span class="line">    boolean isDone();</span><br><span class="line">    V get() throws InterruptedException, ExecutionException;</span><br><span class="line">    V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>因为Future只是一个接口，所以是无法直接用来创建对象使用的，因此就有了下面的FutureTask。</strong></p>
+<h2 id="5-4、使用-Callable-和-FutureTask"><a href="#5-4、使用-Callable-和-FutureTask" class="headerlink" title="5.4、使用 Callable 和 FutureTask"></a>5.4、使用 Callable 和 FutureTask</h2><h3 id="5-4-1、FutureTask"><a href="#5-4-1、FutureTask" class="headerlink" title="5.4.1、FutureTask"></a>5.4.1、FutureTask</h3><p>我们先来看一下FutureTask的实现：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">public class FutureTask&lt;V&gt; implements RunnableFuture&lt;V&gt;</span><br></pre></td></tr></table></figure>
+<p>FutureTask类实现了RunnableFuture接口，我们看一下RunnableFuture接口的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">RunnableFuture</span>&lt;V&gt; <span class="keyword">extends</span> <span class="title class_">Runnable</span>, Future&lt;V&gt; &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看出RunnableFuture继承了Runnable接口和Future接口，而FutureTask实现了RunnableFuture接口。所以它既可以作为Runnable被线程执行，又可以作为Future得到Callable的返回值。</p>
+<p>FutureTask提供了2个构造器：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">public FutureTask(Callable&lt;V&gt; callable) &#123;</span><br><span class="line">&#125;</span><br><span class="line">public FutureTask(Runnable runnable, V result) &#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>事实上，FutureTask是Future接口的一个唯一实现类。</p>
+<h3 id="5-4-2、步骤一：定义-Callable"><a href="#5-4-2、步骤一：定义-Callable" class="headerlink" title="5.4.2、步骤一：定义 Callable"></a>5.4.2、步骤一：定义 Callable</h3><p><font color="red">方法作用：》》》》【任务逻辑实现】</font><br>代码如下</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">MyCallable</span> <span class="keyword">implements</span> <span class="title class_">Callable</span></span><br></pre></td></tr></table></figure>
+<p>Callable内部有call()方法，该方法会返回执行结果</p>
+<h3 id="5-4-3、步骤二：结合-FutureTask"><a href="#5-4-3、步骤二：结合-FutureTask" class="headerlink" title="5.4.3、步骤二：结合 FutureTask"></a>5.4.3、步骤二：结合 FutureTask</h3><p>我们先来看一下FutureTask的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">FutureTask</span>&lt;V&gt; <span class="keyword">implements</span> <span class="title class_">RunnableFuture</span>&lt;V&gt;</span><br></pre></td></tr></table></figure>
+<p>FutureTask类实现了RunnableFuture接口，我们看一下RunnableFuture接口的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">RunnableFuture</span>&lt;V&gt; <span class="keyword">extends</span> <span class="title class_">Runnable</span>, Future&lt;V&gt; &#123;</span><br><span class="line"><span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看出RunnableFuture继承了Runnable接口和Future接口，而FutureTask实现了RunnableFuture接口。所以它既可以作为Runnable被线程执行，又可以作为Future得到Callable的返回值。</p>
+<p><font color="red">方法作用：》》》》【获取任务结果】</font><br>FutureTask实现了Runnable接口，作为一个线程，run()方法内部执行callable接口的call()方法，获取到 任务逻辑实现 的返回结果。<br><img src="/2020/05/16/2020-05-16-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B/futuretask.png" alt="futuretask"></p>
+<h3 id="5-4-4、步骤三：获取结果"><a href="#5-4-4、步骤三：获取结果" class="headerlink" title="5.4.4、步骤三：获取结果"></a>5.4.4、步骤三：获取结果</h3><p>Future 在获取结果时通常是通过阻塞等待的方式实现的。当调用 Future 的 get 方法来获取异步任务的结果时，如果任务还未完成，当前线程会被阻塞，直到任务完成并获取到结果。</p>
+<h2 id="5-4、线程池"><a href="#5-4、线程池" class="headerlink" title="5.4、线程池"></a>5.4、线程池</h2>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/05/15/2020-05-15-%E6%B3%9B%E5%9E%8B/" rel="prev" title="泛型">
+      <i class="fa fa-chevron-left"></i> 泛型
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/05/17/2020-05-17-java-%E5%B9%B6%E5%8F%91-%E7%BA%BF%E7%A8%8B%E6%B1%A0/" rel="next" title="《Java》线程池">
+      《Java》线程池 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%B9%B6%E5%8F%91"><span class="nav-text">一、并发</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0"><span class="nav-text">二、线程的实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"><span class="nav-text">2.1、线程的实现方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-1%E3%80%81%E5%86%85%E6%A0%B8%E7%BA%BF%E7%A8%8B%E5%AE%9E%E7%8E%B0"><span class="nav-text">2.1.1、内核线程实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-2%E3%80%81%E7%94%A8%E6%88%B7%E7%BA%BF%E7%A8%8B%E5%AE%9E%E7%8E%B0%EF%BC%88User-Thread%EF%BC%8CUT%EF%BC%89"><span class="nav-text">2.1.2、用户线程实现（User Thread，UT）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-3%E3%80%81%E6%B7%B7%E5%90%88%E6%A8%A1%E5%BC%8F"><span class="nav-text">2.1.3、混合模式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81Linux%E4%BC%A0%E7%BB%9F%E8%BF%9B%E7%A8%8B%E5%88%9B%E5%BB%BA"><span class="nav-text">2.2、Linux传统进程创建</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-fork%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-text">1 fork系统调用</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E5%8E%9F%E7%90%86"><span class="nav-text">基本原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%BF%94%E5%9B%9E%E5%80%BC"><span class="nav-text">返回值</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-vfork%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-text">2 vfork系统调用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-clone%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-text">3 clone系统调用</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81Linux%E8%BD%BB%E9%87%8F%E7%BA%A7%E8%BF%9B%E7%A8%8B%E5%88%9B%E5%BB%BA"><span class="nav-text">2.3、Linux轻量级进程创建</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4%E3%80%81Java%E5%88%9B%E5%BB%BA%E7%BA%BF%E7%A8%8B%E5%8E%9F%E7%90%86"><span class="nav-text">2.4、Java创建线程原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-1%E3%80%81%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="nav-text">2.4.1、示例代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-2%E3%80%81%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90"><span class="nav-text">2.4.2、源码解析</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1%E3%80%81start0-native%E6%96%B9%E6%B3%95"><span class="nav-text">1、start0 native方法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2%E3%80%81JVM-StartThread%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%87%BD%E6%95%B0"><span class="nav-text">2、JVM_StartThread虚拟机函数</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#2-1%E3%80%81%E5%88%9B%E5%BB%BA-JavaThread-%E5%B9%B6%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-text">2.1、创建 JavaThread 并初始化</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-3%E3%80%81%E8%B0%83%E7%94%A8-Thread-start-%E5%90%AF%E5%8A%A8%E7%BA%BF%E7%A8%8B"><span class="nav-text">2.3、调用 Thread::start 启动线程</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3%E3%80%81new-Javathread"><span class="nav-text">3、new Javathread</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4%E3%80%81create-thread"><span class="nav-text">4、create_thread</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5%E3%80%81pthread-create"><span class="nav-text">5、pthread-create</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#6%E3%80%81thread-native-entry"><span class="nav-text">6、thread_native_entry</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#7%E3%80%81-thread-entry"><span class="nav-text">7、&amp;thread_entry</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E5%88%9B%E5%BB%BA%E6%80%BB%E7%BB%93%EF%BC%9A%E5%AE%8F%E8%A7%82%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90"><span class="nav-text">线程创建总结：宏观流程分析</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81Java%E7%BA%BF%E7%A8%8B%E7%8A%B6%E6%80%81"><span class="nav-text">三、Java线程状态</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81-NEW"><span class="nav-text">3.1、 NEW</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81RUNNABLE"><span class="nav-text">3.2、RUNNABLE</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81BLOCKED"><span class="nav-text">3.3、BLOCKED</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4%E3%80%81WAITING"><span class="nav-text">3.4、WAITING</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-5%E3%80%81TIMED-WAITING"><span class="nav-text">3.5、TIMED_WAITING</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-6%E3%80%81TERMINATED"><span class="nav-text">3.6、TERMINATED</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%BA%BF%E7%A8%8B%E7%9A%84%E7%9B%B8%E5%BA%94%E6%96%B9%E6%B3%95"><span class="nav-text">四、线程的相应方法</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81sleep"><span class="nav-text">4.1、sleep</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81join"><span class="nav-text">4.2、join</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81yield"><span class="nav-text">4.3、yield</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-4%E3%80%81start"><span class="nav-text">4.4、start</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A6%82%E6%9E%9Cstart-%E6%96%B9%E6%B3%95%E8%B0%83%E7%94%A82%E6%AC%A1%EF%BC%9F"><span class="nav-text">如果start()方法调用2次？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%89%A7%E8%A1%8C%E5%8E%9F%E7%90%86"><span class="nav-text">执行原理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-5%E3%80%81run"><span class="nav-text">4.5、run</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-6%E3%80%81wait"><span class="nav-text">4.6、wait()</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%88%9B%E5%BB%BA%E7%BA%BF%E7%A8%8B%E3%80%90start%E6%96%B9%E6%B3%95%E6%89%8D%E4%BC%9A%E5%88%9B%E5%BB%BA%E5%B9%B6%E5%90%AF%E5%8A%A8%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E5%8E%9F%E7%94%9F%E7%BA%BF%E7%A8%8B%E3%80%91"><span class="nav-text">五、创建线程【start方法才会创建并启动操作系统原生线程】</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1%E3%80%81%E7%BB%A7%E6%89%BFThread%E7%B1%BB%EF%BC%8C%E5%B9%B6%E5%A4%8D%E5%86%99run%E6%96%B9%E6%B3%95"><span class="nav-text">5.1、继承Thread类，并复写run方法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-2%E3%80%81%E5%AE%9E%E7%8E%B0Runnable%E6%8E%A5%E5%8F%A3%EF%BC%8C%E5%A4%8D%E5%86%99run%E6%96%B9%E6%B3%95"><span class="nav-text">5.2、实现Runnable接口，复写run方法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-3%E3%80%81%E4%BD%BF%E7%94%A8Callable%E5%92%8CFuture"><span class="nav-text">5.3、使用Callable和Future</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-1%E3%80%81Callable"><span class="nav-text">5.3.1、Callable</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-2%E3%80%81Future"><span class="nav-text">5.3.2、Future</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-4%E3%80%81%E4%BD%BF%E7%94%A8-Callable-%E5%92%8C-FutureTask"><span class="nav-text">5.4、使用 Callable 和 FutureTask</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-4-1%E3%80%81FutureTask"><span class="nav-text">5.4.1、FutureTask</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-4-2%E3%80%81%E6%AD%A5%E9%AA%A4%E4%B8%80%EF%BC%9A%E5%AE%9A%E4%B9%89-Callable"><span class="nav-text">5.4.2、步骤一：定义 Callable</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-4-3%E3%80%81%E6%AD%A5%E9%AA%A4%E4%BA%8C%EF%BC%9A%E7%BB%93%E5%90%88-FutureTask"><span class="nav-text">5.4.3、步骤二：结合 FutureTask</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-4-4%E3%80%81%E6%AD%A5%E9%AA%A4%E4%B8%89%EF%BC%9A%E8%8E%B7%E5%8F%96%E7%BB%93%E6%9E%9C"><span class="nav-text">5.4.4、步骤三：获取结果</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-4%E3%80%81%E7%BA%BF%E7%A8%8B%E6%B1%A0"><span class="nav-text">5.4、线程池</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

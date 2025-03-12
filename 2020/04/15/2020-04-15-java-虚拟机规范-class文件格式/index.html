@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是Java虚拟机规范系列的第四篇文章，主要介绍的是虚拟机规范中的class文件格式。  一、class文件每一个 Class 文件都对应着唯一一个类或接口的定义信息，但是相对地，类或接口并不一定都得定义在文件里（譬如类或接口也可以通过类加载器直接生成）。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Java》class文件格式">
+<meta property="og:url" content="http://yoursite.com/2020/04/15/2020-04-15-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-class%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是Java虚拟机规范系列的第四篇文章，主要介绍的是虚拟机规范中的class文件格式。  一、class文件每一个 Class 文件都对应着唯一一个类或接口的定义信息，但是相对地，类或接口并不一定都得定义在文件里（譬如类或接口也可以通过类加载器直接生成）。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/04/15/2020-04-15-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-class%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F/%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B.png">
+<meta property="article:published_time" content="2020-04-15T04:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.244Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/04/15/2020-04-15-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-class%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F/%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/04/15/2020-04-15-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-class%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Java》class文件格式 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/15/2020-04-15-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-class%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Java》class文件格式
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-15 12:19:31" itemprop="dateCreated datePublished" datetime="2020-04-15T12:19:31+08:00">2020-04-15</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/" itemprop="url" rel="index"><span itemprop="name">java</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/" itemprop="url" rel="index"><span itemprop="name">jvm</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/" itemprop="url" rel="index"><span itemprop="name">虚拟机规范</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/class%E6%96%87%E4%BB%B6/" itemprop="url" rel="index"><span itemprop="name">class文件</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>6.5k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>16 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是Java虚拟机规范系列的第四篇文章，主要介绍的是虚拟机规范中的class文件格式。
+</code></pre>
+<h3 id="一、class文件"><a href="#一、class文件" class="headerlink" title="一、class文件"></a>一、class文件</h3><p>每一个 Class 文件都对应着唯一一个类或接口的定义信息，但是相对地，类或接口并不一定都得定义在文件里（譬如类或接口也可以通过类加载器直接生成）。</p>
+<span id="more"></span>
+
+
+<h4 id="1-1、ClassFile-结构"><a href="#1-1、ClassFile-结构" class="headerlink" title="1.1、ClassFile 结构"></a>1.1、ClassFile 结构</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">ClassFile &#123;</span><br><span class="line"> u4 magic;  魔数，4 字节，魔数的唯一作用是确定这个文件是否为一个能被虚拟机所接受的 Class 文件。魔数值固定为 0xCAFEBABE，不会改变。</span><br><span class="line"> u2 minor_version;  副版本号，2字节</span><br><span class="line"> u2 major_version;  主版本号，2字节</span><br><span class="line"> u2 constant_pool_count;  常量池计数器，constant_pool_count 的值等于 constant_pool 表中的成员数加 1。</span><br><span class="line"> cp_info constant_pool[constant_pool_count-1];  常量池，constant_pool 是一种表结构（§4.4），它包含 Class 文件结构及其子结构中引用的所有字符串常量、类或接口名、字段名和其它常量。</span><br><span class="line"> u2 access_flags;  访问标志，access_flags 是一种掩码标志，用于表示某个类或者接口的访问权限及基础属性。</span><br><span class="line"> u2 this_class;    类索引，this_class 的值必须是对 constant_pool 表中项目的一个有效索引值。</span><br><span class="line"> u2 super_class;   父类索引，对于类来说，super_class 的值必须为 0 或者是对 constant_pool 表中项目的一个有效索引值。</span><br><span class="line"> u2 interfaces_count; 接口计数器，interfaces_count 的值表示当前类或接口的直接父接口数量。</span><br><span class="line"> u2 interfaces[interfaces_count]; 接口表，interfaces[]数组中的每个成员的值必须是一个对 constant_pool 表中项目的一个有效索引值，它的长度为 interfaces_count。</span><br><span class="line"> u2 fields_count; 字段计数器，fields_count 的值表示当前 Class 文件 fields[]数组的成员个数</span><br><span class="line"> field_info fields[fields_count]; 字段表，fields[]数组中的每个成员都必须是一个 fields_info 结构（§4.5）的数据项，用于表示当前类或接口中某个字段的完整描述</span><br><span class="line"> u2 methods_count;  方法计数器，methods_count 的值表示当前 Class 文件 methods[]数组的成员个数。</span><br><span class="line"> method_info methods[methods_count];</span><br><span class="line"> u2 attributes_count; 属性计数器，attributes_count 的值表示当前 Class 文件 attributes 表的成员个数。</span><br><span class="line"> attribute_info attributes[attributes_count];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/2020/04/15/2020-04-15-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-class%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F/%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B.png" alt="编译过程"></p>
+<h4 id="1-2、各种内部表示名称"><a href="#1-2、各种内部表示名称" class="headerlink" title="1.2、各种内部表示名称"></a>1.2、各种内部表示名称</h4><h5 id="全限定名称：类和接口的二进制名称"><a href="#全限定名称：类和接口的二进制名称" class="headerlink" title="全限定名称：类和接口的二进制名称"></a>全限定名称：类和接口的二进制名称</h5><p>在 Class 文件结构中出现的<strong>类或接口的名称，都通过全限定形式</strong>（Fully Qualified Form）来表示，这被称作它们的“二进制名称”（JLS §13.1）。这个名称使用 CONSTANT_Utf8_info（§4.4.7）结构来表示，因此如果忽略其他一些约束限制的话，这个名称可能来自整个 Unitcode字符空间的任意字符组成。</p>
+<blockquote>
+<p>譬如，类 Thread 的正常的二进制名是 java.lang.Thread。在 Class 文件的内部表示形式里面，对类 java.lang.Thrad 的引用是通过来一个代表字符串“java&#x2F;lang&#x2F;Thread”的CONSTANT_Utf8_info 结构来实现的。</p>
+</blockquote>
+<h5 id="非全限定名称"><a href="#非全限定名称" class="headerlink" title="非全限定名称"></a>非全限定名称</h5><p>方法名，字段名和局部变量名都被使用非全限定名（Unqualified Names）进行存储。非全限定名中不能包含 ASCII 字符”.”、”;”、”[“和”&#x2F;“（也不能包含他们的 Unitcode 表示形式，既类似”\u2E”这种形式）。</p>
+<h4 id="1-3、描述符和签名"><a href="#1-3、描述符和签名" class="headerlink" title="1.3、描述符和签名"></a>1.3、描述符和签名</h4><ol>
+<li><strong>描述符（Descriptor）</strong> 是一个描述字段或方法的类型的字符串；</li>
+<li><strong>签名（Signature）</strong> 是用于描述字段、方法和类型定义中的泛型信息的字符串</li>
+</ol>
+<h5 id="1-3-1、语法符号"><a href="#1-3-1、语法符号" class="headerlink" title="1.3.1、语法符号"></a>1.3.1、语法符号</h5><p>描述符和签名都是用特定的语法符号（Grammar）来表示，这些语法是一组可表达如何根据不同的类型去产生可恰当描述它们的字符序列的标识集合。</p>
+<h5 id="1-3-2、字段描述符"><a href="#1-3-2、字段描述符" class="headerlink" title="1.3.2、字段描述符"></a>1.3.2、字段描述符</h5><p>字段描述符（Field Descriptor），是一个表示类、实例或局部变量的语法符号，它是由语法产生的字符序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">FieldDescriptor:</span><br><span class="line">    FieldType</span><br><span class="line">ComponentType:</span><br><span class="line">    FieldType</span><br><span class="line">FieldType:</span><br><span class="line">    BaseType</span><br><span class="line">    ObjectType</span><br><span class="line">    ArrayType</span><br><span class="line">BaseType:</span><br><span class="line">    B</span><br><span class="line">    C</span><br><span class="line">    D</span><br><span class="line">    F</span><br><span class="line">    I</span><br><span class="line">    J</span><br><span class="line">    S</span><br><span class="line">    Z</span><br><span class="line">ObjectType:</span><br><span class="line">    L Classname ;</span><br><span class="line">ArrayType:</span><br><span class="line">    [ ComponentType</span><br></pre></td></tr></table></figure>
+<p>所有表示基本类型（BaseType）的字符、表示对象类型（ObjectType）中的字符”L”，表示数组类型（ArrayType）的”[“字符都是 ASCII 编码的字符</p>
+<h5 id="1-3-3、方法描述符"><a href="#1-3-3、方法描述符" class="headerlink" title="1.3.3、方法描述符"></a>1.3.3、方法描述符</h5><p>方法描述符（Method Descriptor）描述一个方法所需的参数和返回值信息：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">MethodDescriptor:</span><br><span class="line">    ( ParameterDescriptor* ) ReturnDescriptor</span><br></pre></td></tr></table></figure>
+<p>参数描述符（ParameterDescriptor）描述需要传给这个方法的参数信息：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ParameterDescriptor:</span><br><span class="line">FieldType</span><br></pre></td></tr></table></figure>
+<p>返回描值述符(ReturnDescriptor)从当前方法返回的值，它是由语法产生的字符序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ReturnDescriptor:</span><br><span class="line">    FieldType</span><br><span class="line">    VoidDescriptor</span><br></pre></td></tr></table></figure>
+<p>其中 VoidDescriptor 表示当前方法无返回值，即返回类型是 void。符号如下（字符 V 即 void）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">VoidDescriptor:</span><br><span class="line">V</span><br></pre></td></tr></table></figure>
+<p>如果一个方法描述符是有效的，那么它对应的方法的参数列表总长度小于等于 255，对于实例方法和接口方法，需要额外考虑隐式参数 this。</p>
+<p>参数列表长度的计算规则如下：每个 long 和 double 类参数长度为 2，其余的都为 1，方法参数列表的总长度等于所有参数的长度之和。<br>例如，方法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Object mymethod(int i, double d, Thread t)</span><br></pre></td></tr></table></figure>
+<p>的描述符为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(IDLjava/lang/Thread;)Ljava/lang/Object;</span><br></pre></td></tr></table></figure>
+<p>注意：这里使用了 Object 和 Thread 的二进制名称的内部形式。</p>
+<h5 id="1-3-4、签名"><a href="#1-3-4、签名" class="headerlink" title="1.3.4、签名"></a>1.3.4、签名</h5><p><strong>定义：</strong><br>签名（Signatures）是用于给 Java 语言使用的描述信息编码，不在 Java 虚拟机系统使用的类型中。泛型类型、方法描述和参数化类型描述等都属于签名。</p>
+<p><strong>作用：</strong><br>Java 编译器需要这类信息来实现（或辅助实现）反射（reflection）和跟踪调试功能。</p>
+<h4 id="1-4、常量池"><a href="#1-4、常量池" class="headerlink" title="1.4、常量池"></a>1.4、常量池</h4><p>Java 虚拟机指令执行时不依赖与类、接口，实例或数组的运行时布局，而是依赖常量池（constant_pool）表中的符号信息。</p>
+<p>所有的<strong>常量池项</strong>都具有如下通用格式：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">cp_info &#123;</span><br><span class="line">    u1 tag;</span><br><span class="line">    u1 info[];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>常量池中，每个 <strong>cp_info 项</strong>的格式必须相同，它们都以一个表示 cp_info 类型的单字节 “tag”项开头。后面 info[]项的内容 tag 由的类型所决定。tag 有效的类型和对应的取值在表4.3 列出。每个 tag 项必须跟随 2 个或更多的字节，这些字节用于给定这个常量的信息，附加字节的信息格式由 tag 的值决定</p>
+<p>表 4.3 常量池的 tag 项说明：</p>
+<table>
+<thead>
+<tr>
+<th align="left">常量类型</th>
+<th align="right">值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">CONSTANT_Class</td>
+<td align="right">7</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_Fieldref</td>
+<td align="right">9</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_Methodref</td>
+<td align="right">10</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_InterfaceMethodref</td>
+<td align="right">11</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_String</td>
+<td align="right">8</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_Integer</td>
+<td align="right">3</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_Float</td>
+<td align="right">4</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_Long</td>
+<td align="right">5</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_Double</td>
+<td align="right">6</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_NameAndType</td>
+<td align="right">12</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_Utf8</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_MethodHandle</td>
+<td align="right">15</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_MethodType</td>
+<td align="right">16</td>
+</tr>
+<tr>
+<td align="left">CONSTANT_InvokeDynamic</td>
+<td align="right">18</td>
+</tr>
+</tbody></table>
+<h5 id="1-4-1、CONSTANT-Class-info-结构"><a href="#1-4-1、CONSTANT-Class-info-结构" class="headerlink" title="1.4.1、CONSTANT_Class_info 结构"></a>1.4.1、CONSTANT_Class_info 结构</h5><p>CONSTANT_Class_info 结构用于表示类或接口，格式如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">CONSTANT_Class_info &#123;</span><br><span class="line">    u1 tag;</span><br><span class="line">    u2 name_index;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>CONSTANT_Class_info 结构的项的说明：</p>
+<ul>
+<li>tag<ul>
+<li>CONSTANT_Class_info 结构的 tag 项的值为 CONSTANT_Class（7）。</li>
+</ul>
+</li>
+<li>name_index<ul>
+<li>name_index 项的值，必须是对常量池的一个有效索引。常量池在该索引处的项必须是CONSTANT_Utf8_info（§4.4.7）结构，代表一个有效的类或接口二进制名称的内部形式。</li>
+</ul>
+</li>
+</ul>
+<h5 id="1-4-2、CONSTANT-Fieldref-info，-CONSTANT-Methodref-info-和-CONSTANT-InterfaceMethodref-info-结构"><a href="#1-4-2、CONSTANT-Fieldref-info，-CONSTANT-Methodref-info-和-CONSTANT-InterfaceMethodref-info-结构" class="headerlink" title="1.4.2、CONSTANT_Fieldref_info， CONSTANT_Methodref_info 和 CONSTANT_InterfaceMethodref_info 结构"></a>1.4.2、CONSTANT_Fieldref_info， CONSTANT_Methodref_info 和 CONSTANT_InterfaceMethodref_info 结构</h5><p>字段，方法和接口方法由类似的结构表示：</p>
+<p>字段：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">CONSTANT_Fieldref_info &#123;</span><br><span class="line">u1 tag;</span><br><span class="line">u2 class_index;</span><br><span class="line">u2 name_and_type_index;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>方法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">CONSTANT_Methodref_info &#123;</span><br><span class="line">u1 tag;</span><br><span class="line">u2 class_index;</span><br><span class="line">u2 name_and_type_index;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接口方法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">CONSTANT_InterfaceMethodref_info &#123;</span><br><span class="line">u1 tag;</span><br><span class="line">u2 class_index;</span><br><span class="line">u2 name_and_type_index;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="1-4-3、CONSTANT-String-info-结构"><a href="#1-4-3、CONSTANT-String-info-结构" class="headerlink" title="1.4.3、CONSTANT_String_info 结构"></a>1.4.3、CONSTANT_String_info 结构</h5><p>CONSTANT_String_info 用于表示 java.lang.String 类型的常量对象，格式如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">CONSTANT_String_info &#123;</span><br><span class="line">    u1 tag;</span><br><span class="line">    u2 string_index;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>CONSTANT_String_info 结构各项的说明如下：</p>
+<ul>
+<li>tag<br>CONSTANT_String_info 结构的 tag 项的值为 CONSTANT_String（8）。</li>
+<li>string_index<br>string_index 项的值必须是对常量池的有效索引，常量池在该索引处的项必须是<br>CONSTANT_Utf8_info（§4.4.7）结构，表示一组 Unicode 码点序列，这组 Unicode<br>码点序列最终会被初始化为一个 String 对象。</li>
+</ul>
+<h5 id="1-4-4、CONSTANT-Utf8-info-结构"><a href="#1-4-4、CONSTANT-Utf8-info-结构" class="headerlink" title="1.4.4、CONSTANT_Utf8_info 结构"></a>1.4.4、CONSTANT_Utf8_info 结构</h5><p>CONSTANT_Utf8_info 结构用于表示字符串常量的值：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">CONSTANT_Utf8_info &#123;</span><br><span class="line">    u1 tag;</span><br><span class="line">    u2 length;</span><br><span class="line">    u1 bytes[length];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>CONSTANT_Utf8_info 结构各项的说明如下：</p>
+<ul>
+<li>tag<br>CONSTANT_Utf8_info 结构的 tag 项的值为 CONSTANT_Utf8（1）。</li>
+<li>length<br>length 项的值指明了 bytes[]数组的长度（注意，不能等同于当前结构所表示的<br>String 对象的长度），CONSTANT_Utf8_info 结构中的内容是以 length 属性确定长<br>度而不是以 null 作为字符串的终结符。</li>
+<li>bytes[]<br>bytes[]是表示字符串值的byte数组，bytes[]数组中每个成员的byte值都不会是0，<br>也不在 0xf0 至 0xff 范围内。</li>
+</ul>
+<p>字符串常量采用改进过的 UTF-8 编码表示。这种以改进过的 UTF-8 编码中，用于表示的字符串的码点字符序列可以包含 ASCII 中的所有非空（Non-Null）字符和所有 Unicode 编码的字符，一个字符占一个 byte。</p>
+<h3 id="二、示例"><a href="#二、示例" class="headerlink" title="二、示例"></a>二、示例</h3><h4 id="2-1、Java源代码示例："><a href="#2-1、Java源代码示例：" class="headerlink" title="2.1、Java源代码示例："></a>2.1、Java源代码示例：</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HelloWorld</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;Hello, World!&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-2、部分-class-文件十六进制内容示例（简略展示一些关键部分）"><a href="#2-2、部分-class-文件十六进制内容示例（简略展示一些关键部分）" class="headerlink" title="2.2、部分 class 文件十六进制内容示例（简略展示一些关键部分）"></a>2.2、部分 class 文件十六进制内容示例（简略展示一些关键部分）</h4><h5 id="2-2-1、魔数"><a href="#2-2-1、魔数" class="headerlink" title="2.2.1、魔数"></a>2.2.1、魔数</h5><p>开头的 4 个字节为CA FE BA BE（十六进制），也就是前面提到的u4 magic，用于标识这是一个 Java 字节码文件。例如在十六进制编辑器中看到如下显示：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">CA FE BA BE</span><br></pre></td></tr></table></figure>
+
+<h5 id="2-2-2、版本号部分"><a href="#2-2-2、版本号部分" class="headerlink" title="2.2.2、版本号部分"></a>2.2.2、版本号部分</h5><p>紧挨着魔数的接下来 4 个字节表示版本信息，前 2 个字节表示次版本号（Minor Version），后 2 个字节表示主版本号（Major Version）。</p>
+<p>对于 Java 8 编译生成的类文件，版本号对应的十六进制通常是00 00 00 34，表示次版本号是 0，主版本号对应的十进制是 52（十六进制 34 转十进制就是 52，对应 Java 8 的版本），在十六进制编辑器中看起来像这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">00 00 00 34</span><br></pre></td></tr></table></figure>
+
+<h5 id="2-2-3、常量池"><a href="#2-2-3、常量池" class="headerlink" title="2.2.3、常量池"></a>2.2.3、常量池</h5><p>常量池紧跟在版本号之后，它是一个很重要的区域，存放了各种字面量（如字符串、整数常量等）以及符号引用（类名、方法名、字段名等的引用）。常量池的开头是一个u2（2 字节无符号整数）表示常量池的容量计数，这个计数是从 1 开始的，而不是 0。例如如果常量池容量计数为00 16（十六进制，对应十进制 22），意味着常量池中有 21 项（因为从 1 开始计数），编辑器中显示如下开头部分：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">00 16 0A 00 04 00 12 09 00 03 00 13 07 00 14 07 00 15...</span><br></pre></td></tr></table></figure>
+<p>这里只是截取了一点常量池开头的内容，实际会根据类中用到的具体常量等情况持续延伸下去。</p>
+<h5 id="2-2-4、类访问标志部分"><a href="#2-2-4、类访问标志部分" class="headerlink" title="2.2.4、类访问标志部分"></a>2.2.4、类访问标志部分</h5><p>常量池之后就是类访问标志相关信息，通过特定的字节组合来表明类的一些属性，比如是不是公共类、是不是抽象类、是不是接口等。例如对于上面的HelloWorld公共类，其类访问标志对应的十六进制可能是00 21，表示这是一个公共类（对应相应的位设置，这里不详细展开每一位含义），编辑器中显示如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">00 21</span><br></pre></td></tr></table></figure>
+<p>这只是一个非常简略且摘取关键部分的HelloWorld.class文件十六进制示例展示，整个class文件结构很复杂，还有如字段表、方法表、属性表等诸多内容，如果想更深入了解，可以使用专门的字节码分析工具（如javap命令等）去进一步解析查看具体的字节码指令等详细信息。例如通过javap -c HelloWorld.class命令可以以一种更易读的形式查看字节码指令，像main方法中的字节码指令会显示如下（简略形式）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public static void main(java.lang.String[]);</span><br><span class="line">    Code:</span><br><span class="line">        0: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;</span><br><span class="line">        3: ldc           &quot;#&#123;Hello, World!&#125;&quot;</span><br><span class="line">        5: invokevirtual #3                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V</span><br><span class="line">        8: return</span><br></pre></td></tr></table></figure>
+<p>可以看到像getstatic（获取静态字段）、ldc（将常量压入操作数栈）、invokevirtual（调用虚方法，这里用于调用println方法）等字节码指令，它们都是 Java 虚拟机规范中定义的字节码指令集中的一部分，用于在字节码层面实现程序逻辑。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/14/2020-04-14-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BC%96%E8%AF%91/" rel="prev" title="《Java》Java虚拟机编译">
+      <i class="fa fa-chevron-left"></i> 《Java》Java虚拟机编译
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/17/2020-04-17-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%8A%A0%E8%BD%BD_%E9%93%BE%E6%8E%A5%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96/" rel="next" title="《Java》加载、链接与初始化">
+      《Java》加载、链接与初始化 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81class%E6%96%87%E4%BB%B6"><span class="nav-text">一、class文件</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-1%E3%80%81ClassFile-%E7%BB%93%E6%9E%84"><span class="nav-text">1.1、ClassFile 结构</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1-2%E3%80%81%E5%90%84%E7%A7%8D%E5%86%85%E9%83%A8%E8%A1%A8%E7%A4%BA%E5%90%8D%E7%A7%B0"><span class="nav-text">1.2、各种内部表示名称</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E5%85%A8%E9%99%90%E5%AE%9A%E5%90%8D%E7%A7%B0%EF%BC%9A%E7%B1%BB%E5%92%8C%E6%8E%A5%E5%8F%A3%E7%9A%84%E4%BA%8C%E8%BF%9B%E5%88%B6%E5%90%8D%E7%A7%B0"><span class="nav-text">全限定名称：类和接口的二进制名称</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E9%9D%9E%E5%85%A8%E9%99%90%E5%AE%9A%E5%90%8D%E7%A7%B0"><span class="nav-text">非全限定名称</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1-3%E3%80%81%E6%8F%8F%E8%BF%B0%E7%AC%A6%E5%92%8C%E7%AD%BE%E5%90%8D"><span class="nav-text">1.3、描述符和签名</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-3-1%E3%80%81%E8%AF%AD%E6%B3%95%E7%AC%A6%E5%8F%B7"><span class="nav-text">1.3.1、语法符号</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-3-2%E3%80%81%E5%AD%97%E6%AE%B5%E6%8F%8F%E8%BF%B0%E7%AC%A6"><span class="nav-text">1.3.2、字段描述符</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-3-3%E3%80%81%E6%96%B9%E6%B3%95%E6%8F%8F%E8%BF%B0%E7%AC%A6"><span class="nav-text">1.3.3、方法描述符</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-3-4%E3%80%81%E7%AD%BE%E5%90%8D"><span class="nav-text">1.3.4、签名</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1-4%E3%80%81%E5%B8%B8%E9%87%8F%E6%B1%A0"><span class="nav-text">1.4、常量池</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-4-1%E3%80%81CONSTANT-Class-info-%E7%BB%93%E6%9E%84"><span class="nav-text">1.4.1、CONSTANT_Class_info 结构</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-4-2%E3%80%81CONSTANT-Fieldref-info%EF%BC%8C-CONSTANT-Methodref-info-%E5%92%8C-CONSTANT-InterfaceMethodref-info-%E7%BB%93%E6%9E%84"><span class="nav-text">1.4.2、CONSTANT_Fieldref_info， CONSTANT_Methodref_info 和 CONSTANT_InterfaceMethodref_info 结构</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-4-3%E3%80%81CONSTANT-String-info-%E7%BB%93%E6%9E%84"><span class="nav-text">1.4.3、CONSTANT_String_info 结构</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-4-4%E3%80%81CONSTANT-Utf8-info-%E7%BB%93%E6%9E%84"><span class="nav-text">1.4.4、CONSTANT_Utf8_info 结构</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E7%A4%BA%E4%BE%8B"><span class="nav-text">二、示例</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1%E3%80%81Java%E6%BA%90%E4%BB%A3%E7%A0%81%E7%A4%BA%E4%BE%8B%EF%BC%9A"><span class="nav-text">2.1、Java源代码示例：</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2%E3%80%81%E9%83%A8%E5%88%86-class-%E6%96%87%E4%BB%B6%E5%8D%81%E5%85%AD%E8%BF%9B%E5%88%B6%E5%86%85%E5%AE%B9%E7%A4%BA%E4%BE%8B%EF%BC%88%E7%AE%80%E7%95%A5%E5%B1%95%E7%A4%BA%E4%B8%80%E4%BA%9B%E5%85%B3%E9%94%AE%E9%83%A8%E5%88%86%EF%BC%89"><span class="nav-text">2.2、部分 class 文件十六进制内容示例（简略展示一些关键部分）</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#2-2-1%E3%80%81%E9%AD%94%E6%95%B0"><span class="nav-text">2.2.1、魔数</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-2-2%E3%80%81%E7%89%88%E6%9C%AC%E5%8F%B7%E9%83%A8%E5%88%86"><span class="nav-text">2.2.2、版本号部分</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-2-3%E3%80%81%E5%B8%B8%E9%87%8F%E6%B1%A0"><span class="nav-text">2.2.3、常量池</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-2-4%E3%80%81%E7%B1%BB%E8%AE%BF%E9%97%AE%E6%A0%87%E5%BF%97%E9%83%A8%E5%88%86"><span class="nav-text">2.2.4、类访问标志部分</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

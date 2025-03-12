@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、什么是HBASE1、面向列存储的分布式存储系统。2、概念有row key和cloumn family。3、仅能通过行键(row key)和行键序列来检索数据，仅支持单行事务。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="hbase梳理">
+<meta property="og:url" content="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、什么是HBASE1、面向列存储的分布式存储系统。2、概念有row key和cloumn family。3、仅能通过行键(row key)和行键序列来检索数据，仅支持单行事务。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/HBASE%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/%E9%80%BB%E8%BE%91%E5%AD%98%E5%82%A8.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/%E6%95%B0%E6%8D%AE%E8%A1%A8%E6%A0%BC.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/%E9%80%BB%E8%BE%91%E5%AD%98%E5%82%A8.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/hfile%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/keyvalue%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/%E6%95%B0%E6%8D%AE%E8%A1%A8%E6%A0%BC.png">
+<meta property="article:published_time" content="2019-07-07T13:38:49.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:54.974Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/HBASE%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>hbase梳理 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          hbase梳理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-07-07 21:38:49" itemprop="dateCreated datePublished" datetime="2019-07-07T21:38:49+08:00">2019-07-07</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:54" itemprop="dateModified" datetime="2025-03-04T15:37:54+08:00">2025-03-04</time>
+              </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>8.8k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>22 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、什么是HBASE"><a href="#一、什么是HBASE" class="headerlink" title="一、什么是HBASE"></a>一、什么是HBASE</h1><p>1、面向列存储的分布式存储系统。<br>2、概念有row key和cloumn family。<br>3、仅能通过行键(row key)和行键序列来检索数据，仅支持单行事务。  </p>
+<span id="more"></span>  
+
+<blockquote>
+<p>下图为hbase的整体架构图：</p>
+</blockquote>
+<p><img src="/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/HBASE%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86.png" alt="hbase工作原理">  </p>
+<p>Zookeepr负责维护集群的memberlist, 哪台服务器在线,哪台服务器宕机都由zookeeper探测和管理. Region server, 主备Master节点主动连接Zookeeper, 维护一个Session连接,</p>
+<p>从图可以看出，HBase中的存储包括HMaster、HRegionServer、HRegion、Store、MemStore、StoreFile、HFile、HLog等</p>
+<ol>
+<li>HMaster：协调HRegionServer的负载均衡，</li>
+<li>HRegionServer：管理region，处理对region的IO请求。</li>
+<li>HRegion：存储数据，按行进行分割，每个region最大256M，超过将分割成两个region。</li>
+<li>Store：为每一个columnFamily创建一个store</li>
+<li>MEMStore</li>
+<li>StoreFile：HFile的轻量封装。</li>
+<li>HFile：KeyValue的存储格式，是Hadoop的二进制存储文件。</li>
+<li>Hlog：一旦HRegionServer意外退出，MemStore中的内存数据就会丢失，引入HLog就是防止这种情况</li>
+</ol>
+<h1 id="二、基本类型"><a href="#二、基本类型" class="headerlink" title="二、基本类型"></a>二、基本类型</h1><p>HBASE中每一个表叫做BigTable，bigtable会存储一系列的行数据，行的三个基本类型的定义：<br>1.逻辑存储：</p>
+<p><img src="/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/%E9%80%BB%E8%BE%91%E5%AD%98%E5%82%A8.png" alt="hbase工作原理"></p>
+<p>2.三个类型定义：<br>1.RowKey<br>是行在BigTable中的唯一标识。<br>2.TimeStamp：<br>是每一次数据操作对应关联的时间戳，可以看作SVN的版本。<br>3.Column：<br>定义为:，通过这两部分可以指定唯一的数据的存储列，family的定义和修改需要对HBase进行类似于DB的DDL操作，<br>而label，不需要定义直接可以使用，这也为动态定制列提供了一种手段。family另一个作用体现在物理存储优化读写操作上，同family<br>的数据物理上保存的会比较接近，因此在业务设计的过程中可以利用这个特性。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">示例：</span><br><span class="line">Row row =new Row();</span><br><span class="line">List&lt;Column&gt; columns = new ArrayList&lt;&gt;();</span><br><span class="line">columns.add(new Column(&quot;id&quot;,dto.getId().toString()));</span><br><span class="line">columns.add(new Column(&quot;operation&quot;,dto.getOperation()));</span><br><span class="line">columns.add(new Column(&quot;operationId&quot;,String.valueOf(dto.getOperationId())));</span><br><span class="line">columns.add(new Column(&quot;recordId&quot;,dto.getRecordId().toString()));</span><br><span class="line">columns.add(new Column(&quot;beforeData&quot;,dto.getBeforeData()));</span><br><span class="line">columns.add(new Column(&quot;afterData&quot;,dto.getAfterData()));</span><br><span class="line">row.setColumnList(columns);</span><br></pre></td></tr></table></figure>
+
+<p>将这些字段都放入到一个column family内。<br><img src="/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/%E6%95%B0%E6%8D%AE%E8%A1%A8%E6%A0%BC.png" alt="hbase工作原理"></p>
+<h1 id="三、各个模块的结构"><a href="#三、各个模块的结构" class="headerlink" title="三、各个模块的结构"></a>三、各个模块的结构</h1><p>1、HMaster</p>
+<blockquote>
+<p>1、协调各个regsion server的负载均衡。<br>2、负责给region分配region server。<br>3、通过zk可以实现master的集群部署，但是同时只有一个master提供服务。</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">**************************</span><br><span class="line">**** HBase Meta Table ****</span><br><span class="line">**************************</span><br><span class="line">Meta table存储所有region的列表</span><br><span class="line">Meta table的结构如下:</span><br><span class="line">- Key: region的开始row key, region id</span><br><span class="line">- Values: Region server</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>2、Region Server<br>结构及流程图：</p>
+<p><img src="/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/%E9%80%BB%E8%BE%91%E5%AD%98%E5%82%A8.png" alt="hbase工作原理"></p>
+<p>2.1、Region<br>1、根据Row Key的区域分成多个Region（按照rowkey分成region，若一个region存储不下则开辟新的region）<br>2、每个HRegion对应Table中一个Region，HRegion由多个HStore组成；<br>3、每个HStore对应Table中一个Column Family的存储；<br>4、flush的最小单位是region。<br>5、每个region最大1GB(默认)。</p>
+<p>案例：<br>假设一个region只能存储一条数据，那么现在两条数据，则会生成两个region。</p>
+<p>一条数据怎么存储呢？通过store存储。<br>现在一行数据有两个column family：info和area。<br>每个column family都使用store存储，那么现在会有两个store。<br>那一个store怎么存储呢？<br>通过keyvalue的方式存储，key&#x3D;name,value&#x3D;age<br>那怎么对应到物理文件中呢？<br>使用HFile进行存储，将keyvalue封装成Data block。Data block是HBASE IO的最基本单元。</p>
+<p>2.2、MemStore<br>1、每一个cloumn family对应一个memstore，<br>2、采用LSM数据结构存储，并在内存中排序，提高写入速度。<br>3、若rowkey的cf过多，则会导致memstore过多，导致region的flush。</p>
+<p>2.3、Store File<br>HFile的轻量封装。</p>
+<p>2.4、HFile<br>1、HFile中存储有序的Key-Value对. 当Memstore满了之后, Memstore中的所有数据写入HDFS中,形成一个新的HFile<br>2、HFile文件主要分为4个部分：Scanned block部分、Non-scanned block部分、Load-on-open部分和Trailer。</p>
+<blockquote>
+<p>HFile结构：</p>
+</blockquote>
+<p><img src="/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/hfile%E7%BB%93%E6%9E%84.png" alt="hbase工作原理"></p>
+<p>首先HFile文件是不定长的，长度固定的只有其中的两块：Trailer和FileInfo。Trailer中又指针指向其他数据块的起始点，FileInfo记录了文件的一些meta信息。<br>HFile由一个一个Data block组成，Data block中存储一个一个的key value。</p>
+<blockquote>
+<p>keyvalue结构：</p>
+</blockquote>
+<p><img src="/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/keyvalue%E7%BB%93%E6%9E%84.png" alt="hbase工作原理"></p>
+<p>2.5、HLog<br>一旦HRegionServer意外退出，MemStore中的内存数据就会丢失，引入HLog就是防止这种情况。<br>每个region server都有一个HLog。</p>
+<h1 id="四、数据读取过程"><a href="#四、数据读取过程" class="headerlink" title="四、数据读取过程"></a>四、数据读取过程</h1><p>Client 请求读取数据时，先转发到 ZK 集群，在 ZK 集群中寻找到相对应的 Region Server，再找到对应的 Region，先是查 MemStore，如果在 MemStore 中获取到数据，那么就会直接返回，否则就是再由 Region 找到对应的 Store File，从而查到具体的数据。<br>在整个架构中，HMaster 和 HRegion Server 可以是同一个节点上，可以有多个 HMaster 存在，但是只有一个 HMaster 在活跃。<br>在 Client 端会进行 rowkey-&gt; HRegion 映射关系的缓存，降低下次寻址的压力。</p>
+<p>client -&gt; zk -&gt; hmaster -&gt; hregionServer -&gt; hRegion -&gt; MemStore -&gt; HFile -&gt; HDFS -&gt; NameNode -&gt; DataNode</p>
+<p>Zookeepr负责维护集群的memberlist, 哪台服务器在线,哪台服务器宕机都由zookeeper探测和管理. Region server, 主备Master节点主动连接Zookeeper, 维护一个Session连接,<br>HBase的第一次读写流程</p>
+<p>HBase把各个region的位置信息存储在一个特殊的表中, 这个表叫做Meta table.<br>Zookeeper里面存储了这个Meta table的位置信息.</p>
+<p>HBase的访问流程:</p>
+<ol>
+<li>客户端访问Zookeep, 得到了具体Meta table的位置</li>
+<li>客户端再访问真正的Meta table, 从Meta table里面得到row key所在的region server</li>
+<li>访问rowkey所在的region server, 得到需要的真正数据.</li>
+</ol>
+<h1 id="五、数据写入过程"><a href="#五、数据写入过程" class="headerlink" title="五、数据写入过程"></a>五、数据写入过程</h1><p>先是 Client 进行发起数据的插入请求，如果 Client 本身存储了关于 Rowkey 和 Region 的映射关系的话，那么就会先查找到具体的对应关系，如果没有的话，就会在ZK中进行查找到对应 Region server，然后再转发到具体的 Region 上。所有的数据在写入的时候先是记录在 WAL 中，同时检查关于 MemStore 是否满了，如果是满了，那么就会进行刷盘，输出到一个 Hfile 中，如果没有满的话，那么就是先写进 Memstore 中，然后再刷到 WAL 中。</p>
+<p><a href="https://www.infoq.cn/article/iehfj_irzkiuepm6udza">https://www.infoq.cn/article/iehfj_irzkiuepm6udza</a></p>
+<p>HBase Meta Table<br>Meta table存储所有region的列表<br>Meta table用类似于Btree的方式存储<br>Meta table的结构如下:</p>
+<ul>
+<li>Key: region的开始row key, region id</li>
+<li>Values: Region server</li>
+</ul>
+<h1 id="六、region分区及定位"><a href="#六、region分区及定位" class="headerlink" title="六、region分区及定位?"></a>六、region分区及定位?</h1><p>每张表一开始只有一个 Region，但是随着数据的插入，HBase 会根据一定的规则将表进行水平拆分，形成两个 Region。当表中的行越来越多时，就会产生越来越多的 Region，而这些 Region 无法存储到一台机器上时，则可将其分布存储到多台机器上。<br>表的所有行都是按照 RowKey 的字典序排列的，表在行的方向上分割为多个分区（Region），如下图所示。</p>
+<p>6.1、region分区<br>region两个重要属性：startKey与endKey，代表该region维护的rowkey范围。<br>如果一开始，一张表只有一个region，当数据put超过region的存储容量，则会发生分区，找到一个midkey，将region一分为二。<br>问题：</p>
+<ul>
+<li>如果rowkey是递增的，那么数据会一直往大的分区写，则分割的另外一半没有满。<br>散列+预分区，二者结合是比较好的方式。预分区一开始就预建好了一部分region,这些region都维护着自已的start-end keys，再配合上随机散列，写数据能均等地命中这些预建的region，就能解决上面的那些缺点，大大地提高了性能</li>
+</ul>
+<p>6.2、理解rowkey的字典序：<br>HBase是三维有序存储的，是指rowkey（行键），column key（column family和qualifier）和TimeStamp（时间戳）这个三个维度是依照ASCII码表排序的。（比如A排在a前面）</p>
+<ul>
+<li>先rowkey升序排序，</li>
+<li>rowkey相同则column key升序排序</li>
+<li>rowkey、column key相同则timestamp降序排序<br>如下： 假设存在table：test，family：info<br>scan表得到结果如下：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">//列族默认VERSIONS值为1，可以通过命令：alter &#x27;tableName&#x27;,&#x27;familyName&#x27;,VERSINOS =&gt;5来设置</span><br><span class="line">//不同version保存不同时间戳的数据，默认是只显示最新version数据。要想显示所有，scan时应该加上&#123;VERSIONS =&gt;5&#125;</span><br><span class="line">hbase(main):009:0&gt; scan &#x27;test&#x27;, &#123;VERSIONS =&gt;5&#125;</span><br><span class="line">ROW                                                    COLUMN+CELL                                                                                                                                                   </span><br><span class="line"> 12Aabb                                                column=info:name,timestamp=1519957330893,value=123                                                                                                      </span><br><span class="line"> 3aabb                                                 column=info:name,timestamp=1519963129863,value=3234                                                                                                         </span><br><span class="line"> 3aabb                                                 column=info:name,timestamp=1519962895984,value=234                                                                                                          </span><br><span class="line"> 3aabb                                                 column=info:name,timestamp=1519962889791,value=234                                                                                                          </span><br><span class="line"> 3aabb                                                 column=info:name,timestamp=1519960252203,value=999                                                                                                          </span><br><span class="line"> Aabb                                                  column=info:address,timestamp=1519969857611,value=cccc                                                                                                      </span><br><span class="line"> Aabb                                                  column=info:friend,timestamp=1519969916299,value=jack                                                                                                       </span><br><span class="line"> Aabb                                                  column=info:name,timestamp=1519957330890,value=123                                                                                                         </span><br><span class="line"> aabb                                                  column=info:name,timestamp=1519957330859,value=123                                                                                                          </span><br><span class="line">4 row(s) in 0.0530 seconds</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h1 id="七、Rowkey的设计原则"><a href="#七、Rowkey的设计原则" class="headerlink" title="七、Rowkey的设计原则"></a>七、Rowkey的设计原则</h1><h2 id="1、rowkey长度原则"><a href="#1、rowkey长度原则" class="headerlink" title="1、rowkey长度原则"></a>1、rowkey长度原则</h2><p>rowkey是一个二进制码流，可以是任意字符串，最大长度64kb，实际应用中一般为10-100bytes，以byte[]形式保存，一般设计成定长。<br>建议越短越好，不要超过16个字节，原因如下：</p>
+<p>数据的持久化文件HFile中是按照KeyValue存储的，如果rowkey过长，比如超过100字节，1000w行数据，光rowkey就要占用100*1000w&#x3D;10亿个字节，将近1G数据，这样会极大影响HFile的存储效率；<br>MemStore将缓存部分数据到内存，如果rowkey字段过长，内存的有效利用率就会降低，系统不能缓存更多的数据，这样会降低检索效率。<br>目前操作系统都是64位系统，内存8字节对齐，控制在16个字节，8字节的整数倍利用了操作系统的最佳特性。</p>
+<h2 id="2、rowkey散列原则"><a href="#2、rowkey散列原则" class="headerlink" title="2、rowkey散列原则"></a>2、rowkey散列原则</h2><p>如果rowkey按照时间戳的方式递增，不要将时间放在二进制码的前面，建议将rowkey的高位作为散列字段，由程序随机生成，低位放时间字段，这样将提高数据均衡分布在每个RegionServer，以实现负载均衡的几率。如果没有散列字段，首字段直接是时间信息，所有的数据都会集中在一个RegionServer上，这样在数据检索的时候负载会集中在个别的RegionServer上，造成热点问题，会降低查询效率。</p>
+<h2 id="3、rowkey唯一原则"><a href="#3、rowkey唯一原则" class="headerlink" title="3、rowkey唯一原则"></a>3、rowkey唯一原则</h2><p>必须在设计上保证其唯一性，rowkey是按照字典顺序排序存储的，因此，设计rowkey的时候，要充分利用这个排序的特点，将经常读取的数据存储到一块，将最近可能会被访问的数据放到一块。</p>
+<h2 id="什么是热点？"><a href="#什么是热点？" class="headerlink" title="什么是热点？"></a>什么是热点？</h2><p>HBase中的行是按照rowkey的字典顺序排序的，这种设计优化了scan操作，可以将相关的行以及会被一起读取的行存取在临近位置，便于scan。然而糟糕的rowkey设计是热点的源头。 热点发生在大量的client直接访问集群的一个或极少数个节点（访问可能是读，写或者其他操作）。大量访问会使热点region所在的单个机器超出自身承受能力，引起性能下降甚至region不可用，这也会影响同一个RegionServer上的其他region，由于主机无法服务其他region的请求。 设计良好的数据访问模式以使集群被充分，均衡的利用。<br>为了避免写热点，设计rowkey使得不同行在同一个region，但是在更多数据情况下，数据应该被写入集群的多个region，而不是一个。</p>
+<p>下面是一些常见的避免热点的方法以及它们的优缺点：</p>
+<ul>
+<li>加盐<br>这里所说的加盐不是密码学中的加盐，而是在rowkey的前面增加随机数，具体就是给rowkey分配一个随机前缀以使得它和之前的rowkey的开头不同。分配的前缀种类数量应该和你想使用数据分散到不同的region的数量一致。加盐之后的rowkey就会根据随机生成的前缀分散到各个region上，以避免热点。</li>
+<li>哈希<br>哈希会使同一行永远用一个前缀加盐。哈希也可以使负载分散到整个集群，但是读却是可以预测的。使用确定的哈希可以让客户端重构完整的rowkey，可以使用get操作准确获取某一个行数据</li>
+<li>反转<br>第三种防止热点的方法时反转固定长度或者数字格式的rowkey。这样可以使得rowkey中经常改变的部分（最没有意义的部分）放在前面。这样可以有效的随机rowkey，但是牺牲了rowkey的有序性。<br>反转rowkey的例子以手机号为rowkey，可以将手机号反转后的字符串作为rowkey，这样的就避免了以手机号那样比较固定开头导致热点问题<br>时间戳反转<br>一个常见的数据处理问题是快速获取数据的最近版本，使用反转的时间戳作为rowkey的一部分对这个问题十分有用，可以用 Long.Max_Value - timestamp 追加到key的末尾，例如 [key][reverse_timestamp] , [key] 的最新值可以通过scan [key]获得[key]的第一条记录，因为HBase中rowkey是有序的，第一条记录是最后录入的数据。<br>比如需要保存一个用户的操作记录，按照操作时间倒序排序，在设计rowkey的时候，可以这样设计<br>[userId反转][Long.Max_Value - timestamp]，在查询用户的所有操作记录数据的时候，直接指定反转后的userId，startRow是[userId反转][000000000000],stopRow是[userId反转][Long.Max_Value - timestamp]<br>如果需要查询某段时间的操作记录，startRow是[user反转][Long.Max_Value - 起始时间]，stopRow是[userId反转][Long.Max_Value - 结束时间]</li>
+</ul>
+<h1 id="八、使用案例"><a href="#八、使用案例" class="headerlink" title="八、使用案例"></a>八、使用案例</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">示例：</span><br><span class="line">Row row =new Row();</span><br><span class="line">List&lt;Column&gt; columns = new ArrayList&lt;&gt;();</span><br><span class="line">columns.add(new Column(&quot;id&quot;,dto.getId().toString()));</span><br><span class="line">columns.add(new Column(&quot;operation&quot;,dto.getOperation()));</span><br><span class="line">columns.add(new Column(&quot;operationId&quot;,String.valueOf(dto.getOperationId())));</span><br><span class="line">columns.add(new Column(&quot;recordId&quot;,dto.getRecordId().toString()));</span><br><span class="line">columns.add(new Column(&quot;beforeData&quot;,dto.getBeforeData()));</span><br><span class="line">columns.add(new Column(&quot;afterData&quot;,dto.getAfterData()));</span><br><span class="line">row.setColumnList(columns);</span><br><span class="line"></span><br><span class="line">private String getRowKey(BusinessLogDto dto)&#123;</span><br><span class="line">    if(dto.getRecordId()!=null&amp;&amp;dto.getModuleId()!=null&amp;&amp;dto.getId()!=null)&#123;</span><br><span class="line">        StringBuilder stringBuilder = new StringBuilder(dto.getRecordId()+Constants.ROW_KEY_SEPARATION+dto.getModuleId());</span><br><span class="line">        if(dto.getChildModuleId()!=null)&#123;</span><br><span class="line">            stringBuilder.append(Constants.ROW_KEY_SEPARATION+dto.getChildModuleId());</span><br><span class="line">        &#125;</span><br><span class="line">        stringBuilder.append(Constants.ROW_KEY_SEPARATION+dto.getOperationId()+Constants.ROW_KEY_SEPARATION+dto.getId());</span><br><span class="line">        String rowkey =stringBuilder.toString();</span><br><span class="line">        log.info(&quot;upload create rowkey:&quot;+rowkey);</span><br><span class="line">        return  rowkey;</span><br><span class="line">    &#125;</span><br><span class="line">    log.info(&quot;upload create rowkey is null&quot;);</span><br><span class="line">    return null;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>将这些字段都放入到一个column family内。</p>
+<p><img src="/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/%E6%95%B0%E6%8D%AE%E8%A1%A8%E6%A0%BC.png" alt="hbase工作原理"></p>
+<h2 id="8-1、row-key设计："><a href="#8-1、row-key设计：" class="headerlink" title="8.1、row key设计："></a>8.1、row key设计：</h2><p> 业务ID+<em>+系统ID(+</em>+子模块ID(如需要自行定义))+<em>+业务系统操作ID+</em>+生成的唯一ID(时间毫秒数+4位计数（0000-9999）)</p>
+<ul>
+<li>1、热点考虑：业务ID本身是唯一的，这样可以保证不产生热点问题，又能保证系统的业务ID可以进入相同的region内。</li>
+<li>2、长度考虑：long + long + long + long +long (8byte*5&#x3D;40byte)，emmmm，这里有问题？长度不固定并且长度大于了16byte。</li>
+</ul>
+<p>实际实现：业务ID+系统ID+业务系统操作ID</p>
+<p><a href="https://www.cnblogs.com/yangjiming/p/9429169.html">https://www.cnblogs.com/yangjiming/p/9429169.html</a><br><a href="http://c.biancheng.net/view/6528.html">http://c.biancheng.net/view/6528.html</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/07/03/2019-07-03-hbase/" rel="prev" title="hbase">
+      <i class="fa fa-chevron-left"></i> hbase
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/07/13/2019-07-13-zookeeper/" rel="next" title="zookeeper">
+      zookeeper <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AFHBASE"><span class="nav-text">一、什么是HBASE</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%9F%BA%E6%9C%AC%E7%B1%BB%E5%9E%8B"><span class="nav-text">二、基本类型</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%90%84%E4%B8%AA%E6%A8%A1%E5%9D%97%E7%9A%84%E7%BB%93%E6%9E%84"><span class="nav-text">三、各个模块的结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E6%95%B0%E6%8D%AE%E8%AF%BB%E5%8F%96%E8%BF%87%E7%A8%8B"><span class="nav-text">四、数据读取过程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E6%95%B0%E6%8D%AE%E5%86%99%E5%85%A5%E8%BF%87%E7%A8%8B"><span class="nav-text">五、数据写入过程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%AD%E3%80%81region%E5%88%86%E5%8C%BA%E5%8F%8A%E5%AE%9A%E4%BD%8D"><span class="nav-text">六、region分区及定位?</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%83%E3%80%81Rowkey%E7%9A%84%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99"><span class="nav-text">七、Rowkey的设计原则</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1%E3%80%81rowkey%E9%95%BF%E5%BA%A6%E5%8E%9F%E5%88%99"><span class="nav-text">1、rowkey长度原则</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2%E3%80%81rowkey%E6%95%A3%E5%88%97%E5%8E%9F%E5%88%99"><span class="nav-text">2、rowkey散列原则</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3%E3%80%81rowkey%E5%94%AF%E4%B8%80%E5%8E%9F%E5%88%99"><span class="nav-text">3、rowkey唯一原则</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E7%83%AD%E7%82%B9%EF%BC%9F"><span class="nav-text">什么是热点？</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E4%BD%BF%E7%94%A8%E6%A1%88%E4%BE%8B"><span class="nav-text">八、使用案例</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#8-1%E3%80%81row-key%E8%AE%BE%E8%AE%A1%EF%BC%9A"><span class="nav-text">8.1、row key设计：</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

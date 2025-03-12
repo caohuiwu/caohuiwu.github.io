@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是“Redis”系列的第八篇文章，主要介绍的是Redis的“事务”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Redis》事务及原子性">
+<meta property="og:url" content="http://yoursite.com/2020/07/15/2020-07-15-redis-%E4%BA%8B%E5%8A%A1%E5%8F%8A%E5%8E%9F%E5%AD%90%E6%80%A7/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“Redis”系列的第八篇文章，主要介绍的是Redis的“事务”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/07/15/2020-07-15-redis-%E4%BA%8B%E5%8A%A1%E5%8F%8A%E5%8E%9F%E5%AD%90%E6%80%A7/%E4%BA%8B%E5%8A%A1%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png">
+<meta property="article:published_time" content="2020-07-15T14:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.534Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/07/15/2020-07-15-redis-%E4%BA%8B%E5%8A%A1%E5%8F%8A%E5%8E%9F%E5%AD%90%E6%80%A7/%E4%BA%8B%E5%8A%A1%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/07/15/2020-07-15-redis-%E4%BA%8B%E5%8A%A1%E5%8F%8A%E5%8E%9F%E5%AD%90%E6%80%A7/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Redis》事务及原子性 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/15/2020-07-15-redis-%E4%BA%8B%E5%8A%A1%E5%8F%8A%E5%8E%9F%E5%AD%90%E6%80%A7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Redis》事务及原子性
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-15 22:19:31" itemprop="dateCreated datePublished" datetime="2020-07-15T22:19:31+08:00">2020-07-15</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E4%BA%8B%E5%8A%A1/" itemprop="url" rel="index"><span itemprop="name">事务</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>8.1k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>20 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是“Redis”系列的第八篇文章，主要介绍的是Redis的“事务”。
+</code></pre>
+<h1 id="一、Redis"><a href="#一、Redis" class="headerlink" title="一、Redis"></a>一、Redis</h1><p><code>Redis（Remote Dictionary Server）</code>是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。</p>
+<span id="more"></span>
+
+
+<h1 id="二、redis事务"><a href="#二、redis事务" class="headerlink" title="二、redis事务"></a>二、redis事务</h1><p>Redis 事务的本质是一组命令的集合。事务支持一次执行多个命令，一个事务中所有命令都会被序列化。在事务执行过程，会按照顺序串行化执行队列中的命令，其他客户端提交的命令请求不会插入到事务执行命令序列中。</p>
+<p>总结说：redis事务就是一次性、顺序性、排他性的执行一个队列中的一系列命令。#</p>
+<h2 id="2-1、Redis事务相关命令和使用"><a href="#2-1、Redis事务相关命令和使用" class="headerlink" title="2.1、Redis事务相关命令和使用"></a>2.1、Redis事务相关命令和使用</h2><p>事务相关命令</p>
+<ul>
+<li>事务开启：multi</li>
+<li>事务关闭：discard</li>
+<li>事务提交：exec</li>
+<li>key监控：watch</li>
+</ul>
+<h2 id="2-2、标准的事务执行"><a href="#2-2、标准的事务执行" class="headerlink" title="2.2、标准的事务执行"></a>2.2、标准的事务执行</h2><p>给k1、k2分别赋值，在事务中修改k1、k2，执行事务后，查看k1、k2值都被修改。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; set k1 v1</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k2 v2</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; MULTI</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k1 11</span><br><span class="line">QUEUED</span><br><span class="line">127.0.0.1:6379&gt; set k2 22</span><br><span class="line">QUEUED</span><br><span class="line">127.0.0.1:6379&gt; EXEC</span><br><span class="line">1) OK</span><br><span class="line">2) OK</span><br><span class="line">127.0.0.1:6379&gt; get k1</span><br><span class="line">&quot;11&quot;</span><br><span class="line">127.0.0.1:6379&gt; get k2</span><br><span class="line">&quot;22&quot;</span><br><span class="line">127.0.0.1:6379&gt;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-3、事务取消"><a href="#2-3、事务取消" class="headerlink" title="2.3、事务取消"></a>2.3、事务取消</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; MULTI</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k1 33</span><br><span class="line">QUEUED</span><br><span class="line">127.0.0.1:6379&gt; set k2 34</span><br><span class="line">QUEUED</span><br><span class="line">127.0.0.1:6379&gt; DISCARD</span><br><span class="line">OK</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-4、事务出现错误的处理"><a href="#2-4、事务出现错误的处理" class="headerlink" title="2.4、事务出现错误的处理"></a>2.4、事务出现错误的处理</h2><h3 id="2-4-1、语法错误（编译器错误）"><a href="#2-4-1、语法错误（编译器错误）" class="headerlink" title="2.4.1、语法错误（编译器错误）"></a>2.4.1、语法错误（编译器错误）</h3><p>在开启事务后，修改k1值为11，k2值为22，但k2语法错误，最终导致事务提交失败，k1、k2保留原值。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; set k1 v1</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k2 v2</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; MULTI</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k1 11</span><br><span class="line">QUEUED</span><br><span class="line">127.0.0.1:6379&gt; sets k2 22</span><br><span class="line">(error) ERR unknown command `sets`, with args beginning with: `k2`, `22`, </span><br><span class="line">127.0.0.1:6379&gt; exec</span><br><span class="line">(error) EXECABORT Transaction discarded because of previous errors.</span><br><span class="line">127.0.0.1:6379&gt; get k1</span><br><span class="line">&quot;v1&quot;</span><br><span class="line">127.0.0.1:6379&gt; get k2</span><br><span class="line">&quot;v2&quot;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-4-2、Redis类型错误（运行时错误）"><a href="#2-4-2、Redis类型错误（运行时错误）" class="headerlink" title="2.4.2、Redis类型错误（运行时错误）"></a>2.4.2、Redis类型错误（运行时错误）</h3><p>在开启事务后，修改k1值为11，k2值为22，但将k2的类型作为List，在运行时检测类型错误，最终导致事务提交失败，此时事务并没有回滚，而是跳过错误命令继续执行， <strong>结果k1值改变、k2保留原值</strong>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; set k1 v1</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k1 v2</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; MULTI</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; set k1 11</span><br><span class="line">QUEUED</span><br><span class="line">127.0.0.1:6379&gt; lpush k2 22</span><br><span class="line">QUEUED</span><br><span class="line">127.0.0.1:6379&gt; EXEC</span><br><span class="line">1) OK</span><br><span class="line">2) (error) WRONGTYPE Operation against a key holding the wrong kind of value</span><br><span class="line">127.0.0.1:6379&gt; get k1</span><br><span class="line">&quot;11&quot;</span><br><span class="line">127.0.0.1:6379&gt; get k2</span><br><span class="line">&quot;v2&quot;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-4-3、错误处理总结"><a href="#2-4-3、错误处理总结" class="headerlink" title="2.4.3、错误处理总结"></a>2.4.3、错误处理总结</h3><ul>
+<li><strong>编译类型错误</strong>：事务提交失败，</li>
+<li><strong>运行时错误</strong>：事务不会回滚，正确的语句会成功执行。</li>
+</ul>
+<h2 id="2-5、带watch的事务【可实现类似CAS功能】"><a href="#2-5、带watch的事务【可实现类似CAS功能】" class="headerlink" title="2.5、带watch的事务【可实现类似CAS功能】"></a>2.5、带watch的事务【可实现类似CAS功能】</h2><p>WATCH 命令用于在事务开始之前监视任意数量的键，如下代码：监听了name键</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">redis&gt; WATCH name</span><br><span class="line">OK</span><br><span class="line">redis&gt; MULTI</span><br><span class="line">OK</span><br><span class="line">redis&gt; SET name peter</span><br><span class="line">QUEUED</span><br><span class="line">redis&gt; EXEC</span><br><span class="line">(nil)</span><br></pre></td></tr></table></figure>
+<p>当调用 EXEC 命令执行事务时， 如果任意一个被监视的键已经被其他客户端修改了， 那么整个事务不再执行， 直接返回失败</p>
+<h3 id="2-5-1、watch原理"><a href="#2-5-1、watch原理" class="headerlink" title="2.5.1、watch原理"></a>2.5.1、watch原理</h3><p>每个代表数据库的 <code>redis.h/redisDb</code> 结构类型中， 都保存了一个 <code>watched_keys</code> 字典， 字典的键是这个数据库被监视的键， 而字典的值则是一个链表， 链表中保存了所有监视这个键的客户端。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">redisDb</span> &#123;</span><br><span class="line">    <span class="comment">// 数据库键空间，保存着数据库中的所有键值对</span></span><br><span class="line">    dict *dict;                 <span class="comment">/* The keyspace for this DB */</span></span><br><span class="line">    <span class="comment">// 键的过期时间，字典的键为键，字典的值为过期事件 UNIX 时间戳</span></span><br><span class="line">    dict *expires;              <span class="comment">/* Timeout of keys with a timeout set */</span></span><br><span class="line">    <span class="comment">// 正处于阻塞状态的键</span></span><br><span class="line">    dict *blocking_keys;        <span class="comment">/* Keys with clients waiting for data (BLPOP) */</span></span><br><span class="line">    <span class="comment">// 可以解除阻塞的键</span></span><br><span class="line">    dict *ready_keys;           <span class="comment">/* Blocked keys that received a PUSH */</span></span><br><span class="line">    <span class="comment">// 正在被 WATCH 命令监视的键</span></span><br><span class="line">    dict *watched_keys; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="三、Redis事务原理"><a href="#三、Redis事务原理" class="headerlink" title="三、Redis事务原理"></a>三、Redis事务原理</h1><p>事务的三个阶段</p>
+<ol>
+<li>开启事务<br>当客户端发送 MULTI 命令时，Redis 服务端会将客户端的状态从非事务状态切换到事务状态。在客户端状态中会维护一个事务队列，用于存储事务期间客户端发送的所有命令。</li>
+<li>命令入队<br>服务端判断客户端的状态<br>将命令放入都事务队列内<br>向客户端返回QUEUED，表示入列成功</li>
+<li>执行事务</li>
+</ol>
+<p><img src="/2020/07/15/2020-07-15-redis-%E4%BA%8B%E5%8A%A1%E5%8F%8A%E5%8E%9F%E5%AD%90%E6%80%A7/%E4%BA%8B%E5%8A%A1%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png" alt="事务执行流程"></p>
+<h2 id="3-1、开启事务"><a href="#3-1、开启事务" class="headerlink" title="3.1、开启事务"></a>3.1、开启事务</h2><p>Redis 服务端会将客户端的状态从非事务状态切换到事务状态。具体是怎么做的呢？</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">redisServer</span> &#123;</span><br><span class="line">    <span class="comment">// 数据库</span></span><br><span class="line">    redisDb *db;</span><br><span class="line">    <span class="comment">// 服务端的列表</span></span><br><span class="line">    list *clients;  </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">redisClient</span> &#123;</span><br><span class="line">    <span class="comment">// 套接字描述符</span></span><br><span class="line">    <span class="type">int</span> fd;</span><br><span class="line">    <span class="comment">// 当前正在使用的数据库</span></span><br><span class="line">    redisDb *db;</span><br><span class="line">    <span class="comment">// 事务状态</span></span><br><span class="line">    multiState mstate;</span><br><span class="line">    <span class="comment">// 客户端状态标志</span></span><br><span class="line">    <span class="type">int</span> flags;  <span class="comment">/* REDIS_SLAVE | REDIS_MONITOR | REDIS_MULTI ... */</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>mstate</strong>：类型为 multiState，用于存储事务的具体状态信息，包括事务队列、已执行命令数量等。</li>
+<li><strong>flags</strong>：客户端标志位，通过特定的标志来表示客户端是否处于事务状态等信息。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 事务状态</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">multiState</span> &#123;</span><br><span class="line">    <span class="comment">// 事务队列，FIFO 顺序</span></span><br><span class="line">    multiCmd *commands;     <span class="comment">/* Array of MULTI commands */</span></span><br><span class="line">    <span class="comment">// 已入队命令计数</span></span><br><span class="line">    <span class="type">int</span> count;              <span class="comment">/* Total number of MULTI commands */</span></span><br><span class="line">    <span class="type">int</span> minreplicas;        <span class="comment">/* MINREPLICAS for synchronous replication */</span></span><br><span class="line">    <span class="type">time_t</span> minreplicas_timeout; <span class="comment">/* MINREPLICAS timeout as unixtime. */</span></span><br><span class="line">&#125; multiState;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>commands</strong>：一个 multiCmd 类型的数组，用于存储事务队列中的命令。每个 multiCmd 结构体包含了命令的参数（argv）、参数数量（argc）以及对应的命令指针（cmd）。</li>
+<li><strong>count</strong>：表示事务队列中命令的总数。</li>
+<li><strong>minreplicas</strong> 和 <strong>minreplicas_timeout</strong>：用于同步复制相关的设置，这里暂不详细展开。</li>
+</ul>
+<h3 id="3-1-1、开启事务（MULTI-命令处理）"><a href="#3-1-1、开启事务（MULTI-命令处理）" class="headerlink" title="3.1.1、开启事务（MULTI 命令处理）"></a>3.1.1、开启事务（MULTI 命令处理）</h3><p>MULTI 命令的处理函数为 multiCommand，定义在 multi.c 文件中，关键代码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">multiCommand</span><span class="params">(client *c)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (c-&gt;flags &amp; CLIENT_MULTI) &#123;</span><br><span class="line">        <span class="built_in">addReplyError</span>(c,<span class="string">&quot;MULTI calls can not be nested&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    c-&gt;flags |= CLIENT_MULTI;</span><br><span class="line">    <span class="built_in">addReply</span>(c,shared.ok);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>首先检查客户端是否已经处于事务状态（通过 <code>c->flags & CLIENT_MULTI</code> 判断），如果是则返回错误信息。<br>若客户端未处于事务状态，将 <code>CLIENT_MULTI</code> 标志添加到 <code>c->flags</code> 中，表示客户端进入事务状态。<br>最后向客户端返回 OK 响应。</p>
+<h2 id="3-2、命令入队"><a href="#3-2、命令入队" class="headerlink" title="3.2、命令入队"></a>3.2、命令入队</h2><p>在事务状态下，客户端发送的命令会被添加到事务队列中。当接收到命令时，Redis 会调用 queueMultiCommand 函数将命令入队，该函数定义在 multi.c 文件中，关键代码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">queueMultiCommand</span><span class="params">(client *c)</span> </span>&#123;</span><br><span class="line">    multiCmd *mc;</span><br><span class="line">    <span class="type">int</span> j;</span><br><span class="line"></span><br><span class="line">    c-&gt;mstate.commands = <span class="built_in">zrealloc</span>(c-&gt;mstate.commands,</span><br><span class="line">            <span class="built_in">sizeof</span>(multiCmd)*(c-&gt;mstate.count<span class="number">+1</span>));</span><br><span class="line">    mc = c-&gt;mstate.commands+c-&gt;mstate.count;</span><br><span class="line">    mc-&gt;cmd = c-&gt;cmd;</span><br><span class="line">    mc-&gt;argc = c-&gt;argc;</span><br><span class="line">    mc-&gt;argv = <span class="built_in">zmalloc</span>(<span class="built_in">sizeof</span>(robj*)*c-&gt;argc);</span><br><span class="line">    <span class="built_in">memcpy</span>(mc-&gt;argv,c-&gt;argv,<span class="built_in">sizeof</span>(robj*)*c-&gt;argc);</span><br><span class="line">    <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; c-&gt;argc; j++)</span><br><span class="line">        <span class="built_in">incrRefCount</span>(mc-&gt;argv[j]);</span><br><span class="line">    c-&gt;mstate.count++;</span><br><span class="line">    <span class="built_in">addReply</span>(c,shared.queued);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>首先使用 <code>zrealloc</code> 函数为事务队列分配新的空间，以容纳新的命令。</li>
+<li>然后将当前命令的信息（包括命令指针、参数数量和参数）复制到新的 multiCmd 结构体中。</li>
+<li>增加参数对象的引用计数，防止对象被过早释放。</li>
+<li>最后将事务队列的命令总数加 1，并向客户端返回 <code>QUEUED</code> 响应。</li>
+</ul>
+<h2 id="3-3、执行事务（EXEC-命令处理）"><a href="#3-3、执行事务（EXEC-命令处理）" class="headerlink" title="3.3、执行事务（EXEC 命令处理）"></a>3.3、执行事务（EXEC 命令处理）</h2><p>EXEC 命令的处理函数为 <code>execCommand</code>，定义在 multi.c 文件中，部分关键代码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">execCommand</span><span class="params">(client *c)</span> </span>&#123;</span><br><span class="line">    <span class="type">int</span> j;</span><br><span class="line">    robj **orig_argv;</span><br><span class="line">    <span class="type">int</span> orig_argc;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">redisCommand</span> *orig_cmd;</span><br><span class="line">    <span class="type">int</span> must_propagate = <span class="number">0</span>; <span class="comment">/* Need to propagate MULTI/EXEC to AOF / slaves? */</span></span><br><span class="line">    <span class="type">int</span> was_master = server.masterhost == <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!(c-&gt;flags &amp; CLIENT_MULTI)) &#123;</span><br><span class="line">        <span class="built_in">addReplyError</span>(c,<span class="string">&quot;EXEC without MULTI&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Check if we need to abort the EXEC because:</span></span><br><span class="line"><span class="comment">     * 1) Some WATCHed key was touched.</span></span><br><span class="line"><span class="comment">     * 2) There was a previous error while queueing commands.</span></span><br><span class="line"><span class="comment">     * A failed EXEC in the first case returns a multi bulk nil object</span></span><br><span class="line"><span class="comment">     * (technically it is not an error but a special behavior), while</span></span><br><span class="line"><span class="comment">     * in the second an EXECABORT error is returned. */</span></span><br><span class="line">    <span class="keyword">if</span> (c-&gt;flags &amp; (CLIENT_DIRTY_CAS|CLIENT_DIRTY_EXEC)) &#123;</span><br><span class="line">        <span class="built_in">addReply</span>(c, c-&gt;flags &amp; CLIENT_DIRTY_EXEC ? shared.execaborterr :</span><br><span class="line">                                                  shared.nullmultibulk);</span><br><span class="line">        <span class="built_in">discardTransaction</span>(c);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Exec all the queued commands */</span></span><br><span class="line">    <span class="built_in">unwatchAllKeys</span>(c); <span class="comment">/* Unwatch ASAP otherwise we&#x27;ll waste CPU cycles */</span></span><br><span class="line">    orig_argv = c-&gt;argv;</span><br><span class="line">    orig_argc = c-&gt;argc;</span><br><span class="line">    orig_cmd = c-&gt;cmd;</span><br><span class="line">    <span class="built_in">addReplyMultiBulkLen</span>(c,c-&gt;mstate.count);</span><br><span class="line">    <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; c-&gt;mstate.count; j++) &#123;</span><br><span class="line">        c-&gt;argc = c-&gt;mstate.commands[j].argc;</span><br><span class="line">        c-&gt;argv = c-&gt;mstate.commands[j].argv;</span><br><span class="line">        c-&gt;cmd = c-&gt;mstate.commands[j].cmd;</span><br><span class="line">        <span class="comment">/* Propagate a MULTI request once we encounter the first write op. */</span></span><br><span class="line">        <span class="keyword">if</span> (!must_propagate &amp;&amp; !(c-&gt;cmd-&gt;flags &amp; REDIS_CMD_READONLY)) &#123;</span><br><span class="line">            <span class="built_in">execCommandPropagateMulti</span>(c);</span><br><span class="line">            must_propagate = <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">call</span>(c,REDIS_CALL_FULL);</span><br><span class="line">        <span class="comment">/* Commands may alter argc/argv, restore mstate. */</span></span><br><span class="line">        c-&gt;mstate.commands[j].argc = c-&gt;argc;</span><br><span class="line">        c-&gt;mstate.commands[j].argv = c-&gt;argv;</span><br><span class="line">    &#125;</span><br><span class="line">    c-&gt;argv = orig_argv;</span><br><span class="line">    c-&gt;argc = orig_argc;</span><br><span class="line">    c-&gt;cmd = orig_cmd;</span><br><span class="line">    <span class="built_in">freeClientMultiState</span>(c);</span><br><span class="line">    c-&gt;flags &amp;= ~CLIENT_MULTI;</span><br><span class="line">    c-&gt;flags &amp;= ~(CLIENT_DIRTY_CAS|CLIENT_DIRTY_EXEC);</span><br><span class="line">    <span class="keyword">if</span> (must_propagate) server.dirty++;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>首先检查客户端是否处于事务状态，如果不是则返回错误信息。</li>
+<li>接着检查是否需要中止事务，例如被 <code>WATCH</code> 的键被修改或者之前入队命令时出现错误。</li>
+<li>若可以执行事务，先调用 <code>unwatchAllKeys</code> 函数取消对所有键的监视。</li>
+<li>然后依次执行事务队列中的命令，使用 <code>call</code> 函数调用具体的命令处理逻辑。</li>
+<li>最后释放事务状态相关的资源，将客户端状态从事务状态切换回非事务状态。</li>
+</ul>
+<h2 id="3-4、放弃事务（DISCARD-命令处理）"><a href="#3-4、放弃事务（DISCARD-命令处理）" class="headerlink" title="3.4、放弃事务（DISCARD 命令处理）"></a>3.4、放弃事务（DISCARD 命令处理）</h2><p>DISCARD 命令的处理函数为 <code>discardCommand</code>，定义在 multi.c 文件中，代码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">discardCommand</span><span class="params">(client *c)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!(c-&gt;flags &amp; CLIENT_MULTI)) &#123;</span><br><span class="line">        <span class="built_in">addReplyError</span>(c,<span class="string">&quot;DISCARD without MULTI&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">discardTransaction</span>(c);</span><br><span class="line">    <span class="built_in">addReply</span>(c,shared.ok);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">discardTransaction</span><span class="params">(client *c)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">freeClientMultiState</span>(c);</span><br><span class="line">    c-&gt;flags &amp;= ~CLIENT_MULTI;</span><br><span class="line">    c-&gt;flags &amp;= ~(CLIENT_DIRTY_CAS|CLIENT_DIRTY_EXEC);</span><br><span class="line">    <span class="built_in">unwatchAllKeys</span>(c);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>首先检查客户端是否处于事务状态，如果不是则返回错误信息。</li>
+<li>调用 <code>discardTransaction</code> 函数清空事务队列，释放相关资源，将客户端状态从事务状态切换回非事务状态，并取消对所有键的监视。</li>
+<li>最后向客户端返回 OK 响应。</li>
+</ul>
+<p>通过以上源码分析，可以了解 Redis 中事务状态的管理和事务操作的具体实现原理。</p>
+<h1 id="四、事务的原子性"><a href="#四、事务的原子性" class="headerlink" title="四、事务的原子性"></a>四、事务的原子性</h1><h2 id="4-1、为什么-Redis-不支持回滚？"><a href="#4-1、为什么-Redis-不支持回滚？" class="headerlink" title="4.1、为什么 Redis 不支持回滚？"></a>4.1、为什么 Redis 不支持回滚？</h2><blockquote>
+<p>如果你有使用关系式数据库的经验， 那么 “Redis 在事务失败时不进行回滚，而是继续执行余下的命令”这种做法可能会让你觉得有点奇怪。</p>
+</blockquote>
+<p>以下是这种做法的优点：</p>
+<ul>
+<li>Redis 命令只会因为错误的语法而失败（并且这些问题不能在入队时发现），或是命令用在了错误类型的键上面：这也就是说，从实用性的角度来说，失败的命令是由编程错误造成的，而这些错误应该在开发的过程中被发现，而不应该出现在生产环境中。</li>
+<li>因为不需要对回滚进行支持，所以 Redis 的内部可以保持简单且快速。</li>
+</ul>
+<p>有种观点认为 Redis 处理事务的做法会产生 bug ， 然而需要注意的是， 在通常情况下， 回滚并不能解决编程错误带来的问题。 举个例子， 如果你本来想通过 INCR 命令将键的值加上 1 ， 却不小心加上了 2 ， 又或者对错误类型的键执行了 INCR ， 回滚是没有办法处理这些情况的。</p>
+<h2 id="4-2、如何理解Redis与事务的ACID？"><a href="#4-2、如何理解Redis与事务的ACID？" class="headerlink" title="4.2、如何理解Redis与事务的ACID？"></a>4.2、如何理解Redis与事务的ACID？</h2><blockquote>
+<p><strong>原子性定义</strong>：一个事务包含多个操作，这些操作要么全部执行，要么全都不执行</p>
+</blockquote>
+<h3 id="4-2-1、原子性atomicity"><a href="#4-2-1、原子性atomicity" class="headerlink" title="4.2.1、原子性atomicity"></a>4.2.1、原子性atomicity</h3><p>首先通过上文知道 运行期的错误是不会回滚的，很多文章由此说Redis事务违背原子性的；而官方文档认为是遵从原子性的。<br>Redis官方文档给的理解是，<strong>Redis的事务是原子性的：所有的命令，要么全部执行，要么全部不执行。而不是完全成功。</strong></p>
+<p>Redis 事务在一定程度上支持原子性，但与传统数据库有所不同。</p>
+<h3 id="4-2-2、一致性consistencyredis"><a href="#4-2-2、一致性consistencyredis" class="headerlink" title="4.2.2、一致性consistencyredis"></a>4.2.2、一致性consistencyredis</h3><p>事务可以保证命令失败的情况下得以回滚，数据能恢复到没有执行之前的样子，是保证一致性的，除非redis进程意外终结。</p>
+<p>Redis 事务在执行过程中具有一定的一致性保障。由于 Redis 是单线程执行命令的，在执行事务期间，不会有其他客户端的命令插入执行过程，保证了事务内部命令执行的顺序性。</p>
+<h3 id="4-2-3、隔离性Isolationredis"><a href="#4-2-3、隔离性Isolationredis" class="headerlink" title="4.2.3、隔离性Isolationredis"></a>4.2.3、隔离性Isolationredis</h3><p><strong>事务是严格遵守隔离性的</strong>，原因是redis是单进程单线程模式(v6.0之前），可以保证命令执行过程中不会被其他客户端命令打断。但是，Redis不像其它结构化数据库有隔离级别这种设计。</p>
+<h3 id="4-2-4、持久性Durabilityredis"><a href="#4-2-4、持久性Durabilityredis" class="headerlink" title="4.2.4、持久性Durabilityredis"></a>4.2.4、持久性Durabilityredis</h3><p><strong>事务是不保证持久性的</strong>，这是因为redis持久化策略中不管是RDB还是AOF都是异步执行的，不保证持久性是出于对性能的考虑。</p>
+<p>参考文章：<br><a href="https://xiaolincoding.com/redis/data_struct/command.html#string">Redis 常见数据类型和应用场景</a><br><a href="https://xiaolincoding.com/redis/data_struct/data_struct.html">Redis 数据结构</a><br><a href="https://www.51cto.com/article/766539.html">Redis Stream 数据结构实现原理真的很强</a><br><a href="https://cloud.tencent.com/developer/article/2427055">Redis源码解析：一条Redis命令是如何执行的？</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/13/2020-07-13-redis-%E6%95%B0%E6%8D%AE%E6%B7%98%E6%B1%B0%E7%AD%96%E7%95%A5/" rel="prev" title="《Redis》数据淘汰策略">
+      <i class="fa fa-chevron-left"></i> 《Redis》数据淘汰策略
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/" rel="next" title="《Redis》事件机制及线程模型">
+      《Redis》事件机制及线程模型 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Redis"><span class="nav-text">一、Redis</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81redis%E4%BA%8B%E5%8A%A1"><span class="nav-text">二、redis事务</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81Redis%E4%BA%8B%E5%8A%A1%E7%9B%B8%E5%85%B3%E5%91%BD%E4%BB%A4%E5%92%8C%E4%BD%BF%E7%94%A8"><span class="nav-text">2.1、Redis事务相关命令和使用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E6%A0%87%E5%87%86%E7%9A%84%E4%BA%8B%E5%8A%A1%E6%89%A7%E8%A1%8C"><span class="nav-text">2.2、标准的事务执行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81%E4%BA%8B%E5%8A%A1%E5%8F%96%E6%B6%88"><span class="nav-text">2.3、事务取消</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4%E3%80%81%E4%BA%8B%E5%8A%A1%E5%87%BA%E7%8E%B0%E9%94%99%E8%AF%AF%E7%9A%84%E5%A4%84%E7%90%86"><span class="nav-text">2.4、事务出现错误的处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-1%E3%80%81%E8%AF%AD%E6%B3%95%E9%94%99%E8%AF%AF%EF%BC%88%E7%BC%96%E8%AF%91%E5%99%A8%E9%94%99%E8%AF%AF%EF%BC%89"><span class="nav-text">2.4.1、语法错误（编译器错误）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-2%E3%80%81Redis%E7%B1%BB%E5%9E%8B%E9%94%99%E8%AF%AF%EF%BC%88%E8%BF%90%E8%A1%8C%E6%97%B6%E9%94%99%E8%AF%AF%EF%BC%89"><span class="nav-text">2.4.2、Redis类型错误（运行时错误）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-3%E3%80%81%E9%94%99%E8%AF%AF%E5%A4%84%E7%90%86%E6%80%BB%E7%BB%93"><span class="nav-text">2.4.3、错误处理总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-5%E3%80%81%E5%B8%A6watch%E7%9A%84%E4%BA%8B%E5%8A%A1%E3%80%90%E5%8F%AF%E5%AE%9E%E7%8E%B0%E7%B1%BB%E4%BC%BCCAS%E5%8A%9F%E8%83%BD%E3%80%91"><span class="nav-text">2.5、带watch的事务【可实现类似CAS功能】</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-5-1%E3%80%81watch%E5%8E%9F%E7%90%86"><span class="nav-text">2.5.1、watch原理</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81Redis%E4%BA%8B%E5%8A%A1%E5%8E%9F%E7%90%86"><span class="nav-text">三、Redis事务原理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E5%BC%80%E5%90%AF%E4%BA%8B%E5%8A%A1"><span class="nav-text">3.1、开启事务</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E5%BC%80%E5%90%AF%E4%BA%8B%E5%8A%A1%EF%BC%88MULTI-%E5%91%BD%E4%BB%A4%E5%A4%84%E7%90%86%EF%BC%89"><span class="nav-text">3.1.1、开启事务（MULTI 命令处理）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E5%91%BD%E4%BB%A4%E5%85%A5%E9%98%9F"><span class="nav-text">3.2、命令入队</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E6%89%A7%E8%A1%8C%E4%BA%8B%E5%8A%A1%EF%BC%88EXEC-%E5%91%BD%E4%BB%A4%E5%A4%84%E7%90%86%EF%BC%89"><span class="nav-text">3.3、执行事务（EXEC 命令处理）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4%E3%80%81%E6%94%BE%E5%BC%83%E4%BA%8B%E5%8A%A1%EF%BC%88DISCARD-%E5%91%BD%E4%BB%A4%E5%A4%84%E7%90%86%EF%BC%89"><span class="nav-text">3.4、放弃事务（DISCARD 命令处理）</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E4%BA%8B%E5%8A%A1%E7%9A%84%E5%8E%9F%E5%AD%90%E6%80%A7"><span class="nav-text">四、事务的原子性</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88-Redis-%E4%B8%8D%E6%94%AF%E6%8C%81%E5%9B%9E%E6%BB%9A%EF%BC%9F"><span class="nav-text">4.1、为什么 Redis 不支持回滚？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81%E5%A6%82%E4%BD%95%E7%90%86%E8%A7%A3Redis%E4%B8%8E%E4%BA%8B%E5%8A%A1%E7%9A%84ACID%EF%BC%9F"><span class="nav-text">4.2、如何理解Redis与事务的ACID？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-1%E3%80%81%E5%8E%9F%E5%AD%90%E6%80%A7atomicity"><span class="nav-text">4.2.1、原子性atomicity</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-2%E3%80%81%E4%B8%80%E8%87%B4%E6%80%A7consistencyredis"><span class="nav-text">4.2.2、一致性consistencyredis</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-3%E3%80%81%E9%9A%94%E7%A6%BB%E6%80%A7Isolationredis"><span class="nav-text">4.2.3、隔离性Isolationredis</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-4%E3%80%81%E6%8C%81%E4%B9%85%E6%80%A7Durabilityredis"><span class="nav-text">4.2.4、持久性Durabilityredis</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

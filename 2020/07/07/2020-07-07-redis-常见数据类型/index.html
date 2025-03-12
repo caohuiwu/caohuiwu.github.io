@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是“Redis”系列的第五篇文章，主要介绍的是Redis的“常见数据类型及应用场景”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Redis》常见数据类型及应用场景">
+<meta property="og:url" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“Redis”系列的第五篇文章，主要介绍的是Redis的“常见数据类型及应用场景”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/redisServer.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/dictEntry.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/redis%E6%A0%B8%E5%BF%83%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/5%E7%A7%8D%E5%9F%BA%E6%9C%AC%E7%B1%BB%E5%9E%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/string_int%E7%BC%96%E7%A0%81.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/string_embstr%E7%BC%96%E7%A0%81.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/string_raw%E7%BC%96%E7%A0%81.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/list_%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/list_%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF_%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/list_%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF_%E6%96%87%E7%AB%A0%E5%88%97%E8%A1%A8.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/hash_%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/hash_%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF_%E8%B4%AD%E7%89%A9%E8%BD%A6.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/set_%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/zset_%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/bitmap.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E8%BF%9E%E7%BB%AD%E7%AD%BE%E5%88%B0%E7%94%A8%E6%88%B7%E6%80%BB%E6%95%B0.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/HyperLogLog%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/stream_%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/stream.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E6%80%BB%E7%BB%93.png">
+<meta property="article:published_time" content="2020-07-07T09:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.484Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Redis》常见数据类型及应用场景 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Redis》常见数据类型及应用场景
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-07 17:19:31" itemprop="dateCreated datePublished" datetime="2020-07-07T17:19:31+08:00">2020-07-07</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/" itemprop="url" rel="index"><span itemprop="name">数据结构</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E6%BA%90%E7%A0%81/" itemprop="url" rel="index"><span itemprop="name">源码</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>25k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>1:03</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是“Redis”系列的第五篇文章，主要介绍的是Redis的“常见数据类型及应用场景”。
+</code></pre>
+<h1 id="一、Redis"><a href="#一、Redis" class="headerlink" title="一、Redis"></a>一、Redis</h1><p><code>Redis（Remote Dictionary Server）</code>是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。</p>
+<span id="more"></span>
+
+<h1 id="二、Redis源码结构"><a href="#二、Redis源码结构" class="headerlink" title="二、Redis源码结构"></a>二、Redis源码结构</h1><p>基于redis1.0源码，列出了主流程相关的如下源码文件。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84.png" alt="源码结构"></p>
+<h2 id="2-1、redisServer"><a href="#2-1、redisServer" class="headerlink" title="2.1、redisServer"></a>2.1、redisServer</h2><p>redisServer是存储redis服务端运行的结构体，在启动的时候就会初始化完成。存储Redis服务器绝大部分的信息。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/redisServer.png" alt="redisServer"></p>
+<ul>
+<li>redisDb *db; &#x2F;&#x2F; 数据库列表</li>
+<li>int dbnum;   &#x2F;&#x2F; 数据库数量<ul>
+<li>在初始化服务器的时候，会根据dbnum的值决定创建多少个数据库</li>
+</ul>
+</li>
+<li>clients; &#x2F;&#x2F; 连接的客户端</li>
+</ul>
+<p>源码总览：<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.png" alt="数据结构"></p>
+<h2 id="2-2、redisDb"><a href="#2-2、redisDb" class="headerlink" title="2.2、redisDb"></a>2.2、redisDb</h2><p><code>redisDb</code>是<code>redis</code>的键值对存储的位置，<strong>主要包含两大块，一块存储数据，另一块存储过期信信息</strong>，<code>dict</code>结构实际上是两个哈希表，至于为什么有两个，这里是为了做渐进式<code>rehash</code>使用（后面会详细介绍），<code>rehashidx</code>用于表示<code>rehash</code>进度，iterators迭代器是表示遍历集合操作个数，表里面的元素就是entry，这里面包含key和value以及指向下一个元素的指针。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Redis database representation. There are multiple databases identified</span></span><br><span class="line"><span class="comment"> * by integers from 0 (the default database) up to the max configured</span></span><br><span class="line"><span class="comment"> * database. The database number is the &#x27;id&#x27; field in the structure. */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">redisDb</span> &#123;</span><br><span class="line">    <span class="comment">// 数据库键空间，保存着数据库中的所有键值对</span></span><br><span class="line">    dict *dict;                 <span class="comment">/* The keyspace for this DB */</span></span><br><span class="line">    <span class="comment">// 键的过期时间，字典的键为键，字典的值为过期事件 UNIX 时间戳</span></span><br><span class="line">    dict *expires;              <span class="comment">/* Timeout of keys with a timeout set */</span></span><br><span class="line">    <span class="comment">// 正处于阻塞状态的键</span></span><br><span class="line">    dict *blocking_keys;        <span class="comment">/* Keys with clients waiting for data (BLPOP) */</span></span><br><span class="line">    <span class="comment">// 可以解除阻塞的键</span></span><br><span class="line">    dict *ready_keys;           <span class="comment">/* Blocked keys that received a PUSH */</span></span><br><span class="line">    <span class="comment">// 正在被 WATCH 命令监视的键</span></span><br><span class="line">    dict *watched_keys;         <span class="comment">/* WATCHED keys for MULTI/EXEC CAS */</span></span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">evictionPoolEntry</span> *eviction_pool;    <span class="comment">/* Eviction pool of keys */</span></span><br><span class="line">    <span class="comment">// 数据库号码</span></span><br><span class="line">    <span class="type">int</span> id;                     <span class="comment">/* Database ID */</span></span><br><span class="line">    <span class="comment">// 数据库的键的平均 TTL ，统计信息</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> avg_ttl;          <span class="comment">/* Average TTL, just for stats */</span></span><br><span class="line">&#125; redisDb;</span><br></pre></td></tr></table></figure>
+
+<p><font color="red">*<em>dict <em>expires：「过期字典」</em></em></font>保存了数据库中所有 key 的过期时间，更多内容查看后续文章“数据淘汰策略”。</p>
+<h2 id="2-3、dict【字典】"><a href="#2-3、dict【字典】" class="headerlink" title="2.3、dict【字典】"></a>2.3、dict【字典】</h2><p>redis是一个键值对数据库，<code>dict</code>字典保存所有的键值对，称<code>dict</code>字典为“键空间”，存储数据库中的所有key-value</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">dict</span> &#123;</span><br><span class="line">    dictType *type; <span class="comment">// 类型，主要定义相关的函数</span></span><br><span class="line">    <span class="type">void</span> *privdata;</span><br><span class="line">    dictht ht[<span class="number">2</span>];  <span class="comment">// 两个hash table，用于做渐进式rehash使用</span></span><br><span class="line">    <span class="type">int</span> rehashidx; <span class="comment">/* rehash进度 rehashidx == -1表示不是正在rehash*/</span></span><br><span class="line">    <span class="type">int</span> iterators; <span class="comment">/* number of iterators currently running */</span></span><br><span class="line">&#125; dict;</span><br></pre></td></tr></table></figure>
+<p><code>dict</code>采用哈希函数对key取哈希值得到在哈希表中的位置(桶的位置)，采用拉链法解决hash冲突。</p>
+<ul>
+<li>dictht ht[2]：每个字典都使用两个哈希表，从而实现渐进式 rehash<ul>
+<li>两张哈希表（ht[2]）：只有在重哈希的过程中，ht[0]和ht[1]才都有效。而在平常情况下，只有ht[0]有效，ht[1]里面没有任何数据</li>
+</ul>
+</li>
+</ul>
+<h2 id="2-4、dictht【哈希表】"><a href="#2-4、dictht【哈希表】" class="headerlink" title="2.4、dictht【哈希表】"></a>2.4、dictht【哈希表】</h2><p><code>dictht</code>是哈希表（hash table）的数据结构定义中的一部分，它在 Redis 的字典（dict）实现中扮演着重要角色。以下是关于<code>dictht</code>的详细介绍：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* This is our hash table structure. Every dictionary has two of this as we</span></span><br><span class="line"><span class="comment"> * implement incremental rehashing, for the old to the new table. */</span></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 哈希表</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * 每个字典都使用两个哈希表，从而实现渐进式 rehash 。</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">dictht</span> &#123;</span><br><span class="line">    <span class="comment">// 哈希表数组</span></span><br><span class="line">    dictEntry **table;</span><br><span class="line">    <span class="comment">// 哈希表大小</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> size;</span><br><span class="line">    <span class="comment">// 哈希表大小掩码，用于计算索引值</span></span><br><span class="line">    <span class="comment">// 总是等于 size - 1</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> sizemask;</span><br><span class="line">    <span class="comment">// 该哈希表已有节点的数量</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> used;</span><br><span class="line">&#125; dictht;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>table</code>：是一个指向dictEntry结构体指针的指针，它实际上是一个数组，数组中的每个元素都是一个指向dictEntry结构体的指针，用于存储哈希表中的键值对。每个dictEntry代表哈希表中的一个节点，包含了键值对的具体信息。</li>
+<li><code>size</code>：表示哈希表的大小，即table数组的长度。它通常是一个素数，这样可以更好地利用哈希算法，减少哈希冲突。</li>
+</ul>
+<h2 id="2-5、dictEntry【哈希表节点】"><a href="#2-5、dictEntry【哈希表节点】" class="headerlink" title="2.5、dictEntry【哈希表节点】"></a>2.5、dictEntry【哈希表节点】</h2><p>哈希表节点，Redis中的每个<code>Key-Value</code>在内存中都会被划分成<code>dictEntry</code>以及代表Key和Value的对象</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 哈希表节点</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">dictEntry</span> &#123;</span><br><span class="line">    <span class="type">void</span> *key;             <span class="comment">// 键，在redis中一般是指向一个SDS类型的数据</span></span><br><span class="line">    <span class="keyword">union</span> &#123;</span><br><span class="line">        <span class="type">void</span> *val;         <span class="comment">// 值，在redis中一般指向redisObject</span></span><br><span class="line">        <span class="type">uint64_t</span> u64;      <span class="comment">// 特定情况下优化整数存储，比如过期     </span></span><br><span class="line">        <span class="type">int64_t</span> s64;       <span class="comment">// 特定情况下优化整数存储</span></span><br><span class="line">    &#125; v;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">dictEntry</span> *next; <span class="comment">// 下一个entry</span></span><br><span class="line">&#125; dictEntry;</span><br></pre></td></tr></table></figure>
+<p><code>dictEntry</code>包含分别指向Key和Value对象的指针以及指向下一个<code>dictEntry</code>的指针。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/dictEntry.png" alt="dictEntry"></p>
+<h2 id="2-6、redisObject【核心对象】"><a href="#2-6、redisObject【核心对象】" class="headerlink" title="2.6、redisObject【核心对象】"></a>2.6、redisObject【核心对象】</h2><p>redisObject是redis存储对象基本的表现形式，它可以存储类似SDS list set等数据结构，并且存储了一些信息用于内存管理，比如refcount这是一个整数字段，用于存储对象的引用计数。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">redisObject</span> &#123;</span><br><span class="line">    <span class="type">void</span> *ptr;              <span class="comment">// 指向具体数据的指针</span></span><br><span class="line">    <span class="type">int</span> refcount;           <span class="comment">// 引用计数</span></span><br><span class="line">    <span class="type">unsigned</span> type:<span class="number">4</span>;        <span class="comment">// 类型</span></span><br><span class="line">    <span class="type">unsigned</span> notused:<span class="number">2</span>;     <span class="comment">// 未使用，可能是为了扩展/占位</span></span><br><span class="line">    <span class="type">unsigned</span> encoding:<span class="number">4</span>;    <span class="comment">// 编码方式 </span></span><br><span class="line">    <span class="type">unsigned</span> lru:<span class="number">22</span>;        <span class="comment">// 最近最少使用</span></span><br><span class="line">&#125; robj;</span><br></pre></td></tr></table></figure>
+
+<pre><code>数据类型（type）
+    string, list, set, zset, hash
+编码方式（encoding）
+    raw, int, ht, zipmap, linkedlist, ziplist, intset
+数据指针（ptr）
+    ptr是一个通用指针，它指向实际存储的数据
+        对于不同数据类型的指向情况：
+            字符串类型（SDS）：如果是字符串对象，ptr指向一个SDS（Simple Dynamic String）结构
+            列表类型：当是列表对象时，ptr可能指向一个链表结构或者其他适合存储列表的数据结构
+            哈希类型：对于哈希对象，ptr指向一个哈希表结构
+虚拟内存（vm）
+其他信息
+</code></pre>
+<h2 id="2-7、核心结构总结"><a href="#2-7、核心结构总结" class="headerlink" title="2.7、核心结构总结"></a>2.7、核心结构总结</h2><p><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/redis%E6%A0%B8%E5%BF%83%E7%BB%93%E6%9E%84.png" alt="redis核心结构"></p>
+<h1 id="三、数据类型"><a href="#三、数据类型" class="headerlink" title="三、数据类型"></a>三、数据类型</h1><h2 id="3-1、基本数据类型【5种】"><a href="#3-1、基本数据类型【5种】" class="headerlink" title="3.1、基本数据类型【5种】"></a>3.1、基本数据类型【5种】</h2><p><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/5%E7%A7%8D%E5%9F%BA%E6%9C%AC%E7%B1%BB%E5%9E%8B.png" alt="5种基本类型"></p>
+<h3 id="3-1-1、string"><a href="#3-1-1、string" class="headerlink" title="3.1.1、string"></a>3.1.1、string</h3><p>String类型是二进制安全的，意思是 redis 的 string 可以包含任何数据。如数字，字符串，jpg图片或者序列化的对象。</p>
+<h4 id="3-1-1-1、内部实现"><a href="#3-1-1-1、内部实现" class="headerlink" title="3.1.1.1、内部实现"></a>3.1.1.1、内部实现</h4><p>String 类型的底层的数据结构实现主要是 int 和 SDS（简单动态字符串）。</p>
+<h5 id="1-SDS"><a href="#1-SDS" class="headerlink" title="1. SDS"></a>1. SDS</h5><ul>
+<li>SDS：simply dynamic  String，简单动态字符串<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">sdshdr</span>&#123;</span><br><span class="line">  <span class="type">int</span> len;<span class="comment">//记录buf以及使用的字节的数量</span></span><br><span class="line">  <span class="type">int</span> free;<span class="comment">//记录buf未使用的数量</span></span><br><span class="line">  <span class="type">char</span>[] buf;<span class="comment">//字节数组</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+比起c字符串，SDS有以下优点：</li>
+<li><code>1、</code> 常数复杂度获取字符串长度<br>和C字符串不同，因为SDS在len属性中记录了SDS本身的长度len，所以获取一个SDS长度的复杂度仅为O(1)</li>
+<li><code>2、</code> 杜绝缓冲区溢出<br>C字符串不记录自身长度带来的另一个问题是容易造成缓冲区溢出（buffer overflow），而SDS中不存在这个问题，因为可以读取len判断是否溢出</li>
+<li><code>3、</code> 二进制安全<br>c字符串中以’\0’表示结尾，这使得c无法正确存储包含’\0’的数据。因为没有提供额外的信息来区分’\0’是结尾还是数据的一部分。虽然可以使用base64等算法对数据进行编码来解决该问题，但这通常会降低代码的效率</li>
+<li><code>4、</code> 减少修改字符串长度时所需的内存重分配次数<br>Redis 的 SDS 实现了空间预分配优化策略。当 SDS 的 API 对一个 SDS 进行修改时，程序不仅会为 SDS 分配必须要的空间，还会为 SDS 分配额外的未使用空间<ul>
+<li>额外分配未使用空间数量的规则<br>当 SDS 的 len 属性值小于 1MB，程序分配和 len 属性同样大小的未使用空间。当 SDS 的 len 属性值大于 1MB，程序将多分配 1M 的未使用空间。通过这种预分配策略，SDS 将连续增长 N 次字符串所需的内存重分配次数从必定 N 次降低为最多 N 次</li>
+</ul>
+</li>
+<li><code>5、</code> 尾部 ‘\0’ 使得SDS兼容部分C字符串函数<br>sds分配存储区时，也会多分配一个空间，用于在字符串末尾添加’\0’，这就使得SDS也能复用c库中的一部分函数</li>
+</ul>
+<h5 id="2、内部编码（encoding）"><a href="#2、内部编码（encoding）" class="headerlink" title="2、内部编码（encoding）"></a>2、内部编码（encoding）</h5><p>字符串对象有 3 种 ：int、raw和 embstr。</p>
+<h6 id="2-1、int编码"><a href="#2-1、int编码" class="headerlink" title="2.1、int编码"></a>2.1、int编码</h6><p>如果一个字符串对象保存的是整数值，并且这个整数值可以用long类型来表示，那么字符串对象会将整数值保存在字符串对象结构的ptr属性里面（将void*转换成 long），并将字符串对象的编码设置为int。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/string_int%E7%BC%96%E7%A0%81.png" alt="string_int编码"><br>而且 Redis 启动时会预先建立 10000 个分别存储 0-9999 的 redisObject 变量作为共享对象，这就意味着如果 set字符串的键值在 0~10000 之间的话，则可以 直接指向共享对象 而不需要再建立新对象，此时键值不占空间！</p>
+<h6 id="2-2、embstr编码"><a href="#2-2、embstr编码" class="headerlink" title="2.2、embstr编码"></a>2.2、embstr编码</h6><p>如果字符串对象保存的是一个字符串，并且这个字符申的长度小于等于 32 字节（redis 2.+版本），那么字符串对象将使用一个简单动态字符串（SDS）来保存这个字符串，并将对象的编码设置为embstr， embstr编码是专门用于保存短字符串的一种优化编码方式：<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/string_embstr%E7%BC%96%E7%A0%81.png" alt="string_embstr编码"><br>embedded string，表示嵌入式的String。从内存结构上来讲 即字符串 sds结构体与其对应的 redisObject 对象分配在 同一块连续的内存空间。（一次分配内存）</p>
+<h6 id="2-3、raw编码"><a href="#2-3、raw编码" class="headerlink" title="2.3、raw编码"></a>2.3、raw编码</h6><p>如果字符串对象保存的是一个字符串，并且这个字符串的长度大于 32 字节（redis 2.+版本），那么字符串对象将使用一个简单动态字符串（SDS）来保存这个字符串，并将对象的编码设置为raw：<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/string_raw%E7%BC%96%E7%A0%81.png" alt="string_raw编码"><br>动态字符串 sds 的内存与其依赖的 redisObject 的 内存不再连续 了</p>
+<blockquote>
+<p>注意，embstr 编码和 raw 编码的边界在 redis 不同版本中是不一样的：</p>
+</blockquote>
+<ul>
+<li>redis 2.+ 是 32 字节</li>
+<li>redis 3.0-4.0 是 39 字节</li>
+<li>redis 5.0 是 44 字节</li>
+</ul>
+<p>可以看到embstr和raw编码都会使用SDS来保存值，但不同之处在于embstr会通过一次内存分配函数来分配一块连续的内存空间来保存redisObject和SDS，而raw编码会通过调用两次内存分配函数来分别分配两块空间来保存redisObject和SDS。Redis这样做会有很多好处：</p>
+<ul>
+<li>embstr编码将创建字符串对象所需的内存分配次数从 raw 编码的两次降低为一次；</li>
+<li>释放 embstr编码的字符串对象同样只需要调用一次内存释放函数；</li>
+<li>因为embstr编码的字符串对象的所有数据都保存在一块连续的内存里面可以更好的利用 CPU 缓存提升性能。</li>
+</ul>
+<p>但是 embstr 也有缺点的：</p>
+<ul>
+<li>如果字符串的长度增加需要重新分配内存时，整个redisObject和sds都需要重新分配空间，所以embstr编码的字符串对象实际上是只读的，redis没有为embstr编码的字符串对象编写任何相应的修改程序。当我们对embstr编码的字符串对象执行任何修改命令（例如append）时，程序会先将对象的编码从embstr转换成raw，然后再执行修改命令。</li>
+</ul>
+<h4 id="3-1-1-3、常用指令"><a href="#3-1-1-3、常用指令" class="headerlink" title="3.1.1.3、常用指令"></a>3.1.1.3、常用指令</h4><p>普通字符串的基本操作：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"># 设置 key-value 类型的值</span><br><span class="line">&gt; SET name lin</span><br><span class="line">OK</span><br><span class="line"># 根据 key 获得对应的 value</span><br><span class="line">&gt; GET name</span><br><span class="line">&quot;lin&quot;</span><br><span class="line"># 判断某个 key 是否存在</span><br><span class="line">&gt; EXISTS name</span><br><span class="line">(integer) 1</span><br><span class="line"># 返回 key 所储存的字符串值的长度</span><br><span class="line">&gt; STRLEN name</span><br><span class="line">(integer) 3</span><br><span class="line"># 删除某个 key 对应的值</span><br><span class="line">&gt; DEL name</span><br><span class="line">(integer) 1</span><br></pre></td></tr></table></figure>
+<p>计数器（字符串的内容为整数的时候可以使用）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"># 设置 key-value 类型的值</span><br><span class="line">&gt; SET number 0</span><br><span class="line">OK</span><br><span class="line"># 将 key 中储存的数字值增一</span><br><span class="line">&gt; INCR number</span><br><span class="line">(integer) 1</span><br><span class="line"># 将key中存储的数字值加 10</span><br><span class="line">&gt; INCRBY number 10</span><br><span class="line">(integer) 11</span><br><span class="line"># 将 key 中储存的数字值减一</span><br><span class="line">&gt; DECR number</span><br><span class="line">(integer) 10</span><br><span class="line"># 将key中存储的数字值键 10</span><br><span class="line">&gt; DECRBY number 10</span><br><span class="line">(integer) 0</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-1-1-4、应用场景"><a href="#3-1-1-4、应用场景" class="headerlink" title="3.1.1.4、应用场景"></a>3.1.1.4、应用场景</h4><h5 id="1-缓存对象"><a href="#1-缓存对象" class="headerlink" title="1. 缓存对象"></a>1. 缓存对象</h5><p>使用 String 来缓存对象有两种方式：</p>
+<ul>
+<li>直接缓存整个对象的 JSON，命令例子： <code>SET user:1 '&#123;"name":"xiaolin", "age":18&#125;'。</code></li>
+<li>采用将 key 进行分离为 user:ID:属性，采用 <code>MSET</code> 批量存储，用 <code>MGET</code> 获取各属性值，命令例子： <code>MSET user:1:name xiaolin user:1:age 18 user:2:name xiaomei user:2:age 20</code>。</li>
+</ul>
+<h5 id="2-常规计数"><a href="#2-常规计数" class="headerlink" title="2. 常规计数"></a>2. 常规计数</h5><p>因为 Redis 处理命令是单线程，所以执行命令的过程是原子的。因此 String 数据类型适合计数场景，比如计算访问次数、点赞、转发、库存数量等等。<br>比如计算文章的阅读量：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"># 初始化文章的阅读量</span><br><span class="line">&gt; SET aritcle:readcount:1001 0</span><br><span class="line">OK</span><br><span class="line">#阅读量+1</span><br><span class="line">&gt; INCR aritcle:readcount:1001</span><br><span class="line">(integer) 1</span><br><span class="line">#阅读量+1</span><br><span class="line">&gt; INCR aritcle:readcount:1001</span><br><span class="line">(integer) 2</span><br><span class="line">#阅读量+1</span><br><span class="line">&gt; INCR aritcle:readcount:1001</span><br><span class="line">(integer) 3</span><br><span class="line"># 获取对应文章的阅读量</span><br><span class="line">&gt; GET aritcle:readcount:1001</span><br><span class="line">&quot;3&quot;</span><br><span class="line">#</span><br></pre></td></tr></table></figure>
+
+<h5 id="3-分布式锁"><a href="#3-分布式锁" class="headerlink" title="3. 分布式锁"></a>3. 分布式锁</h5><p>SET 命令有个 NX 参数可以实现「key不存在才插入」，可以用它来实现分布式锁：</p>
+<ul>
+<li>如果 key 不存在，则显示插入成功，可以用来表示加锁成功；</li>
+<li>如果 key 存在，则会显示插入失败，可以用来表示加锁失败。</li>
+</ul>
+<p>一般而言，还会对分布式锁加上过期时间，分布式锁的命令如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SET lock_key unique_value NX PX 10000&lt;/code&gt;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code><strong>lock_key</strong></code> 就是 key 键；</li>
+<li><code><strong>unique_value</strong></code> 是客户端生成的唯一的标识；</li>
+<li><code><strong>NX</strong></code> 代表只在 lock_key 不存在时，才对 lock_key 进行设置操作；</li>
+<li><code><strong>PX 10000</strong></code> 表示设置 lock_key 的过期时间为 10s，这是为了避免客户端发生异常而无法释放锁。</li>
+</ul>
+<p>而解锁的过程就是将 lock_key 键删除，但不能乱删，要保证执行操作的客户端就是加锁的客户端。所以，解锁的时候，我们要先判断锁的 unique_value 是否为加锁客户端，是的话，才将 lock_key 键删除。</p>
+<p>可以看到，解锁是有两个操作，这时就需要 Lua 脚本来保证解锁的原子性，因为 Redis 在执行 Lua 脚本时，可以以原子性的方式执行，保证了锁释放操作的原子性。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">// 释放锁时，先比较 unique_value 是否相等，避免锁的误释放</span><br><span class="line">if redis.call(&quot;get&quot;,KEYS[1]) == ARGV[1] then</span><br><span class="line">    return redis.call(&quot;del&quot;,KEYS[1])</span><br><span class="line">else</span><br><span class="line">    return 0</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+<p>这样一来，就通过使用 SET 命令和 Lua 脚本在 Redis 单节点上完成了分布式锁的加锁和解锁。</p>
+<h5 id="4-分布式系统全局序列号"><a href="#4-分布式系统全局序列号" class="headerlink" title="4. 分布式系统全局序列号"></a>4. 分布式系统全局序列号</h5><p>使用 <code>INCR</code> 命令：Redis 的INCR命令可以对一个string类型的键值进行原子性的自增操作。在分布式系统中，多个节点可以同时对同一个 Redis 键执行INCR命令来获取全局唯一的序列号。</p>
+<h3 id="3-1-2、List"><a href="#3-1-2、List" class="headerlink" title="3.1.2、List"></a>3.1.2、List</h3><p>List 列表是简单的字符串列表，按照插入顺序排序，可以从头部或尾部向 List 列表添加元素。</p>
+<p>列表的最大长度为 2^32 - 1，也即每个列表支持超过 40 亿个元素。</p>
+<h4 id="3-1-2-1、内部实现"><a href="#3-1-2-1、内部实现" class="headerlink" title="3.1.2.1、内部实现"></a>3.1.2.1、内部实现</h4><p>List 类型的底层数据结构是由<strong>双向链表</strong>或<strong>压缩列表</strong>实现的：</p>
+<ul>
+<li>如果列表的元素个数小于 512 个（默认值，可由 <code>list-max-ziplist-entries</code> 配置），列表每个元素的值都小于 64 字节（默认值，可由 <code>list-max-ziplist-value</code> 配置），Redis 会使用压缩列表作为 List 类型的底层数据结构；</li>
+<li>如果列表的元素不满足上面的条件，Redis 会使用双向链表作为 List 类型的底层数据结构；</li>
+</ul>
+<p>但是在 Redis 3.2 版本之后，List 数据类型底层数据结构就只由 <code>quicklist</code> 实现了，替代了双向链表和压缩列表。</p>
+<h4 id="3-1-2-2、常用指令"><a href="#3-1-2-2、常用指令" class="headerlink" title="3.1.2.2、常用指令"></a>3.1.2.2、常用指令</h4><p><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/list_%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4.png" alt="list_常用指令"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"># 将一个或多个值value插入到key列表的表头(最左边)，最后的值在最前面</span><br><span class="line">LPUSH key value [value ...] </span><br><span class="line"># 将一个或多个值value插入到key列表的表尾(最右边)</span><br><span class="line">RPUSH key value [value ...]</span><br><span class="line"># 移除并返回key列表的头元素</span><br><span class="line">LPOP key     </span><br><span class="line"># 移除并返回key列表的尾元素</span><br><span class="line">RPOP key </span><br><span class="line"></span><br><span class="line">leftPOP??? rightPop???</span><br><span class="line"></span><br><span class="line"># 返回列表key中指定区间内的元素，区间以偏移量start和stop指定，从0开始</span><br><span class="line">LRANGE key start stop</span><br><span class="line"></span><br><span class="line"># 从key列表表头弹出一个元素，没有就阻塞timeout秒，如果timeout=0则一直阻塞</span><br><span class="line">BLPOP key [key ...] timeout</span><br><span class="line"># 从key列表表尾弹出一个元素，没有就阻塞timeout秒，如果timeout=0则一直阻塞</span><br><span class="line">BRPOP key [key ...] timeout</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-1-2-3、应用场景"><a href="#3-1-2-3、应用场景" class="headerlink" title="3.1.2.3、应用场景"></a>3.1.2.3、应用场景</h4><h5 id="1、消息队列"><a href="#1、消息队列" class="headerlink" title="1、消息队列"></a>1、消息队列</h5><p>消息队列在存取消息时，必须要满足三个需求，分别是<strong>消息保序、处理重复的消息和保证消息可靠性</strong>。</p>
+<p>Redis 的 List 和 Stream 两种数据类型，就可以满足消息队列的这三个需求。我们先来了解下基于 List 的消息队列实现方法，后面在介绍 Stream 数据类型时候，在详细说说 Stream。</p>
+<p><strong>1、如何满足消息保序需求？</strong></p>
+<p>List 本身就是按先进先出的顺序对数据进行存取的，所以，如果使用 List 作为消息队列保存消息的话，就已经能满足消息保序的需求了。<br>List 可以使用 LPUSH + RPOP （或者反过来，RPUSH+LPOP）命令实现消息队列。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/list_%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF_%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97.png" alt="list_应用场景_消息队列"></p>
+<ul>
+<li>生产者使用 <code>LPUSH key value[value...]</code> 将消息插入到队列的头部，如果 key 不存在则会创建一个空的队列再插入消息。</li>
+<li>消费者使用 <code>RPOP key</code> 依次读取队列的消息，先进先出。</li>
+</ul>
+<p><strong>2、如何处理重复的消息？</strong></p>
+<p>消费者要实现重复消息的判断，需要 2 个方面的要求：</p>
+<ul>
+<li>每个消息都有一个全局的 ID。</li>
+<li>消费者要记录已经处理过的消息的 ID。当收到一条消息后，消费者程序就可以对比收到的消息 ID 和记录的已处理过的消息 ID，来判断当前收到的消息有没有经过处理。如果已经处理过，那么，消费者程序就不再进行处理了。</li>
+</ul>
+<p>但是 <strong>List 并不会为每个消息生成 ID 号，所以我们需要自行为每个消息生成一个全局唯一ID</strong>，生成之后，我们在用 LPUSH 命令把消息插入 List 时，需要在消息中包含这个全局唯一 ID。<br>例如，我们执行以下命令，就把一条全局 ID 为 111000102、库存量为 99 的消息插入了消息队列：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&gt; LPUSH mq &quot;111000102:stock:99&quot;</span><br><span class="line">(integer) 1</span><br></pre></td></tr></table></figure>
+
+<p><strong>3、如何保证消息可靠性？</strong></p>
+<p>为了留存消息，List 类型提供了 BRPOPLPUSH 命令，这个命令的作用<strong>是让消费者程序从一个 List 中读取消息，同时，Redis 会把这个消息再插入到另一个 List（可以叫作备份 List）留存。</strong></p>
+<h5 id="2、微博、朋友圈、公众号等，关注的文章列表展示"><a href="#2、微博、朋友圈、公众号等，关注的文章列表展示" class="headerlink" title="2、微博、朋友圈、公众号等，关注的文章列表展示"></a>2、微博、朋友圈、公众号等，关注的文章列表展示</h5><p>假如 <code>小明</code> 关注了 <code>中国青年报、三太子敖丙</code> 等大V的订阅号，当这些大V发布订阅号时，通过推或拉的方式把消息<code>LPUSH</code>放入redis中属于小明的list中。其中key为<code>msg:&#123;小明_ID&#125;</code>。当小明要获取大V们发的消息时，使用<code>LRANGE</code> 命令从队列中获取指定个数的订阅号信息！！<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/list_%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF_%E6%96%87%E7%AB%A0%E5%88%97%E8%A1%A8.png" alt="list_应用场景_文章列表"></p>
+<h3 id="3-1-3、hash"><a href="#3-1-3、hash" class="headerlink" title="3.1.3、hash"></a>3.1.3、hash</h3><p>Hash 是一个键值对（key - value）集合，其中 value 的形式如： <code>value=[&#123;field1，value1&#125;，...&#123;fieldN，valueN&#125;]</code>。Hash 特别适合用于存储对象。</p>
+<h4 id="3-1-3-1、实现方式"><a href="#3-1-3-1、实现方式" class="headerlink" title="3.1.3.1、实现方式"></a>3.1.3.1、实现方式</h4><p>Hash 类型的底层数据结构是由<strong>压缩列表</strong>或<strong>哈希表</strong>实现的：</p>
+<ul>
+<li>如果哈希类型元素个数小于 512 个（默认值，可由 <code>hash-max-ziplist-entries</code> 配置），所有值小于 64 字节（默认值，可由 hash-max-ziplist-value 配置）的话，Redis 会使用压缩列表作为 Hash 类型的底层数据结构；</li>
+<li>如果哈希类型元素不满足上面条件，Redis 会使用哈希表作为 Hash 类型的 底层数据结构。</li>
+</ul>
+<p>在 Redis 7.0 中，压缩列表数据结构已经废弃了，交由 <code>listpack</code> 数据结构来实现了。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/hash_%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F.png" alt="hash_实现方式"><br>Hash 与 String 对象的区别如上图所示</p>
+<h4 id="3-1-3-2、常见命令"><a href="#3-1-3-2、常见命令" class="headerlink" title="3.1.3.2、常见命令"></a>3.1.3.2、常见命令</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"># 存储一个哈希表key的键值</span><br><span class="line">HSET key field value   </span><br><span class="line"># 获取哈希表key对应的field键值</span><br><span class="line">HGET key field</span><br><span class="line"></span><br><span class="line"># 在一个哈希表key中存储多个键值对</span><br><span class="line">HMSET key field value [field value...] </span><br><span class="line"># 批量获取哈希表key中多个field键值</span><br><span class="line">HMGET key field [field ...]       </span><br><span class="line"># 删除哈希表key中的field键值</span><br><span class="line">HDEL key field [field ...]    </span><br><span class="line"></span><br><span class="line"># 返回哈希表key中field的数量</span><br><span class="line">HLEN key       </span><br><span class="line"># 返回哈希表key中所有的键值</span><br><span class="line">HGETALL key </span><br><span class="line"></span><br><span class="line"># 为哈希表key中field键的值加上增量n</span><br><span class="line">HINCRBY key field n  ![img.png](img.png)</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-1-3-3、应用场景"><a href="#3-1-3-3、应用场景" class="headerlink" title="3.1.3.3、应用场景"></a>3.1.3.3、应用场景</h4><h5 id="1、缓存对象"><a href="#1、缓存对象" class="headerlink" title="1、缓存对象"></a>1、缓存对象</h5><p>Hash 类型的 （key，field， value） 的结构与对象的（对象id， 属性， 值）的结构相似，也可以用来存储对象。</p>
+<p>我们可以使用如下命令，将用户对象的信息存储到 Hash 类型：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># 存储一个哈希表uid:1的键值</span><br><span class="line">&gt; HMSET uid:1 name Tom age 15</span><br><span class="line">2</span><br><span class="line"># 存储一个哈希表uid:2的键值</span><br><span class="line">&gt; HMSET uid:2 name Jerry age 13</span><br><span class="line">2</span><br><span class="line"># 获取哈希表用户id为1中所有的键值</span><br><span class="line">&gt; HGETALL uid:1</span><br><span class="line">1) &quot;name&quot;</span><br><span class="line">2) &quot;Tom&quot;</span><br><span class="line">3) &quot;age&quot;</span><br><span class="line">4) &quot;15&quot;</span><br></pre></td></tr></table></figure>
+
+<p>在介绍 String 类型的应用场景时有所介绍，String + Json也是存储对象的一种方式，那么存储对象时，到底用 String + json 还是用 Hash 呢？</p>
+<p>一般对象用 String + Json 存储，对象中某些频繁变化的属性可以考虑抽出来用 Hash 类型存储。</p>
+<h5 id="2、购物车"><a href="#2、购物车" class="headerlink" title="2、购物车"></a>2、购物车</h5><p>以用户 id 为 key，商品 id 为 field，商品数量为 value，恰好构成了购物车的3个要素，如下图所示。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/hash_%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF_%E8%B4%AD%E7%89%A9%E8%BD%A6.png" alt="hash_应用场景_购物车"><br>涉及的命令如下：</p>
+<ul>
+<li>添加商品：HSET cart:{用户id} {商品id} 1</li>
+<li>添加数量：HINCRBY cart:{用户id} {商品id} 1</li>
+<li>商品总数：HLEN cart:{用户id}</li>
+<li>删除商品：HDEL cart:{用户id} {商品id}</li>
+<li>获取购物车所有商品：HGETALL cart:{用户id}</li>
+</ul>
+<h3 id="3-1-4、set"><a href="#3-1-4、set" class="headerlink" title="3.1.4、set"></a>3.1.4、set</h3><p>Set 类型是一个无序并唯一的键值集合，它的存储顺序不会按照插入的先后顺序进行存储。</p>
+<p>一个集合最多可以存储 2^32-1 个元素。概念和数学中个的集合基本类似，可以交集，并集，差集等等，所以 Set 类型除了支持集合内的增删改查，同时还支持多个集合取交集、并集、差集。</p>
+<h4 id="3-1-4-1、实现方式"><a href="#3-1-4-1、实现方式" class="headerlink" title="3.1.4.1、实现方式"></a>3.1.4.1、实现方式</h4><p>Set 类型的底层数据结构是由<strong>哈希表</strong>或<strong>整数集合</strong>实现的：</p>
+<ul>
+<li>如果集合中的元素都是整数且元素个数小于 512 （默认值，set-maxintset-entries配置）个，Redis 会使用整数集合作为 Set 类型的底层数据结构；</li>
+<li>如果集合中的元素不满足上面条件，则 Redis 使用哈希表作为 Set 类型的底层数据结构。</li>
+</ul>
+<p><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/set_%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F.png" alt="set_实现方式"></p>
+<h4 id="3-1-4-2、常用指令"><a href="#3-1-4-2、常用指令" class="headerlink" title="3.1.4.2、常用指令"></a>3.1.4.2、常用指令</h4><p>set常用操作</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"># 往集合key中存入元素，元素存在则忽略，若key不存在则新建</span><br><span class="line">SADD key member [member ...]</span><br><span class="line"># 从集合key中删除元素</span><br><span class="line">SREM key member [member ...] </span><br><span class="line"># 获取集合key中所有元素</span><br><span class="line">SMEMBERS key</span><br><span class="line"># 获取集合key中的元素个数</span><br><span class="line">SCARD key</span><br><span class="line"></span><br><span class="line"># 判断member元素是否存在于集合key中</span><br><span class="line">SISMEMBER key member</span><br><span class="line"></span><br><span class="line"># 从集合key中随机选出count个元素，元素不从key中删除</span><br><span class="line">SRANDMEMBER key [count]</span><br><span class="line"># 从集合key中随机选出count个元素，元素从key中删除</span><br><span class="line">SPOP key [count]</span><br></pre></td></tr></table></figure>
+
+<p>set运算操作</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"># 交集运算</span><br><span class="line">SINTER key [key ...]</span><br><span class="line"># 将交集结果存入新集合destination中</span><br><span class="line">SINTERSTORE destination key [key ...]</span><br><span class="line"></span><br><span class="line"># 并集运算</span><br><span class="line">SUNION key [key ...]</span><br><span class="line"># 将并集结果存入新集合destination中</span><br><span class="line">SUNIONSTORE destination key [key ...]</span><br><span class="line"></span><br><span class="line"># 差集运算</span><br><span class="line">SDIFF key [key ...]</span><br><span class="line"># 将差集结果存入新集合destination中</span><br><span class="line">SDIFFSTORE destination key [key ...]</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-1-4-3、应用场景"><a href="#3-1-4-3、应用场景" class="headerlink" title="3.1.4.3、应用场景"></a>3.1.4.3、应用场景</h4><h5 id="1、点赞"><a href="#1、点赞" class="headerlink" title="1、点赞"></a>1、点赞</h5><p>Set 类型可以保证一个用户只能点一个赞，这里举例子一个场景，key 是文章id，value 是用户id。</p>
+<p>uid:1 、uid:2、uid:3 三个用户分别对 article:1 文章点赞了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># uid:1 用户对文章 article:1 点赞</span><br><span class="line">&gt; SADD article:1 uid:1</span><br><span class="line">(integer) 1</span><br><span class="line"># uid:2 用户对文章 article:1 点赞</span><br><span class="line">&gt; SADD article:1 uid:2</span><br><span class="line">(integer) 1</span><br><span class="line"># uid:3 用户对文章 article:1 点赞</span><br><span class="line">&gt; SADD article:1 uid:3</span><br><span class="line">(integer) 1</span><br></pre></td></tr></table></figure>
+<p>uid:1 取消了对 article:1 文章点赞。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&gt; SREM article:1 uid:1</span><br><span class="line">(integer) 1</span><br></pre></td></tr></table></figure>
+
+<p>获取 article:1 文章所有点赞用户 :</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&gt; SMEMBERS article:1</span><br><span class="line">1) &quot;uid:3&quot;</span><br><span class="line">2) &quot;uid:2&quot;</span><br></pre></td></tr></table></figure>
+
+<p>获取 article:1 文章的点赞用户数量：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&gt; SCARD article:1</span><br><span class="line">(integer) 2</span><br></pre></td></tr></table></figure>
+
+<p>判断用户 uid:1 是否对文章 article:1 点赞了：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&gt; SISMEMBER article:1 uid:1</span><br><span class="line">(integer) 0  # 返回0说明没点赞，返回1则说明点赞了</span><br></pre></td></tr></table></figure>
+
+<h5 id="2、共同关注"><a href="#2、共同关注" class="headerlink" title="2、共同关注"></a>2、共同关注</h5><p>Set 类型支持交集运算，所以可以用来计算共同关注的好友、公众号等。</p>
+<p>key 可以是用户id，value 则是已关注的公众号的id。</p>
+<ul>
+<li><code>uid:1</code> 用户关注公众号 id 为 <code>5、6、7、8、9</code></li>
+<li><code>uid:2</code> 用户关注公众号 id 为 <code>7、8、9、10、11</code>。</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># uid:1 用户关注公众号 id 为 5、6、7、8、9</span><br><span class="line">&gt; SADD uid:1 5 6 7 8 9</span><br><span class="line">(integer) 5</span><br><span class="line"># uid:2  用户关注公众号 id 为 7、8、9、10、11</span><br><span class="line">&gt; SADD uid:2 7 8 9 10 11</span><br><span class="line">(integer) 5</span><br></pre></td></tr></table></figure>
+
+<p>uid:1 和 uid:2 共同关注的公众号：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 获取共同关注</span><br><span class="line">&gt; SINTER uid:1 uid:2</span><br><span class="line">1) &quot;7&quot;</span><br><span class="line">2) &quot;8&quot;</span><br><span class="line">3) &quot;9&quot;</span><br></pre></td></tr></table></figure>
+
+<p>给 uid:2 推荐 uid:1 关注的公众号：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&gt; SDIFF uid:1 uid:2</span><br><span class="line">1) &quot;5&quot;</span><br><span class="line">2) &quot;6&quot;</span><br></pre></td></tr></table></figure>
+
+<p>验证某个公众号是否同时被 uid:1 或 uid:2 关注:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&gt; SISMEMBER uid:1 5</span><br><span class="line">(integer) 1 # 返回0，说明关注了</span><br><span class="line">&gt; SISMEMBER uid:2 5</span><br><span class="line">(integer) 0 # 返回0，说明没关注</span><br></pre></td></tr></table></figure>
+
+<h5 id="3、抽奖活动"><a href="#3、抽奖活动" class="headerlink" title="3、抽奖活动"></a>3、抽奖活动</h5><p>存储某活动中中奖的用户名 ，Set 类型因为有去重功能，可以保证同一个用户不会中奖两次。</p>
+<p>key为抽奖活动名，value为员工名称，把所有员工名称放入抽奖箱 ：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&gt;SADD lucky Tom Jerry John Sean Marry Lindy Sary Mark</span><br><span class="line">(integer) 5</span><br></pre></td></tr></table></figure>
+
+<p>如果允许重复中奖，可以使用 SRANDMEMBER 命令。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># 抽取 1 个一等奖：</span><br><span class="line">&gt; SRANDMEMBER lucky 1</span><br><span class="line">1) &quot;Tom&quot;</span><br><span class="line"># 抽取 2 个二等奖：</span><br><span class="line">&gt; SRANDMEMBER lucky 2</span><br><span class="line">1) &quot;Mark&quot;</span><br><span class="line">2) &quot;Jerry&quot;</span><br><span class="line"># 抽取 3 个三等奖：</span><br><span class="line">&gt; SRANDMEMBER lucky 3</span><br><span class="line">1) &quot;Sary&quot;</span><br><span class="line">2) &quot;Tom&quot;</span><br><span class="line">3) &quot;Jerry&quot;</span><br></pre></td></tr></table></figure>
+
+<p>如果不允许重复中奖，可以使用 SPOP 命令。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># 抽取一等奖1个</span><br><span class="line">&gt; SPOP lucky 1</span><br><span class="line">1) &quot;Sary&quot;</span><br><span class="line"># 抽取二等奖2个</span><br><span class="line">&gt; SPOP lucky 2</span><br><span class="line">1) &quot;Jerry&quot;</span><br><span class="line">2) &quot;Mark&quot;</span><br><span class="line"># 抽取三等奖3个</span><br><span class="line">&gt; SPOP lucky 3</span><br><span class="line">1) &quot;John&quot;</span><br><span class="line">2) &quot;Sean&quot;</span><br><span class="line">3) &quot;Lindy&quot;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-1-5、zset"><a href="#3-1-5、zset" class="headerlink" title="3.1.5、zset"></a>3.1.5、zset</h3><p>Zset 类型（有序集合类型）相比于 Set 类型多了一个排序属性 score（分值），对于有序集合 ZSet 来说，每个存储元素相当于有两个值组成的，一个是有序集合的元素值，一个是排序值。</p>
+<p>有序集合保留了集合不能有重复成员的特性（分值可以重复），但不同的是，有序集合中的元素可以排序。</p>
+<h4 id="3-1-5-1、实现方式"><a href="#3-1-5-1、实现方式" class="headerlink" title="3.1.5.1、实现方式"></a>3.1.5.1、实现方式</h4><p>Zset 类型的底层数据结构是由<strong>压缩列表</strong>或<strong>跳表</strong>实现的：</p>
+<ul>
+<li>如果有序集合的元素个数小于 128 个，并且每个元素的值小于 64 字节时，Redis 会使用压缩列表作为 Zset 类型的底层数据结构；</li>
+<li>如果有序集合的元素不满足上面的条件，Redis 会使用跳表作为 Zset 类型的底层数据结构；</li>
+</ul>
+<p>在 Redis 7.0 中，压缩列表数据结构已经废弃了，交由 listpack 数据结构来实现了。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/zset_%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F.png" alt="zset_实现方式"></p>
+<h4 id="3-1-5-2、常用指令"><a href="#3-1-5-2、常用指令" class="headerlink" title="3.1.5.2、常用指令"></a>3.1.5.2、常用指令</h4><p>Zset 常用操作：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"># 往有序集合key中加入带分值元素</span><br><span class="line">ZADD key score member [[score member]...]</span><br><span class="line"># 往有序集合key中删除元素</span><br><span class="line">ZREM key member [member...]</span><br><span class="line"># 返回有序集合key中元素member的分值</span><br><span class="line">ZSCORE key member</span><br><span class="line"># 返回有序集合key中元素个数</span><br><span class="line">ZCARD key</span><br><span class="line"></span><br><span class="line"># 为有序集合key中元素member的分值加上increment</span><br><span class="line">ZINCRBY key increment member</span><br><span class="line"></span><br><span class="line"># 正序获取有序集合key从start下标到stop下标的元素</span><br><span class="line">ZRANGE key start stop [WITHSCORES]</span><br><span class="line"># 倒序获取有序集合key从start下标到stop下标的元素</span><br><span class="line">ZREVRANGE key start stop [WITHSCORES]</span><br><span class="line"></span><br><span class="line"># 返回有序集合中指定分数区间内的成员，分数由低到高排序。</span><br><span class="line">ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count]</span><br><span class="line"></span><br><span class="line"># 返回指定成员区间内的成员，按字典正序排列, 分数必须相同。</span><br><span class="line">ZRANGEBYLEX key min max [LIMIT offset count]</span><br><span class="line"># 返回指定成员区间内的成员，按字典倒序排列, 分数必须相同</span><br><span class="line">ZREVRANGEBYLEX key max min [LIMIT offset count]</span><br></pre></td></tr></table></figure>
+
+<p>Zset 运算操作（相比于 Set 类型，ZSet 类型没有支持差集运算）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># 并集计算(相同元素分值相加)，numberkeys一共多少个key，WEIGHTS每个key对应的分值乘积</span><br><span class="line">ZUNIONSTORE destkey numberkeys key [key...]</span><br><span class="line"># 交集计算(相同元素分值相加)，numberkeys一共多少个key，WEIGHTS每个key对应的分值乘积</span><br><span class="line">ZINTERSTORE destkey numberkeys key [key...]</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-1-5-3、应用场景"><a href="#3-1-5-3、应用场景" class="headerlink" title="3.1.5.3、应用场景"></a>3.1.5.3、应用场景</h4><p>Zset 类型（Sorted Set，有序集合） 可以根据元素的权重来排序，我们可以自己来决定每个元素的权重值。比如说，我们可以根据元素插入 Sorted Set 的时间确定权重值，先插入的元素权重小，后插入的元素权重大。</p>
+<p>在面对需要展示最新列表、排行榜等场景时，如果数据更新频繁或者需要分页显示，可以优先考虑使用 Sorted Set。</p>
+<h5 id="1、排行榜"><a href="#1、排行榜" class="headerlink" title="1、排行榜"></a>1、排行榜</h5><p>我们以博文点赞排名为例，小林发表了五篇博文，分别获得赞为 200、40、100、50、150。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"># arcticle:1 文章获得了200个赞</span><br><span class="line">&gt; ZADD user:xiaolin:ranking 200 arcticle:1</span><br><span class="line">(integer) 1</span><br><span class="line"># arcticle:2 文章获得了40个赞</span><br><span class="line">&gt; ZADD user:xiaolin:ranking 40 arcticle:2</span><br><span class="line">(integer) 1</span><br><span class="line"># arcticle:3 文章获得了100个赞</span><br><span class="line">&gt; ZADD user:xiaolin:ranking 100 arcticle:3</span><br><span class="line">(integer) 1</span><br><span class="line"># arcticle:4 文章获得了50个赞</span><br><span class="line">&gt; ZADD user:xiaolin:ranking 50 arcticle:4</span><br><span class="line">(integer) 1</span><br><span class="line"># arcticle:5 文章获得了150个赞</span><br><span class="line">&gt; ZADD user:xiaolin:ranking 150 arcticle:5</span><br><span class="line">(integer) 1</span><br></pre></td></tr></table></figure>
+
+<p>文章 arcticle:4 新增一个赞，可以使用 ZINCRBY 命令（为有序集合key中元素member的分值加上increment）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&gt; ZINCRBY user:xiaolin:ranking 1 arcticle:4</span><br><span class="line">&quot;51&quot;</span><br></pre></td></tr></table></figure>
+
+<p>查看某篇文章的赞数，可以使用 ZSCORE 命令（返回有序集合key中元素个数）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&gt; ZSCORE user:xiaolin:ranking arcticle:4</span><br><span class="line">&quot;50&quot;</span><br></pre></td></tr></table></figure>
+
+<p>获取小林文章赞数最多的 3 篇文章，可以使用 ZREVRANGE 命令（倒序获取有序集合 key 从start下标到stop下标的元素）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># WITHSCORES 表示把 score 也显示出来</span><br><span class="line">&gt; ZREVRANGE user:xiaolin:ranking 0 2 WITHSCORES</span><br><span class="line">1) &quot;arcticle:1&quot;</span><br><span class="line">2) &quot;200&quot;</span><br><span class="line">3) &quot;arcticle:5&quot;</span><br><span class="line">4) &quot;150&quot;</span><br><span class="line">5) &quot;arcticle:3&quot;</span><br><span class="line">6) &quot;100&quot;</span><br></pre></td></tr></table></figure>
+
+<p>获取小林 100 赞到 200 赞的文章，可以使用 ZRANGEBYSCORE 命令（返回有序集合中指定分数区间内的成员，分数由低到高排序）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&gt; ZRANGEBYSCORE user:xiaolin:ranking 100 200 WITHSCORES</span><br><span class="line">1) &quot;arcticle:3&quot;</span><br><span class="line">2) &quot;100&quot;</span><br><span class="line">3) &quot;arcticle:5&quot;</span><br><span class="line">4) &quot;150&quot;</span><br><span class="line">5) &quot;arcticle:1&quot;</span><br><span class="line">6) &quot;200&quot;</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="3-2、高级数据类型【4种】"><a href="#3-2、高级数据类型【4种】" class="headerlink" title="3.2、高级数据类型【4种】"></a>3.2、高级数据类型【4种】</h2><h3 id="3-2-1、bitmap"><a href="#3-2-1、bitmap" class="headerlink" title="3.2.1、bitmap"></a>3.2.1、bitmap</h3><p>Bitmap，即位图，是一串连续的二进制数组（0和1），可以通过偏移量（offset）定位元素。BitMap通过最小的单位bit来进行0|1的设置，表示某个元素的值或者状态，时间复杂度为O(1)。</p>
+<p>由于 bit 是计算机中最小的单位，使用它进行储存将非常节省空间，特别适合一些数据量大且使用二值统计的场景。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/bitmap.png" alt="bitmap"></p>
+<h4 id="3-2-1-1、实现方式"><a href="#3-2-1-1、实现方式" class="headerlink" title="3.2.1.1、实现方式"></a>3.2.1.1、实现方式</h4><p>Bitmap 本身是用 String 类型作为底层数据结构实现的一种统计二值状态的数据类型。</p>
+<p>String 类型是会保存为二进制的字节数组，所以，Redis 就把字节数组的每个 bit 位利用起来，用来表示一个元素的二值状态，你可以把 Bitmap 看作是一个 bit 数组。</p>
+<h4 id="3-2-1-2、常用指令"><a href="#3-2-1-2、常用指令" class="headerlink" title="3.2.1.2、常用指令"></a>3.2.1.2、常用指令</h4><p>bitmap 基本操作：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># 设置值，其中value只能是 0 和 1</span><br><span class="line">SETBIT key offset value</span><br><span class="line"></span><br><span class="line"># 获取值</span><br><span class="line">GETBIT key offset</span><br><span class="line"></span><br><span class="line"># 获取指定范围内值为 1 的个数</span><br><span class="line"># start 和 end 以字节为单位</span><br><span class="line">BITCOUNT key start end</span><br></pre></td></tr></table></figure>
+
+<p>bitmap 运算操作：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"># BitMap间的运算</span><br><span class="line"># operations 位移操作符，枚举值</span><br><span class="line">AND 与运算 &amp;</span><br><span class="line">OR 或运算 |</span><br><span class="line">XOR 异或 ^</span><br><span class="line">NOT 取反 ~</span><br><span class="line"># result 计算的结果，会存储在该key中</span><br><span class="line"># key1 … keyn 参与运算的key，可以有多个，空格分割，not运算只能一个key</span><br><span class="line"># 当 BITOP 处理不同长度的字符串时，较短的那个字符串所缺少的部分会被看作 0。返回值是保存到 destkey 的字符串的长度（以字节byte为单位），和输入 key 中最长的字符串长度相等。</span><br><span class="line">BITOP [operations] [result] [key1] [keyn…]</span><br><span class="line"></span><br><span class="line"># 返回指定key中第一次出现指定value(0/1)的位置</span><br><span class="line">BITPOS [key] [value]</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-2-1-3、应用场景"><a href="#3-2-1-3、应用场景" class="headerlink" title="3.2.1.3、应用场景"></a>3.2.1.3、应用场景</h4><p>Bitmap 类型非常适合二值状态统计的场景，这里的二值状态就是指集合元素的取值就只有 0 和 1 两种，在记录海量数据时，Bitmap 能够有效地节省内存空间。</p>
+<h5 id="1、签到统计"><a href="#1、签到统计" class="headerlink" title="1、签到统计"></a>1、签到统计</h5><p>在签到打卡的场景中，我们只用记录签到（1）或未签到（0），所以它就是非常典型的二值状态。</p>
+<p>签到统计时，每个用户一天的签到用 1 个 bit 位就能表示，一个月（假设是 31 天）的签到情况用 31 个 bit 位就可以，而一年的签到也只需要用 365 个 bit 位，根本不用太复杂的集合类型。</p>
+<p>假设我们要统计 ID 100 的用户在 2022 年 6 月份的签到情况，就可以按照下面的步骤进行操作。</p>
+<p>第一步，执行下面的命令，记录该用户 6 月 3 号已签到。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SETBIT uid:sign:100:202206 2 1</span><br></pre></td></tr></table></figure>
+<p>第二步，检查该用户 6 月 3 日是否签到。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GETBIT uid:sign:100:202206 2</span><br></pre></td></tr></table></figure>
+<p>第三步，统计该用户在 6 月份的签到次数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">BITCOUNT uid:sign:100:202206</span><br></pre></td></tr></table></figure>
+<p>这样，我们就知道该用户在 6 月份的签到情况了。</p>
+<h5 id="2、用户登录态"><a href="#2、用户登录态" class="headerlink" title="2、用户登录态"></a>2、用户登录态</h5><p>Bitmap 提供了 GETBIT、SETBIT 操作，通过一个偏移值 offset 对 bit 数组的 offset 位置的 bit 位进行读写操作，需要注意的是 offset 从 0 开始。</p>
+<p>只需要一个 key &#x3D; login_status 表示存储用户登陆状态集合数据， 将用户 ID 作为 offset，在线就设置为 1，下线设置 0。通过 GETBIT判断对应的用户是否在线。 5000 万用户只需要 6 MB 的空间。</p>
+<p>假如我们要判断 ID &#x3D; 10086 的用户的登陆情况：</p>
+<p>第一步，执行以下指令，表示用户已登录。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SETBIT login_status 10086 1</span><br></pre></td></tr></table></figure>
+<p>第二步，检查该用户是否登陆，返回值 1 表示已登录。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GETBIT login_status 10086</span><br></pre></td></tr></table></figure>
+<p>第三步，登出，将 offset 对应的 value 设置成 0。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SETBIT login_status 10086 0</span><br></pre></td></tr></table></figure>
+
+<h5 id="3、连续签到用户总数"><a href="#3、连续签到用户总数" class="headerlink" title="3、连续签到用户总数"></a>3、连续签到用户总数</h5><p>如何统计出这连续 7 天连续打卡用户总数呢？</p>
+<p>我们把<strong>每天的日期</strong>作为 Bitmap 的 key，userId 作为 offset，若是打卡则将 offset 位置的 bit 设置成 1。<br>key 对应的集合的每个 bit 位的数据则是一个用户在该日期的打卡记录。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E8%BF%9E%E7%BB%AD%E7%AD%BE%E5%88%B0%E7%94%A8%E6%88%B7%E6%80%BB%E6%95%B0.png" alt="连续签到用户总数"></p>
+<p>一共有 7 个这样的 Bitmap，如果我们能对这 7 个 Bitmap 的对应的 bit 位做 『与』运算。同样的 UserID offset 都是一样的，当一个 userID 在 7 个 Bitmap 对应对应的 offset 位置的 bit &#x3D; 1 就说明该用户 7 天连续打卡。</p>
+<p>结果保存到一个新 Bitmap 中，我们再通过 BITCOUNT 统计 bit &#x3D; 1 的个数便得到了连续打卡 7 天的用户总数了。</p>
+<p>Redis 提供了 <code>BITOP operation destkey key [key ...]</code>这个指令用于对一个或者多个 key 的 Bitmap 进行位元操作。</p>
+<ul>
+<li>operation 可以是 and、OR、NOT、XOR。当 BITOP 处理不同长度的字符串时，较短的那个字符串所缺少的部分会被看作 0 。空的 key 也被看作是包含 0 的字符串序列。</li>
+</ul>
+<p>假设要统计 3 天连续打卡的用户数，则是将三个 bitmap 进行 AND 操作，并将结果保存到 destmap 中，接着对 destmap 执行 BITCOUNT 统计，如下命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># 与操作</span><br><span class="line">BITOP AND destmap bitmap:01 bitmap:02 bitmap:03</span><br><span class="line"># 统计 bit 位 =  1 的个数</span><br><span class="line">BITCOUNT destmap</span><br></pre></td></tr></table></figure>
+<p>即使一天产生一个亿的数据，Bitmap 占用的内存也不大，大约占 12 MB 的内存（10^8&#x2F;8&#x2F;1024&#x2F;1024），7 天的 Bitmap 的内存开销约为 84 MB。同时我们最好给 Bitmap 设置过期时间，让 Redis 删除过期的打卡数据，节省内存。</p>
+<h3 id="3-2-2、HyperLogLog"><a href="#3-2-2、HyperLogLog" class="headerlink" title="3.2.2、HyperLogLog"></a>3.2.2、HyperLogLog</h3><p>Redis <code>HyperLogLog</code> 是 Redis 2.8.9 版本新增的数据类型，是一种用于「统计基数」的数据集合类型，基数统计就是指统计一个集合中不重复的元素个数。但要注意，<code>HyperLogLog</code> 是统计规则是基于概率完成的，不是非常准确，标准误算率是 0.81%。</p>
+<p>所以，简单来说 <code>HyperLogLog</code> 提供不精确的去重计数。</p>
+<p>在 Redis 里面，每个 <code>HyperLogLog</code> 键只需要花费 12 KB 内存，就可以计算接近 2^64 个不同元素的基数，和元素越多就越耗费内存的 Set 和 Hash 类型相比，<code>HyperLogLog</code> 就非常节省空间。</p>
+<p>这什么概念？举个例子给大家对比一下。</p>
+<p>用 Java 语言来说，一般 long 类型占用 8 字节，而 1 字节有 8 位，即：1 byte &#x3D; 8 bit，即 long 数据类型最大可以表示的数是：2^63-1。对应上面的2^64个数，假设此时有2^63-1这么多个数，从 <code>0 ~ 2^63-1</code>，按照long以及1k &#x3D; 1024 字节的规则来计算内存总数，就是：<code>((2^63-1) * 8/1024)K</code>，这是很庞大的一个数，存储空间远远超过12K，而 <code>HyperLogLog</code> 却可以用 12K 就能统计完。</p>
+<h4 id="3-2-2-1、实现方式"><a href="#3-2-2-1、实现方式" class="headerlink" title="3.2.2.1、实现方式"></a>3.2.2.1、实现方式</h4><h5 id="1、redis的分桶"><a href="#1、redis的分桶" class="headerlink" title="1、redis的分桶"></a>1、redis的分桶</h5><p>要使用极大似然估计，需要可观察的结果足够多，但这个“足够多”其实并没有严谨的规定，和100比1万也挺多了，但和100万比较又显得少了，况且观察结果再多，误差总是有的，一些极端情况也是有可能发生的（就像有的人可能买一次彩票就中奖了，有的人可能买一辈子也没有中过）。为了减小这种误差，<strong>redis将统计结果分散到了总计16384个桶中</strong>，在最终计算总的结果的时候，再将这每一个桶的统计结果再做一次调和平均，使得各种极端情况的影响降到最低。</p>
+<h5 id="2、数据存储结构"><a href="#2、数据存储结构" class="headerlink" title="2、数据存储结构"></a>2、数据存储结构</h5><p>redis采用的hash算法能得到一个64bit的结果，前面讲到redis进行了分桶，于是为了确定这个hash的结果需要放到哪个桶中，就需要拿出14个bit来计算桶的序号，2的14次方正好是16384。</p>
+<p>确定好放入哪个桶后，剩下的50个bit就作为扔硬币的实验结果，而最坏的实验结果是最左边的bit为1，其他bit都为0：<code>10000....0000</code>，此时我们需要记录的可能的最大数字就是50（即第一个为1的bit出现在第50位），而50的二进制是110010，需要6个bit存放。因此对于任意的hash结果，一个桶最多最多只需要6个bit就能存放下所有可能结果了<br>redis总共分了16384个桶，每个桶需要6bit，于是总计：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">16384 × 6 ÷ 8 ÷ 1024 = 12kb</span><br></pre></td></tr></table></figure>
+<p>如下图：<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/HyperLogLog%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F.png" alt="HyperLogLog实现方式"></p>
+<p>更多内容：<br><a href="https://www.cnblogs.com/tera/p/15840118.html">Redis Hyperloglog的原理及数学理论的通俗理解</a></p>
+<h4 id="3-2-2-2、常用指令"><a href="#3-2-2-2、常用指令" class="headerlink" title="3.2.2.2、常用指令"></a>3.2.2.2、常用指令</h4><p>HyperLogLog 命令很少，就三个。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 添加指定元素到 HyperLogLog 中</span><br><span class="line">PFADD key element [element ...]</span><br><span class="line"></span><br><span class="line"># 返回给定 HyperLogLog 的基数估算值。</span><br><span class="line">PFCOUNT key [key ...]</span><br><span class="line"></span><br><span class="line"># 将多个 HyperLogLog 合并为一个 HyperLogLog</span><br><span class="line">PFMERGE destkey sourcekey [sourcekey ...]</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-2-2-3、应用场景"><a href="#3-2-2-3、应用场景" class="headerlink" title="3.2.2.3、应用场景"></a>3.2.2.3、应用场景</h4><h5 id="1、百万级网页-UV-计数"><a href="#1、百万级网页-UV-计数" class="headerlink" title="1、百万级网页 UV 计数"></a>1、百万级网页 UV 计数</h5><p>Redis <code>HyperLogLog</code> 优势在于只需要花费 12 KB 内存，就可以计算接近 2^64 个元素的基数，和元素越多就越耗费内存的 Set 和 Hash 类型相比，<code>HyperLogLog</code> 就非常节省空间。</p>
+<p>所以，非常适合统计百万级以上的网页 UV 的场景。</p>
+<p>在统计 UV 时，你可以用 PFADD 命令（用于向 HyperLogLog 中添加新元素）把访问页面的每个用户都添加到 <code>HyperLogLog</code> 中。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">PFADD page1:uv user1 user2 user3 user4 user5</span><br></pre></td></tr></table></figure>
+<p>接下来，就可以用 PFCOUNT 命令直接获得 page1 的 UV 值了，这个命令的作用就是返回 HyperLogLog 的统计结果。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">PFCOUNT page1:uv</span><br></pre></td></tr></table></figure>
+<p>不过，有一点需要你注意一下，<code>HyperLogLog</code> 的统计规则是基于概率完成的，所以它给出的统计结果是有一定误差的，标准误算率是 0.81%。</p>
+<p>这也就意味着，你使用 <code>HyperLogLog</code> 统计的 UV 是 100 万，但实际的 UV 可能是 101 万。虽然误差率不算大，但是，如果你需要精确统计结果的话，最好还是继续用 Set 或 Hash 类型。</p>
+<h3 id="3-2-3、GEO"><a href="#3-2-3、GEO" class="headerlink" title="3.2.3、GEO"></a>3.2.3、GEO</h3><p>Redis <code>GEO</code> 是 Redis 3.2 版本新增的数据类型，主要用于存储地理位置信息，并对存储的信息进行操作。</p>
+<p>在日常生活中，我们越来越依赖搜索“附近的餐馆”、在打车软件上叫车，这些都离不开基于位置信息服务<code>（Location-Based Service，LBS）</code>的应用。LBS 应用访问的数据是和人或物关联的一组经纬度信息，而且要能查询相邻的经纬度范围，<code>GEO</code> 就非常适合应用在 LBS 服务的场景中。</p>
+<h4 id="3-2-3-1、实现方式"><a href="#3-2-3-1、实现方式" class="headerlink" title="3.2.3.1、实现方式"></a>3.2.3.1、实现方式</h4><p><code>GEO</code> 本身并没有设计新的底层数据结构，而是直接使用了 <code>Sorted Set</code> 集合类型。</p>
+<p><code>GEO</code> 类型使用 GeoHash 编码方法实现了经纬度到 <code>Sorted Set</code> 中元素权重分数的转换，这其中的两个关键机制就是「对二维地图做区间划分」和「对区间进行编码」。一组经纬度落在某个区间后，就用区间的编码值来表示，并把编码值作为 <code>Sorted Set</code> 元素的权重分数。</p>
+<p>这样一来，我们就可以把经纬度保存到 <code>Sorted Set</code> 中，利用 <code>Sorted Set</code> 提供的“按权重进行有序范围查找”的特性，实现 LBS 服务中频繁使用的“搜索附近”的需求。</p>
+<h5 id="1、geohash原理分析"><a href="#1、geohash原理分析" class="headerlink" title="1、geohash原理分析"></a>1、geohash原理分析</h5><p>参考文章：<a href="https://www.cnblogs.com/LBSer/p/3310455.html">GeoHash核心原理解析</a></p>
+<h4 id="3-2-3-2、常用指令"><a href="#3-2-3-2、常用指令" class="headerlink" title="3.2.3.2、常用指令"></a>3.2.3.2、常用指令</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"># 存储指定的地理空间位置，可以将一个或多个经度(longitude)、纬度(latitude)、位置名称(member)添加到指定的 key 中。</span><br><span class="line">GEOADD key longitude latitude member [longitude latitude member ...]</span><br><span class="line"></span><br><span class="line"># 从给定的 key 里返回所有指定名称(member)的位置（经度和纬度），不存在的返回 nil。</span><br><span class="line">GEOPOS key member [member ...]</span><br><span class="line"></span><br><span class="line"># 返回两个给定位置之间的距离。</span><br><span class="line">GEODIST key member1 member2 [m|km|ft|mi]</span><br><span class="line"></span><br><span class="line"># 根据用户给定的经纬度坐标来获取指定范围内的地理位置集合。</span><br><span class="line">GEORADIUS key longitude latitude radius m|km|ft|mi [WITHCOORD] [WITHDIST] [WITHHASH] [COUNT count] [ASC|DESC] [STORE key] [STOREDIST key]</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-2-3-3、应用场景"><a href="#3-2-3-3、应用场景" class="headerlink" title="3.2.3.3、应用场景"></a>3.2.3.3、应用场景</h4><h5 id="1、滴滴叫车"><a href="#1、滴滴叫车" class="headerlink" title="1、滴滴叫车"></a>1、滴滴叫车</h5><p>这里以滴滴叫车的场景为例，介绍下具体如何使用 GEO 命令：<code>GEOADD</code> 和 <code>GEORADIUS</code> 这两个命令。</p>
+<p>我们可以用一个 GEO 集合保存所有车辆的经纬度，集合 key 是 <code>cars:locations</code>。</p>
+<p>eg: 执行下面的这个命令，向cars:locations中增加车辆编号为1以及车辆编号为2的位置信息。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; geoadd cars:locations 120.346111 31.556381 1 120.375821 31.560368 2 </span><br></pre></td></tr></table></figure>
+
+<p>eg: 获取车辆编号为1的车辆位置信息</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; geopos cars:locations 1</span><br><span class="line">1) 1) &quot;120.34611314535140991&quot;</span><br><span class="line">2) &quot;31.55637987511895659&quot;</span><br></pre></td></tr></table></figure>
+
+<p>当用户想要寻找自己附近的网约车时，LBS 应用就可以使用 GEORADIUS 命令。</p>
+<p>eg: LBS 应用执行下面的命令时，Redis 会根据输入的用户的经纬度信息（以经度120.375821纬度31.556381）为中心查找5公里范围内的车辆，并返回给 LBS 应用。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; GEORADIUS cars:locations 120.375821 31.556381 5 km WITHCOORD WITHDIST WITHHASH  ASC COUNT 100</span><br><span class="line">1) 1) &quot;2&quot;</span><br><span class="line">   2) &quot;0.4433&quot;</span><br><span class="line">   3) (integer) 4054421167795118</span><br><span class="line">   4) 1) &quot;120.37582129240036011&quot;</span><br><span class="line">      2) &quot;31.5603669915025975&quot;</span><br><span class="line">2) 1) &quot;1&quot;</span><br><span class="line">   2) &quot;2.8157&quot;</span><br><span class="line">   3) (integer) 4054421060663027</span><br><span class="line">   4) 1) &quot;120.34611314535140991&quot;</span><br><span class="line">      2) &quot;31.55637987511895659&quot;</span><br></pre></td></tr></table></figure>
+
+
+<p>eg: 再尝试用zset的查询指令，查询上文中添加的GEO信息</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; ZRANGE cars:locations  0 -1 WITHSCORES</span><br><span class="line">1) &quot;1&quot;</span><br><span class="line">2) &quot;4054421060663027&quot;</span><br><span class="line">3) &quot;2&quot;</span><br><span class="line">4) &quot;4054421167795118&quot;</span><br></pre></td></tr></table></figure>
+<p>发现车辆编号为1的位置信息为4054421060663027；车辆编号为2的位置信息为4054421167795118。 再回顾一下zset增加成员的指令</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ZADD key score member [[score member] [score member] ...]</span><br></pre></td></tr></table></figure>
+<p>至此可以推断出Redis GEO 添加经、纬度位置信息的指令的过程是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ZADD cars:locations 4054421060663027 1</span><br></pre></td></tr></table></figure>
+<p>4054421060663027为对经纬度进行编码后的值。使用4054421060663027作为score 可以快速实现对经纬度的索引。</p>
+<h3 id="3-2-4、Stream"><a href="#3-2-4、Stream" class="headerlink" title="3.2.4、Stream"></a>3.2.4、Stream</h3><p>Redis <code>Stream</code> 是 Redis 5.0 版本新增加的数据类型，Redis 专门为<strong>消息队列</strong>设计的数据类型。</p>
+<p>在 Redis 5.0 <code>Stream</code> 没出来之前，消息队列的实现方式都有着各自的缺陷，例如：</p>
+<ul>
+<li>发布订阅模式，不能持久化也就无法可靠的保存消息，并且对于离线重连的客户端不能读取历史消息的缺陷；</li>
+<li>List 实现消息队列的方式不能重复消费，一个消息消费完就会被删除，而且生产者需要自行实现全局唯一 ID。</li>
+</ul>
+<p>基于以上问题，Redis 5.0 便推出了 <code>Stream</code> 类型也是此版本最重要的功能，用于完美地实现消息队列，它支持消息的持久化、支持自动生成全局唯一 ID、支持 ack 确认消息的模式、支持消费组模式等，让消息队列更加的稳定和可靠。</p>
+<h4 id="3-2-4-1、实现方式"><a href="#3-2-4-1、实现方式" class="headerlink" title="3.2.4.1、实现方式"></a>3.2.4.1、实现方式</h4><p>Stream 结构的源码定义在 stream.h 源码中的 stream 结构体中。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">stream</span> &#123;</span><br><span class="line">    rax *rax;</span><br><span class="line">    <span class="type">uint64_t</span> length;</span><br><span class="line">    streamID last_id;</span><br><span class="line">    streamID first_id;</span><br><span class="line">    streamID max_deleted_entry_id;</span><br><span class="line">    <span class="type">uint64_t</span> entries_added;</span><br><span class="line">    rax *cgroups;</span><br><span class="line">&#125; stream;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">streamID</span> &#123;</span><br><span class="line">    <span class="type">uint64_t</span> ms;</span><br><span class="line">    <span class="type">uint64_t</span> seq;</span><br><span class="line">&#125; streamID;</span><br></pre></td></tr></table></figure>
+
+<p>每个 <code>Stream</code> 都有一个唯一的名称，作为 <code>Stream</code> 在 Redis 的 key，在首次使用 <code>xadd</code> 指令添加消息的时候会自动创建。</p>
+<p>可以看到 <code>Stream</code> 在一个 <code>Redix Tree</code> 树上，<font color="red">树上存储的是消息 ID</font>，每个消息 ID 对应的消息通过一个指针指向 <code>listpack</code>。</p>
+<p><code>Stream</code> 流就像是一个仅追加内容的消息链表，把消息一个个串起来，每个消息都有一个唯一的 ID 和消息内容，消息内容则由多个 <code>field/value</code> 键值对组成。底层使用 <code>Radix Tree</code> 和 <code>listpack</code> 数据结构存储数据。</p>
+<p>为了便于理解，我画了一张图，并对 Radix Tree 的存储数据做了下变形，使用列表来体现 <code>Stream</code> 中消息的逻辑有序性。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/stream_%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.png" alt="stream_数据结构"></p>
+<h4 id="3-2-4-2、常用指令"><a href="#3-2-4-2、常用指令" class="headerlink" title="3.2.4.2、常用指令"></a>3.2.4.2、常用指令</h4><p>Stream 消息队列操作命令：</p>
+<ul>
+<li>XADD：插入消息，保证有序，可以自动生成全局唯一 ID；</li>
+<li>XLEN ：查询消息长度；</li>
+<li>XREAD：用于读取消息，可以按 ID 读取数据；</li>
+<li>XDEL ： 根据消息 ID 删除消息；</li>
+<li>DEL ：删除整个 Stream；</li>
+<li>XRANGE ：读取区间消息</li>
+<li>XREADGROUP：按消费组形式读取消息；</li>
+<li>XPENDING 和 XACK：</li>
+<li>XPENDING 命令可以用来查询每个消费组内所有消费者「已读取、但尚未确认」的消息；</li>
+<li>XACK 命令用于向消息队列确认消息处理已完成；</li>
+</ul>
+<h4 id="3-2-4-3、应用场景"><a href="#3-2-4-3、应用场景" class="headerlink" title="3.2.4.3、应用场景"></a>3.2.4.3、应用场景</h4><h5 id="1、消息队列-1"><a href="#1、消息队列-1" class="headerlink" title="1、消息队列"></a>1、消息队列</h5><p>生产者通过 XADD 命令插入一条消息：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># * 表示让 Redis 为插入的数据自动生成一个全局唯一的 ID</span><br><span class="line"># 往名称为 mymq 的消息队列中插入一条消息，消息的键是 name，值是 xiaolin</span><br><span class="line">&gt; XADD mymq * name xiaolin</span><br><span class="line">&quot;1654254953808-0&quot;</span><br></pre></td></tr></table></figure>
+<p>插入成功后会返回全局唯一的 ID：”1654254953808-0”。消息的全局唯一 ID 由两部分组成：</p>
+<ul>
+<li>第一部分“1654254953808”是数据插入时，以毫秒为单位计算的当前服务器时间；</li>
+<li>第二部分表示插入消息在当前毫秒内的消息序号，这是从 0 开始编号的。例如，“1654254953808-0”就表示在“1654254953808”毫秒内的第 1 条消息。</li>
+</ul>
+<p>消费者通过 XREAD 命令从消息队列中读取消息时，可以指定一个消息 ID，并从这个消息 ID 的下一条消息开始进行读取（注意是输入消息 ID 的下一条信息开始读取，不是查询输入ID的消息）。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 从 ID 号为 1654254953807-0 的消息开始，读取后续的所有消息（示例中一共 1 条）。</span><br><span class="line">&gt; XREAD STREAMS mymq 1654254953807-0</span><br><span class="line">1) 1) &quot;mymq&quot;</span><br><span class="line">2) 1) 1) &quot;1654254953808-0&quot;</span><br><span class="line">2) 1) &quot;name&quot;</span><br><span class="line">2) &quot;xiaolin&quot;</span><br></pre></td></tr></table></figure>
+<p>如果想要实现阻塞读（当没有数据时，阻塞住），可以调用 XRAED 时设定 BLOCK 配置项，实现类似于 BRPOP 的阻塞读取操作。</p>
+<p>比如，下面这命令，设置了 BLOCK 10000 的配置项，10000 的单位是毫秒，表明 XREAD 在读取最新消息时，如果没有消息到来，XREAD 将阻塞 10000 毫秒（即 10 秒），然后再返回。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># 命令最后的“$”符号表示读取最新的消息</span><br><span class="line">&gt; XREAD BLOCK 10000 STREAMS mymq $</span><br><span class="line">(nil)</span><br><span class="line">(10.00s)</span><br></pre></td></tr></table></figure>
+<p>Stream 的基础方法，使用 xadd 存入消息和 xread 循环阻塞读取消息的方式可以实现简易版的消息队列，交互流程如下图所示：<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/stream.png" alt="stream"></p>
+<h4 id="3-2-4-4、Redis-Stream-消息会丢失吗？"><a href="#3-2-4-4、Redis-Stream-消息会丢失吗？" class="headerlink" title="3.2.4.4、Redis Stream 消息会丢失吗？"></a>3.2.4.4、Redis Stream 消息会丢失吗？</h4><p>使用一个消息队列，其实就分为三大块：生产者、队列中间件、消费者，所以要保证消息就是保证三个环节都不能丢失数据。</p>
+<ul>
+<li>Redis 生产者会不会丢消息？生产者会不会丢消息，取决于生产者对于异常情况的处理是否合理。 从消息被生产出来，然后提交给 MQ 的过程中，只要能正常收到 （ MQ 中间件） 的 ack 确认响应，就表示发送成功，所以只要处理好返回值和异常，如果返回异常则进行消息重发，那么这个阶段是不会出现消息丢失的。</li>
+<li>Redis 消费者会不会丢消息？不会，因为 Stream （ MQ 中间件）会自动使用内部队列（也称为 PENDING List）留存消费组里每个消费者读取的消息，但是未被确认的消息。消费者可以在重启后，用 XPENDING 命令查看已读取、但尚未确认处理完成的消息。等到消费者执行完业务逻辑后，再发送消费确认 XACK 命令，也能保证消息的不丢失。</li>
+<li>Redis 消息中间件会不会丢消息？会，Redis 在以下 2 个场景下，都会导致数据丢失：<ul>
+<li>AOF 持久化配置为每秒写盘，但这个写盘过程是异步的，Redis 宕机时会存在数据丢失的可能 </li>
+<li>主从复制也是异步的，主从切换时，也存在丢失数据的可能</li>
+</ul>
+</li>
+</ul>
+<h4 id="3-2-4-5、Redis-Stream-消息可堆积吗？"><a href="#3-2-4-5、Redis-Stream-消息可堆积吗？" class="headerlink" title="3.2.4.5、Redis Stream 消息可堆积吗？"></a>3.2.4.5、Redis Stream 消息可堆积吗？</h4><p>Redis 的数据都存储在内存中，这就意味着一旦发生消息积压，则会导致 Redis 的内存持续增长，如果超过机器内存上限，就会面临被 OOM 的风险。</p>
+<p>所以 Redis 的 Stream 提供了可以指定队列最大长度的功能，就是为了避免这种情况发生。</p>
+<p>当指定队列最大长度时，队列长度超过上限后，旧消息会被删除，只保留固定长度的新消息。这么来看，Stream 在消息积压时，如果指定了最大长度，还是有可能丢失消息的。</p>
+<p>但 Kafka、RabbitMQ 专业的消息队列它们的数据都是存储在磁盘上，当消息积压时，无非就是多占用一些磁盘空间。</p>
+<p>因此，把 Redis 当作队列来使用时，会面临的 2 个问题：</p>
+<ul>
+<li>Redis 本身可能会丢数据；</li>
+<li>面对消息挤压，内存资源会紧张；</li>
+</ul>
+<p>所以，能不能将 Redis 作为消息队列来使用，关键看你的业务场景：</p>
+<ul>
+<li>如果你的业务场景足够简单，对于数据丢失不敏感，而且消息积压概率比较小的情况下，把 Redis 当作队列是完全可以的。</li>
+<li>如果你的业务有海量消息，消息积压的概率比较大，并且不能接受数据丢失，那么还是用专业的消息队列中间件吧。</li>
+</ul>
+<h1 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h1><p>Redis 常见的五种数据类型：String（字符串），Hash（哈希），List（列表），Set（集合）及 Zset(sorted set：有序集合)。</p>
+<p>这五种数据类型都由多种数据结构实现的，主要是出于时间和空间的考虑，当数据量小的时候使用更简单的数据结构，有利于节省内存，提高性能。</p>
+<p>这五种数据类型与底层数据结构对应关系图如下，左边是 Redis 3.0版本的，也就是《Redis 设计与实现》这本书讲解的版本，现在看还是有点过时了，右边是现在 Github 最新的 Redis 代码的。<br><img src="/2020/07/07/2020-07-07-redis-%E5%B8%B8%E8%A7%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E6%80%BB%E7%BB%93.png" alt="总结"></p>
+<p>参考文章：<br><a href="https://xiaolincoding.com/redis/data_struct/command.html#string">Redis 常见数据类型和应用场景</a><br><a href="https://www.51cto.com/article/766539.html">Redis Stream 数据结构实现原理真的很强</a><br><a href="https://cloud.tencent.com/developer/article/2427055">Redis源码解析：一条Redis命令是如何执行的？</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/06/2020-07-06-redis-%E9%AB%98%E5%8F%AF%E7%94%A8-%E8%AF%BB%E5%86%99%E5%88%86%E7%A6%BB/" rel="prev" title="《Redis》高可用之“读写分离”">
+      <i class="fa fa-chevron-left"></i> 《Redis》高可用之“读写分离”
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/10/2020-07-10-redis-%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/" rel="next" title="《Redis》数据结构">
+      《Redis》数据结构 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Redis"><span class="nav-text">一、Redis</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Redis%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84"><span class="nav-text">二、Redis源码结构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81redisServer"><span class="nav-text">2.1、redisServer</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81redisDb"><span class="nav-text">2.2、redisDb</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81dict%E3%80%90%E5%AD%97%E5%85%B8%E3%80%91"><span class="nav-text">2.3、dict【字典】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4%E3%80%81dictht%E3%80%90%E5%93%88%E5%B8%8C%E8%A1%A8%E3%80%91"><span class="nav-text">2.4、dictht【哈希表】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-5%E3%80%81dictEntry%E3%80%90%E5%93%88%E5%B8%8C%E8%A1%A8%E8%8A%82%E7%82%B9%E3%80%91"><span class="nav-text">2.5、dictEntry【哈希表节点】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-6%E3%80%81redisObject%E3%80%90%E6%A0%B8%E5%BF%83%E5%AF%B9%E8%B1%A1%E3%80%91"><span class="nav-text">2.6、redisObject【核心对象】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-7%E3%80%81%E6%A0%B8%E5%BF%83%E7%BB%93%E6%9E%84%E6%80%BB%E7%BB%93"><span class="nav-text">2.7、核心结构总结</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B"><span class="nav-text">三、数据类型</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E5%9F%BA%E6%9C%AC%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E3%80%905%E7%A7%8D%E3%80%91"><span class="nav-text">3.1、基本数据类型【5种】</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81string"><span class="nav-text">3.1.1、string</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-1%E3%80%81%E5%86%85%E9%83%A8%E5%AE%9E%E7%8E%B0"><span class="nav-text">3.1.1.1、内部实现</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-SDS"><span class="nav-text">1. SDS</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2%E3%80%81%E5%86%85%E9%83%A8%E7%BC%96%E7%A0%81%EF%BC%88encoding%EF%BC%89"><span class="nav-text">2、内部编码（encoding）</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#2-1%E3%80%81int%E7%BC%96%E7%A0%81"><span class="nav-text">2.1、int编码</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#2-2%E3%80%81embstr%E7%BC%96%E7%A0%81"><span class="nav-text">2.2、embstr编码</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#2-3%E3%80%81raw%E7%BC%96%E7%A0%81"><span class="nav-text">2.3、raw编码</span></a></li></ol></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-3%E3%80%81%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4"><span class="nav-text">3.1.1.3、常用指令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-4%E3%80%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-text">3.1.1.4、应用场景</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E7%BC%93%E5%AD%98%E5%AF%B9%E8%B1%A1"><span class="nav-text">1. 缓存对象</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-%E5%B8%B8%E8%A7%84%E8%AE%A1%E6%95%B0"><span class="nav-text">2. 常规计数</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81"><span class="nav-text">3. 分布式锁</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#4-%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F%E5%85%A8%E5%B1%80%E5%BA%8F%E5%88%97%E5%8F%B7"><span class="nav-text">4. 分布式系统全局序列号</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-2%E3%80%81List"><span class="nav-text">3.1.2、List</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-2-1%E3%80%81%E5%86%85%E9%83%A8%E5%AE%9E%E7%8E%B0"><span class="nav-text">3.1.2.1、内部实现</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-2-2%E3%80%81%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4"><span class="nav-text">3.1.2.2、常用指令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-2-3%E3%80%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-text">3.1.2.3、应用场景</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97"><span class="nav-text">1、消息队列</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2%E3%80%81%E5%BE%AE%E5%8D%9A%E3%80%81%E6%9C%8B%E5%8F%8B%E5%9C%88%E3%80%81%E5%85%AC%E4%BC%97%E5%8F%B7%E7%AD%89%EF%BC%8C%E5%85%B3%E6%B3%A8%E7%9A%84%E6%96%87%E7%AB%A0%E5%88%97%E8%A1%A8%E5%B1%95%E7%A4%BA"><span class="nav-text">2、微博、朋友圈、公众号等，关注的文章列表展示</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-3%E3%80%81hash"><span class="nav-text">3.1.3、hash</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-3-1%E3%80%81%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"><span class="nav-text">3.1.3.1、实现方式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-3-2%E3%80%81%E5%B8%B8%E8%A7%81%E5%91%BD%E4%BB%A4"><span class="nav-text">3.1.3.2、常见命令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-3-3%E3%80%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-text">3.1.3.3、应用场景</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81%E7%BC%93%E5%AD%98%E5%AF%B9%E8%B1%A1"><span class="nav-text">1、缓存对象</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2%E3%80%81%E8%B4%AD%E7%89%A9%E8%BD%A6"><span class="nav-text">2、购物车</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-4%E3%80%81set"><span class="nav-text">3.1.4、set</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-4-1%E3%80%81%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"><span class="nav-text">3.1.4.1、实现方式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-4-2%E3%80%81%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4"><span class="nav-text">3.1.4.2、常用指令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-4-3%E3%80%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-text">3.1.4.3、应用场景</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81%E7%82%B9%E8%B5%9E"><span class="nav-text">1、点赞</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2%E3%80%81%E5%85%B1%E5%90%8C%E5%85%B3%E6%B3%A8"><span class="nav-text">2、共同关注</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3%E3%80%81%E6%8A%BD%E5%A5%96%E6%B4%BB%E5%8A%A8"><span class="nav-text">3、抽奖活动</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-5%E3%80%81zset"><span class="nav-text">3.1.5、zset</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-5-1%E3%80%81%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"><span class="nav-text">3.1.5.1、实现方式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-5-2%E3%80%81%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4"><span class="nav-text">3.1.5.2、常用指令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-5-3%E3%80%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-text">3.1.5.3、应用场景</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81%E6%8E%92%E8%A1%8C%E6%A6%9C"><span class="nav-text">1、排行榜</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E9%AB%98%E7%BA%A7%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E3%80%904%E7%A7%8D%E3%80%91"><span class="nav-text">3.2、高级数据类型【4种】</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1%E3%80%81bitmap"><span class="nav-text">3.2.1、bitmap</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-1%E3%80%81%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"><span class="nav-text">3.2.1.1、实现方式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-2%E3%80%81%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4"><span class="nav-text">3.2.1.2、常用指令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-3%E3%80%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-text">3.2.1.3、应用场景</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81%E7%AD%BE%E5%88%B0%E7%BB%9F%E8%AE%A1"><span class="nav-text">1、签到统计</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2%E3%80%81%E7%94%A8%E6%88%B7%E7%99%BB%E5%BD%95%E6%80%81"><span class="nav-text">2、用户登录态</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3%E3%80%81%E8%BF%9E%E7%BB%AD%E7%AD%BE%E5%88%B0%E7%94%A8%E6%88%B7%E6%80%BB%E6%95%B0"><span class="nav-text">3、连续签到用户总数</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-2%E3%80%81HyperLogLog"><span class="nav-text">3.2.2、HyperLogLog</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-1%E3%80%81%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"><span class="nav-text">3.2.2.1、实现方式</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81redis%E7%9A%84%E5%88%86%E6%A1%B6"><span class="nav-text">1、redis的分桶</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2%E3%80%81%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84"><span class="nav-text">2、数据存储结构</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-2%E3%80%81%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4"><span class="nav-text">3.2.2.2、常用指令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-3%E3%80%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-text">3.2.2.3、应用场景</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81%E7%99%BE%E4%B8%87%E7%BA%A7%E7%BD%91%E9%A1%B5-UV-%E8%AE%A1%E6%95%B0"><span class="nav-text">1、百万级网页 UV 计数</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-3%E3%80%81GEO"><span class="nav-text">3.2.3、GEO</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-3-1%E3%80%81%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"><span class="nav-text">3.2.3.1、实现方式</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81geohash%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="nav-text">1、geohash原理分析</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-3-2%E3%80%81%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4"><span class="nav-text">3.2.3.2、常用指令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-3-3%E3%80%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-text">3.2.3.3、应用场景</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81%E6%BB%B4%E6%BB%B4%E5%8F%AB%E8%BD%A6"><span class="nav-text">1、滴滴叫车</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-4%E3%80%81Stream"><span class="nav-text">3.2.4、Stream</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-4-1%E3%80%81%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"><span class="nav-text">3.2.4.1、实现方式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-4-2%E3%80%81%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4"><span class="nav-text">3.2.4.2、常用指令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-4-3%E3%80%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-text">3.2.4.3、应用场景</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97-1"><span class="nav-text">1、消息队列</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-4-4%E3%80%81Redis-Stream-%E6%B6%88%E6%81%AF%E4%BC%9A%E4%B8%A2%E5%A4%B1%E5%90%97%EF%BC%9F"><span class="nav-text">3.2.4.4、Redis Stream 消息会丢失吗？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-4-5%E3%80%81Redis-Stream-%E6%B6%88%E6%81%AF%E5%8F%AF%E5%A0%86%E7%A7%AF%E5%90%97%EF%BC%9F"><span class="nav-text">3.2.4.5、Redis Stream 消息可堆积吗？</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">四、总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

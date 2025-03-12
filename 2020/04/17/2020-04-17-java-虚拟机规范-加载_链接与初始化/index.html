@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是Java虚拟机规范系列的第五篇文章，主要介绍的是虚拟机规范中的虚拟机启动过程、类加载机制（过程）等内容。  一、定义 加载是根据特定名称查找类或接口类型的二进制表示（Binary Representation），并由此二进制表示创建类或接口的过程。 链接是为了让类或接口可以被 Java 虚拟机执行，而将类或接口并入虚拟机运行时状态的过程。 类或接口的初始化是指执行类或接口的初始化方法。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Java》加载、链接与初始化">
+<meta property="og:url" content="http://yoursite.com/2020/04/17/2020-04-17-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%8A%A0%E8%BD%BD_%E9%93%BE%E6%8E%A5%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是Java虚拟机规范系列的第五篇文章，主要介绍的是虚拟机规范中的虚拟机启动过程、类加载机制（过程）等内容。  一、定义 加载是根据特定名称查找类或接口类型的二进制表示（Binary Representation），并由此二进制表示创建类或接口的过程。 链接是为了让类或接口可以被 Java 虚拟机执行，而将类或接口并入虚拟机运行时状态的过程。 类或接口的初始化是指执行类或接口的初始化方法。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-04-17T04:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.244Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="虚拟机启动">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2020/04/17/2020-04-17-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%8A%A0%E8%BD%BD_%E9%93%BE%E6%8E%A5%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Java》加载、链接与初始化 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/17/2020-04-17-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%8A%A0%E8%BD%BD_%E9%93%BE%E6%8E%A5%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Java》加载、链接与初始化
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-17 12:19:31" itemprop="dateCreated datePublished" datetime="2020-04-17T12:19:31+08:00">2020-04-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/" itemprop="url" rel="index"><span itemprop="name">java</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/" itemprop="url" rel="index"><span itemprop="name">jvm</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/" itemprop="url" rel="index"><span itemprop="name">虚拟机规范</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%90%AF%E5%8A%A8/" itemprop="url" rel="index"><span itemprop="name">虚拟机启动</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>6.6k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>17 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是Java虚拟机规范系列的第五篇文章，主要介绍的是虚拟机规范中的虚拟机启动过程、类加载机制（过程）等内容。
+</code></pre>
+<h3 id="一、定义"><a href="#一、定义" class="headerlink" title="一、定义"></a>一、定义</h3><ul>
+<li><strong>加载</strong>是根据特定名称查找类或接口类型的二进制表示（Binary Representation），并由此二进制表示创建类或接口的过程。</li>
+<li><strong>链接</strong>是为了让类或接口可以被 Java 虚拟机执行，而将类或接口并入虚拟机运行时状态的过程。</li>
+<li><strong>类或接口的初始化</strong>是指执行类或接口的初始化方法<clinit>。</clinit></li>
+</ul>
+<span id="more"></span>
+
+
+
+<h3 id="二、运行时常量池"><a href="#二、运行时常量池" class="headerlink" title="二、运行时常量池"></a>二、运行时常量池</h3><ul>
+<li>定义：Java 虚拟机为每个类型都维护一个常量池。它是 Java 虚拟机中的运行时数据结构，像传统编程语言实现中的符号表一样有很多用途。</li>
+<li>创建时机：当类或接口创建时，它的二进制表示中的 <strong>constant_pool 表</strong> 被用来构造<strong>运行时常量池</strong>。</li>
+<li>内容：运行时常量池中的所有引用最初都是符号引用。</li>
+</ul>
+<p>这些符号引用来自于类或接口的二进制表示的如下结构中：</p>
+<ol>
+<li>某个类或接口的符号引用来自于类或接口二进制表示中的 CONSTANT_Class_info 结构</li>
+<li>类或接口的某个字段的符号引用来自于类或接口二进制表示中的CONSTANT_Fieldref_info 结构。这种引用包含了字段的名称和描述符，及指向字段所属类或接口的符号引用</li>
+<li>类中某个方法的符号引用来自于类或接口二进制表示中的 CONSTANT_Methodref_info 结构。这种引用提供方法的名称和描述符，及指向方法所属类的符号引用。</li>
+<li>接口的某个方法的符号引用来自于类或接口二进制表示中的CONSTANT_InterfaceMethodref_info 结构。这种引用提供接口方法的名称 和描述符，及指向方法所属接口的符号引用。</li>
+<li>方法句柄（Method Handle）的符号引用来自于类或接口二进制表示中的 CONSTANT_MethodHandle_info 结构。</li>
+<li>方法类型（Method Type）的符号引用来自于类或接口二进制表示中的 CONSTANT_MethodType_info 结构。</li>
+<li>字符常量表示 String 类实例的一个引用，它来自于类或接口二进制表示的 CONSTANT_String_info 结构。</li>
+<li>其它运行时常量值来自于类或接口二进制表示的 CONSTANT_Interger_info、CONSTANT_Float_info、CONSTANT_Long_info 或是 CONSTANT_Double_info 结构。</li>
+</ol>
+<h3 id="三、虚拟机启动"><a href="#三、虚拟机启动" class="headerlink" title="三、虚拟机启动"></a>三、虚拟机启动</h3><p>Java 虚拟机的启动是通过引导类加载器（Bootstrap Class Loader）创建一个初始类（Initial Class）来完成，这个类是由虚拟机的具体实现指定。紧接着，Java 虚拟机链接这个初始类，初始化并调用它的 public void main(String[])方法。之后的整个执行过程都是由对此方法的调用开始。执行 main 方法中的 Java 虚拟机指令可能会导致 Java 虚拟机链接另外的一些类或接口，也可能会调用另外的方法。</p>
+<h4 id="3-1、启动入口"><a href="#3-1、启动入口" class="headerlink" title="3.1、启动入口"></a>3.1、启动入口</h4><p>虚拟机的<strong>启动入口</strong>位于share&#x2F;tools&#x2F;launcher&#x2F;java.c的main方法，整个流程分为如下几个步骤：</p>
+<style>
+.highlight.plain {
+    height:400px;
+}
+</style>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">int main(int argc, char **argv) &#123;</span><br><span class="line">    JavaVMInitArgs vm_args;</span><br><span class="line">    JavaVMOption* options = NULL;</span><br><span class="line">    jint res;</span><br><span class="line">    JavaVM *vm = NULL;</span><br><span class="line">    JNIEnv *env = NULL;</span><br><span class="line">    // 1. 初始化JavaVMInitArgs结构体，设置相关参数（这里简化了很多配置过程）</span><br><span class="line">    memset(&amp;vm_args, 0, sizeof(vm_args));</span><br><span class="line">    vm_args.version = JNI_VERSION_1_8;  // 假设使用Java 8版本对应的JNI版本</span><br><span class="line">    vm_args.nOptions = 0;</span><br><span class="line">    vm_args.options = options;</span><br><span class="line">    vm_args.ignoreUnrecognized = JNI_TRUE;</span><br><span class="line"></span><br><span class="line">    // 2. 可以在这里根据命令行参数等情况进一步配置vm_args，添加更多选项等（省略复杂细节）</span><br><span class="line"></span><br><span class="line">    // 3. 尝试创建Java虚拟机</span><br><span class="line">    res = JNI_CreateJavaVM(&amp;vm, &amp;env, &amp;vm_args);</span><br><span class="line">    JNI_ERR_RETURN(res);</span><br><span class="line"></span><br><span class="line">    // 4. 加载主类（这里简单示意，实际要处理类路径等诸多细节）</span><br><span class="line">    jclass cls = (*env)-&gt;FindClass(env, &quot;MainClass&quot;);  // 假设主类名为MainClass</span><br><span class="line">    CHECK_NULL_RETURN(cls);</span><br><span class="line"></span><br><span class="line">    // 5. 获取主类的main方法（同样简化示意，真实要严格验证方法签名等）</span><br><span class="line">    jmethodID mid = (*env)-&gt;GetStaticMethodID(env, cls, &quot;main&quot;, &quot;([Ljava/lang/String;)V&quot;);</span><br><span class="line">    CHECK_NULL_RETURN(mid);</span><br><span class="line"></span><br><span class="line">    // 6. 构造参数传递给main方法（比如处理真实的命令行参数传入等，这里简化）</span><br><span class="line">    jobjectArray argsArray = (*env)-&gt;NewObjectArray(env, argc, (*env)-&gt;FindClass(env, &quot;Ljava/lang/String;&quot;), NULL);</span><br><span class="line">    for (int i = 0; i &lt; argc; i++) &#123;</span><br><span class="line">        jstring str = (*env)-&gt;NewStringUTF(env, argv[i]);</span><br><span class="line">        (*env)-&gt;SetObjectArrayElement(env, argsArray, i, str);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    // 7. 调用主类的main方法</span><br><span class="line">    (*env)-&gt;CallStaticVoidMethod(env, cls, mid, argsArray);</span><br><span class="line"></span><br><span class="line">    // 8. 销毁Java虚拟机（释放相关资源等复杂操作）</span><br><span class="line">    (*vm)-&gt;DestroyJavaVM(vm);</span><br><span class="line"></span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-2、启动步骤"><a href="#3-2、启动步骤" class="headerlink" title="3.2、启动步骤"></a>3.2、启动步骤</h4><h5 id="3-2-1、初始化参数部分"><a href="#3-2-1、初始化参数部分" class="headerlink" title="3.2.1、初始化参数部分"></a>3.2.1、初始化参数部分</h5><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">JavaVMInitArgs vm_args;</span><br><span class="line">JavaVMOption* options = NULL;</span><br><span class="line"><span class="comment">// 初始化JavaVMInitArgs结构体，设置相关参数（这里简化了很多配置过程）</span></span><br><span class="line">memset(&amp;vm_args, <span class="number">0</span>, sizeof(vm_args));</span><br><span class="line">vm_args.version = JNI_VERSION_1_8;  <span class="comment">// 假设使用Java 8版本对应的JNI版本</span></span><br><span class="line">vm_args.nOptions = <span class="number">0</span>;</span><br><span class="line">vm_args.options = options;</span><br><span class="line">vm_args.ignoreUnrecognized = JNI_TRUE;</span><br></pre></td></tr></table></figure>
+<p>首先定义了JavaVMInitArgs结构体对象vm_args，这个结构体用于存放创建 Java 虚拟机时的各种参数配置信息，比如 Java 虚拟机所遵循的 JNI 版本（这里设置为对应 Java 8 的JNI_VERSION_1_8），还定义了JavaVMOption类型的指针options（虽然初始化为NULL，但后续可以根据实际情况动态分配内存并添加更多具体的配置选项，例如设置内存大小、类加载路径等，这里省略了这些复杂的添加选项操作）。ignoreUnrecognized设置为JNI_TRUE表示忽略那些不被识别的选项。</p>
+<h5 id="3-2-2、创建-Java-虚拟机"><a href="#3-2-2、创建-Java-虚拟机" class="headerlink" title="3.2.2、创建 Java 虚拟机"></a>3.2.2、创建 Java 虚拟机</h5><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">res = JNI_CreateJavaVM(&amp;vm, &amp;env, &amp;vm_args);</span><br><span class="line">JNI_ERR_RETURN(res);</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>使用JNI_CreateJavaVM函数尝试创建 Java 虚拟机，传入的参数分别是用于返回创建好的 Java 虚拟机实例指针的&amp;vm、返回 JNI 环境指针的&amp;env以及前面配置好的创建参数结构体&amp;vm_args的地址。然后通过JNI_ERR_RETURN宏来判断返回结果，如果返回值不是JNI_OK，则直接返回，意味着 Java 虚拟机创建失败。</p>
+</blockquote>
+<h5 id="3-2-3、加载主类与获取方法"><a href="#3-2-3、加载主类与获取方法" class="headerlink" title="3.2.3、加载主类与获取方法"></a>3.2.3、加载主类与获取方法</h5><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">jclass</span> <span class="variable">cls</span> <span class="operator">=</span> (*env)-&gt;FindClass(env, <span class="string">&quot;MainClass&quot;</span>);  <span class="comment">// 假设主类名为MainClass</span></span><br><span class="line">CHECK_NULL_RETURN(cls);</span><br><span class="line"></span><br><span class="line"><span class="type">jmethodID</span> <span class="variable">mid</span> <span class="operator">=</span> (*env)-&gt;GetStaticMethodID(env, cls, <span class="string">&quot;main&quot;</span>, <span class="string">&quot;([Ljava/lang/String;)V&quot;</span>);</span><br><span class="line">CHECK_NULL_RETURN(mid);</span><br></pre></td></tr></table></figure>
+<ul>
+<li>通过(*env)-&gt;FindClass函数在当前的 JNI 环境（env）下尝试查找指定名称（这里假设主类名为MainClass，实际会根据具体传入的类名或者配置来查找）的类，若返回的类指针cls为NULL，则通过CHECK_NULL_RETURN宏直接返回，表示类加载失败。</li>
+<li>接着使用(*env)-&gt;GetStaticMethodID函数在已经加载的类（cls）中查找名为main，签名为([Ljava&#x2F;lang&#x2F;String;)V（表示参数是String数组且返回值为void的静态方法）的方法，同样若返回的方法标识符mid为NULL，则返回，表示方法查找失败。</li>
+</ul>
+<h5 id="3-2-4、构造参数与调用方法"><a href="#3-2-4、构造参数与调用方法" class="headerlink" title="3.2.4、构造参数与调用方法"></a>3.2.4、构造参数与调用方法</h5><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">jobjectArray</span> <span class="variable">argsArray</span> <span class="operator">=</span> (*env)-&gt;NewObjectArray(env, argc, (*env)-&gt;FindClass(env, <span class="string">&quot;Ljava/lang/String;&quot;</span>), NULL);</span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; argc; i++) &#123;</span><br><span class="line">    <span class="type">jstring</span> <span class="variable">str</span> <span class="operator">=</span> (*env)-&gt;NewStringUTF(env, argv[i]);</span><br><span class="line">    (*env)-&gt;SetObjectArrayElement(env, argsArray, i, str);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">(*env)-&gt;CallStaticVoidMethod(env, cls, mid, argsArray);</span><br></pre></td></tr></table></figure>
+<ul>
+<li>首先通过(*env)-&gt;NewObjectArray函数创建一个String类型的对象数组（argsArray），数组大小根据命令行参数个数argc来确定，元素类型为String（通过查找”Ljava&#x2F;lang&#x2F;String;”类来指定），初始化为NULL。</li>
+<li>然后遍历命令行参数数组（argv），通过(*env)-&gt;NewStringUTF函数将每个C风格的字符串转换为JNI中的jstring类型，并使用(*env)-&gt;SetObjectArrayElement函数将其逐个放入前面创建的argsArray中，这样就构造好了要传递给main方法的参数数组。</li>
+<li>最后通过(*env)-&gt;CallStaticVoidMethod函数调用主类（cls）中获取到的main方法（mid），并传入构造好的参数数组argsArray来启动 Java 程序的执行</li>
+</ul>
+<h6 id="3-2-5、销毁-Java-虚拟机"><a href="#3-2-5、销毁-Java-虚拟机" class="headerlink" title="3.2.5、销毁 Java 虚拟机"></a>3.2.5、销毁 Java 虚拟机</h6><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(*vm)-&gt;DestroyJavaVM(vm);</span><br></pre></td></tr></table></figure>
+<p>在完成了main方法的调用等操作后，使用(*vm)-&gt;DestroyJavaVM函数来销毁 Java 虚拟机实例（vm），释放相关的资源。这一步涉及到很多底层的内存清理、资源回收以及与操作系统相关的交互等复杂操作，这里只是简单调用了这个函数来示意整个流程的完整性。</p>
+<p><strong>参考文章：</strong>  <a href="https://www.cnblogs.com/yuandengta/p/12931818.html">JVM源码分析之JVM启动流程</a></p>
+<h3 id="四、加载"><a href="#四、加载" class="headerlink" title="四、加载"></a>四、加载</h3><p><strong>定义：</strong> 加载是根据特定名称查找类或接口类型的二进制表示（Binary Representation），并由此二进制表示创建类或接口的过程</p>
+<h4 id="4-1、类加载器"><a href="#4-1、类加载器" class="headerlink" title="4.1、类加载器"></a>4.1、类加载器</h4><p>虚拟机支持两种类加载器：</p>
+<ul>
+<li>Java 虚拟机提供的引导类加载器（Bootstrap ClassLoader）</li>
+<li>用户自定义类加载器<ul>
+<li>每个用户自定义的类加载器应该是抽象类 ClassLoader 的某个子类的实例</li>
+</ul>
+</li>
+</ul>
+<h3 id="五、链接"><a href="#五、链接" class="headerlink" title="五、链接"></a>五、链接</h3><p><strong>定义：</strong> 链接是为了让类或接口可以被 Java 虚拟机执行，而将类或接口并入虚拟机运行时状态的过程。</p>
+<h4 id="5-1、验证"><a href="#5-1、验证" class="headerlink" title="5.1、验证"></a>5.1、验证</h4><p><strong>作用：</strong> 验证（Verification）阶段用于<strong>确保类或接口的二进制表示结构上是正确的</strong>。</p>
+<p>如果类或接口的二进制表示不能满足 4.9 节（Java 虚拟机代码限制）中描述的静态或结构上的约束，那就必须在导致验证发生的程序调用处被抛出 VerityError 异常。</p>
+<h4 id="5-2、准备"><a href="#5-2、准备" class="headerlink" title="5.2、准备"></a>5.2、准备</h4><p><strong>作用</strong>：准备（Preparation）阶段的任务是为类或接口的<font style="color:red"><strong>静态字段分配空间</strong></font>，并用默认值初始化这些字段。这个阶段不会执行任何的虚拟机字节码指令。</p>
+<h4 id="5-3、解析"><a href="#5-3、解析" class="headerlink" title="5.3、解析"></a>5.3、解析</h4><blockquote>
+<p>Java 虚拟机指令 anewarray、checkcast、getfield、getstatic、instanceof、 nvokedynamic、invokeinterface、invokespecial、invokestatic、invokevirtual、 ldc、ldc_w、multianewarray、new、putfield 和 putstatic 将符号引用指向运行时常量池。执行上述任何一条指令都需要对它的符号引用的进行解析。</p>
+<p><strong>字面量：</strong> 文本字符串、声明为final的常量值<br><strong>符号引用：</strong> 是一种用来定位类、接口、字段和方法等的引用方式。它是一种在编译时期（字节码生成阶段）使用的、无歧义的标识符，用于在字节码文件中表示对其他类、方法、字段等的引用关系。符号引用主要是为了保证在编译阶段能够正确地记录下这些引用信息，而具体的引用对象的实际内存地址等信息则在运行时（类加载的解析阶段）才确定。</p>
+<ul>
+<li>类和接口的全限定名</li>
+<li>字段的名称和描述符</li>
+<li>方法的名称和描述符</li>
+</ul>
+</blockquote>
+<p><strong>作用：</strong> 解析（Resolution）是根据运行时常量池的符号引用来动态决定具体的值的过程（<strong>符号引用转化成直接引用</strong>）。</p>
+<h3 id="六、初始化"><a href="#六、初始化" class="headerlink" title="六、初始化"></a>六、初始化</h3><p>初始化（Initialization）对于类或接口来说，就是执行它的初始化方法。</p>
+<blockquote>
+<ul>
+<li><font color="#e98787"><strong>类初始化方法&lt;clinit&gt;：</strong> </font>一个类或者接口最多可以包含不超过一个类或接口的初始化方法，类或者接口就是通过这个方法完成初始化的。这个方法是一个不包含参数的静态方法，名为<clinit>。这个名字也是由编译器命名的，因为它并非一个合法的 Java 方法名字，不可能通过程序编码的方式实现。<ul>
+<li>类或接口的初始化方法由 Java 虚拟机自身隐式调用，没有任何虚拟机字节码指令可以调用这个方法，只有在类的初始化阶段中会被虚拟机自身调用。</li>
+</ul>
+</clinit></li>
+</ul>
+</blockquote>
+<p>在发生下列行为时，类或接口将会被初始化：</p>
+<ul>
+<li><strong>在执行下列需要引用类或接口的 Java 虚拟机指令时：new，getstatic，putstatic<br>或 invokestatic。</strong> 这些指令通过字段或方法引用来直接或间接地引用其它类。执行上<br>面所述的 new 指令，在类或接口没有被初始化过时就初始化它。执行上面的 getstatic，<br>putstatic 或 invokestatic 指令时，那些解析好的字段或方法中的类或接口如果还<br>没有被初始化那就初始化它。</li>
+<li><strong>在初次调用 java.lang.invoke.MethodHandle 实例时</strong>，它的执行结果为通过 Java 虚拟机解析出类型是 2（REF_getStatic）、4（REF_putStatic）或者 6（REF_invokeStatic）的方法句柄。</li>
+<li><strong>在调用 JDK 核心类库中的反射方法时，</strong> 例如，Class 类或 java.lang.reflect 包。</li>
+<li><strong>在对于类的某个子类的初始化时。</strong></li>
+<li><strong>在它被选定为 Java 虚拟机启动时的初始类（§5.2）时。</strong><br>在类或接口被初始化之前，它必须被链接过，也就是经过验证、准备阶段，且有可能已经被解析完成了。</li>
+</ul>
+<p>因为 Java 虚拟机是支持多线程的，所以在初始化类或接口的时候要特别注意线程同步问题，可能其它一些线程也想要初始化相同名称的类或接口。</p>
+<p>每个类或接口 C，都有一个唯一的初始化锁 LC。如何实现从 C 到 LC 的映射可由 Java 虚拟机实现自行决定。例如，LC 可以是 C 的 Class 对象，或者是与 Class 对象相关的管程（Monitor）。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%90%AF%E5%8A%A8/" rel="tag"># 虚拟机启动</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/15/2020-04-15-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-class%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F/" rel="prev" title="《Java》class文件格式">
+      <i class="fa fa-chevron-left"></i> 《Java》class文件格式
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/" rel="next" title="《Java》对象的hotspot实现">
+      《Java》对象的hotspot实现 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%AE%9A%E4%B9%89"><span class="nav-text">一、定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E8%BF%90%E8%A1%8C%E6%97%B6%E5%B8%B8%E9%87%8F%E6%B1%A0"><span class="nav-text">二、运行时常量池</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%90%AF%E5%8A%A8"><span class="nav-text">三、虚拟机启动</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1%E3%80%81%E5%90%AF%E5%8A%A8%E5%85%A5%E5%8F%A3"><span class="nav-text">3.1、启动入口</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2%E3%80%81%E5%90%AF%E5%8A%A8%E6%AD%A5%E9%AA%A4"><span class="nav-text">3.2、启动步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#3-2-1%E3%80%81%E5%88%9D%E5%A7%8B%E5%8C%96%E5%8F%82%E6%95%B0%E9%83%A8%E5%88%86"><span class="nav-text">3.2.1、初始化参数部分</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-2-2%E3%80%81%E5%88%9B%E5%BB%BA-Java-%E8%99%9A%E6%8B%9F%E6%9C%BA"><span class="nav-text">3.2.2、创建 Java 虚拟机</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-2-3%E3%80%81%E5%8A%A0%E8%BD%BD%E4%B8%BB%E7%B1%BB%E4%B8%8E%E8%8E%B7%E5%8F%96%E6%96%B9%E6%B3%95"><span class="nav-text">3.2.3、加载主类与获取方法</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-2-4%E3%80%81%E6%9E%84%E9%80%A0%E5%8F%82%E6%95%B0%E4%B8%8E%E8%B0%83%E7%94%A8%E6%96%B9%E6%B3%95"><span class="nav-text">3.2.4、构造参数与调用方法</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#3-2-5%E3%80%81%E9%94%80%E6%AF%81-Java-%E8%99%9A%E6%8B%9F%E6%9C%BA"><span class="nav-text">3.2.5、销毁 Java 虚拟机</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%8A%A0%E8%BD%BD"><span class="nav-text">四、加载</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1%E3%80%81%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8"><span class="nav-text">4.1、类加载器</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E9%93%BE%E6%8E%A5"><span class="nav-text">五、链接</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#5-1%E3%80%81%E9%AA%8C%E8%AF%81"><span class="nav-text">5.1、验证</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-2%E3%80%81%E5%87%86%E5%A4%87"><span class="nav-text">5.2、准备</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-3%E3%80%81%E8%A7%A3%E6%9E%90"><span class="nav-text">5.3、解析</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-text">六、初始化</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是系统重构系列的总结性文章，总结系统重构的一般流程和经验。  一、愿景整个开发生涯中，经历了非常多的系统重构、系统合并，也总结了一些经验，记录下来。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《系统重构》系统重构&amp;合并总结">
+<meta property="og:url" content="http://yoursite.com/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是系统重构系列的总结性文章，总结系统重构的一般流程和经验。  一、愿景整个开发生涯中，经历了非常多的系统重构、系统合并，也总结了一些经验，记录下来。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E9%A1%B9%E7%9B%AE%E7%AE%A1%E7%90%86%E6%B5%81%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7_%E5%AD%98%E9%87%8F.png">
+<meta property="og:image" content="http://yoursite.com/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7_%E5%A2%9E%E9%87%8F.png">
+<meta property="og:image" content="http://yoursite.com/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E5%85%88%E5%8F%8C%E5%86%99%E5%90%8E%E5%AD%98%E9%87%8F.png">
+<meta property="og:image" content="http://yoursite.com/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E5%8F%8C%E5%86%99%E5%85%88.png">
+<meta property="og:image" content="http://yoursite.com/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E5%85%88%E5%AD%98%E9%87%8F%E5%90%8E%E5%A2%9E%E9%87%8F.png">
+<meta property="og:image" content="http://www.plantuml.com/plantuml/svg/AqWiAibCpYn8p2jHUB9ZrjEkXLm5I4A91GhAgQbcQMPfAC85EOd9gGhAbfPkRfQMN2c99Ob9YSMf4E7SokB274ovn0Ae1DGuBbjRXQSTSvykxtxUjUrPGwE2hIqNn06wTX3ZhO3oiv_ktlLqQjkpZkrSO46e7DWeAuNdK-O_wvW0aVTqUR-dv-cYUK-x5XId5fQcvYMdGhNesa7CjNgnVyhJsVDWoi4kUDwuuUckPPWk0FeRpVh40gZTLY_wjZ_jdmOtXW9t9HQWkmbe2pxdFflJy7nt1x7EXGOvOVVWiHK0">
+<meta property="article:published_time" content="2024-08-02T02:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.884Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E9%A1%B9%E7%9B%AE%E7%AE%A1%E7%90%86%E6%B5%81%E7%A8%8B.png">
+
+<link rel="canonical" href="http://yoursite.com/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《系统重构》系统重构&合并总结 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《系统重构》系统重构&合并总结
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-08-02 10:00:00" itemprop="dateCreated datePublished" datetime="2024-08-02T10:00:00+08:00">2024-08-02</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84/" itemprop="url" rel="index"><span itemprop="name">系统重构</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>1.1k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>3 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是系统重构系列的总结性文章，总结系统重构的一般流程和经验。
+</code></pre>
+<h3 id="一、愿景"><a href="#一、愿景" class="headerlink" title="一、愿景"></a>一、愿景</h3><p>整个开发生涯中，经历了非常多的系统重构、系统合并，也总结了一些经验，记录下来。</p>
+<span id="more"></span>
+<h3 id="二、项目管理流程"><a href="#二、项目管理流程" class="headerlink" title="二、项目管理流程"></a>二、项目管理流程</h3><p>较大型的项目，都会经历如图步骤：<br><img src="/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E9%A1%B9%E7%9B%AE%E7%AE%A1%E7%90%86%E6%B5%81%E7%A8%8B.png" alt="项目管理流程"><br>本文主要讲解分析设计过程部分。</p>
+<h3 id="三、常见问题及解决方案"><a href="#三、常见问题及解决方案" class="headerlink" title="三、常见问题及解决方案"></a>三、常见问题及解决方案</h3><h4 id="3-1、数据一致性问题："><a href="#3-1、数据一致性问题：" class="headerlink" title="3.1、数据一致性问题："></a>3.1、数据一致性问题：</h4><p>数据一致性，需要特别关注。可以分为存量数据一致性、增量数据一致性问题和数据一致性保障方案。</p>
+<h5 id="3-1-1、存量数据一致性："><a href="#3-1-1、存量数据一致性：" class="headerlink" title="3.1.1、存量数据一致性："></a>3.1.1、存量数据一致性：</h5><p><img src="/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7_%E5%AD%98%E9%87%8F.png" alt="数据一致性_存量"></p>
+<ol>
+<li>离线方式：<ol>
+<li>通过全量表+日增表，但是离线表一般是T+1（最快也是小时表），存在数据延迟问题，适用于数据变更频率低场景。</li>
+</ol>
+</li>
+<li>binlog方式：<ol>
+<li>延迟低，可靠性高。</li>
+</ol>
+</li>
+</ol>
+<h5 id="3-1-2、增量数据一致性："><a href="#3-1-2、增量数据一致性：" class="headerlink" title="3.1.2、增量数据一致性："></a>3.1.2、增量数据一致性：</h5><p><img src="/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7_%E5%A2%9E%E9%87%8F.png" alt="数据一致性_增量"><br>增量数据，一般是通过接口双写的方式，来保障数据一致性，同时还会通过binlog作为冗余方式，保障高可用。</p>
+<h5 id="3-1-3、使用离线表方式，先开双写还是先存量同步？"><a href="#3-1-3、使用离线表方式，先开双写还是先存量同步？" class="headerlink" title="3.1.3、使用离线表方式，先开双写还是先存量同步？"></a>3.1.3、使用离线表方式，先开双写还是先存量同步？</h5><p>如果不得不使用离线表的方式进行数据迁移，应该怎么做？考虑先开双写还是先迁移存量数据？</p>
+<h6 id="先开双写（灰度完成后），再做存量同步"><a href="#先开双写（灰度完成后），再做存量同步" class="headerlink" title="先开双写（灰度完成后），再做存量同步"></a>先开双写（灰度完成后），再做存量同步</h6><p>主要流程：先开双写（灰度完成后），再做一次完整的存量同步操作。<br><img src="/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E5%85%88%E5%8F%8C%E5%86%99%E5%90%8E%E5%AD%98%E9%87%8F.png" alt="先双写后存量"><br><img src="/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E5%8F%8C%E5%86%99%E5%85%88.png" alt="双写先"></p>
+<ol>
+<li>存量数据更新时，新库不存在数据，需要回查，性能会有影响。<ol>
+<li>解决办法：前期已旧库为准，新库可以采用异步+稳定性方案，降低影响。</li>
+</ol>
+</li>
+<li>大批量数据更新，查询旧库，会造成旧库资源的冲击并影响现有业务。<ol>
+<li>解决办法：可以结合灰度计划，控制流量，减少对现有业务的影响。</li>
+</ol>
+</li>
+</ol>
+<h6 id="先存量同步，再开双写"><a href="#先存量同步，再开双写" class="headerlink" title="先存量同步，再开双写"></a>先存量同步，再开双写</h6><p><img src="/2024/08/02/2024-08-02-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%92%8C%E5%90%88%E5%B9%B6%E6%80%BB%E7%BB%93/%E5%85%88%E5%AD%98%E9%87%8F%E5%90%8E%E5%A2%9E%E9%87%8F.png" alt="先存量后增量"></p>
+<blockquote>
+<ul>
+<li>2个任务：<ul>
+<li>存量数据同步：执行一次。</li>
+<li>增量数据同步：每日执行，直至全部灰度完成，并没有数据差异。</li>
+</ul>
+</li>
+<li>灰度数据，新库不存在或被更新，需要查询旧库，再做更新。</li>
+<li></li>
+</ul>
+</blockquote>
+<h6 id="⭐️方案对比"><a href="#⭐️方案对比" class="headerlink" title="⭐️方案对比"></a>⭐️方案对比</h6><blockquote>
+<p>先双写，后存量同步：</p>
+<ul>
+<li>方案更简单。</li>
+</ul>
+<p>先存量同步，后双写：</p>
+<ul>
+<li>方案更复杂，考虑点较多。</li>
+</ul>
+</blockquote>
+<h5 id="3-1-4、数据一致性保障方案"><a href="#3-1-4、数据一致性保障方案" class="headerlink" title="3.1.4、数据一致性保障方案"></a>3.1.4、数据一致性保障方案</h5><ol>
+<li>离线核对<ol>
+<li>通过D-1离线表进行全量核对。</li>
+</ol>
+</li>
+<li>查询异步核对。</li>
+<li>实时核对。<ol>
+<li>可通过MQ的方式，进行数据核对。</li>
+</ol>
+</li>
+</ol>
+<h4 id="3-2、ID问题"><a href="#3-2、ID问题" class="headerlink" title="3.2、ID问题"></a>3.2、ID问题</h4><p>在系统重构迁移时，需要考虑ID的问题。如下示例：将Place系统功能重构到ap内。</p>
+<img src="http://www.plantuml.com/plantuml/svg/AqWiAibCpYn8p2jHUB9ZrjEkXLm5I4A91GhAgQbcQMPfAC85EOd9gGhAbfPkRfQMN2c99Ob9YSMf4E7SokB274ovn0Ae1DGuBbjRXQSTSvykxtxUjUrPGwE2hIqNn06wTX3ZhO3oiv_ktlLqQjkpZkrSO46e7DWeAuNdK-O_wvW0aVTqUR-dv-cYUK-x5XId5fQcvYMdGhNesa7CjNgnVyhJsVDWoi4kUDwuuUckPPWk0FeRpVh40gZTLY_wjZ_jdmOtXW9t9HQWkmbe2pxdFflJy7nt1x7EXGOvOVVWiHK0">
+
+<p>ID的生成，在迁移过程中通常会有3个状态：</p>
+<ol>
+<li>初始状态：由原系统生成。</li>
+<li>灰度状态：由新系统调用原系统提供的接口生成（实际上由原系统生成）。</li>
+<li>最终状态：由新系统生成。</li>
+</ol>
+<p>这里需要新系统考虑sequence问题，一般做法是新sequence需要抬高到一定值，防止生成的ID和旧ID重复，那需要抬高多少呢？</p>
+<ol>
+<li>抬高值 &#x3D; 日创建量最高值 * 日期。（例如日最高创建量为10000，灰度时间为30天，这个时间尽量多估算点，那么需要抬高值为 10000 * 30 &#x3D; 300000）</li>
+</ol>
+<p>参考文章：<a href="https://www.cnblogs.com/crazymakercircle/p/17531894.html#%E6%95%B0%E6%8D%AE%E8%BF%81%E7%A7%BB%E6%96%B9%E6%A1%88%E8%AE%BE%E8%AE%A1">数据迁移方案设计</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2024/07/27/2024-07-27-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E5%A6%82%E4%BD%95%E5%81%9A%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5%E5%BB%B6%E8%BF%9F%E7%9B%91%E6%8E%A7/" rel="prev" title="《系统重构》如何做数据同步延迟监控？">
+      <i class="fa fa-chevron-left"></i> 《系统重构》如何做数据同步延迟监控？
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2024/08/20/2024-08-20-%E6%9E%B6%E6%9E%84-%E6%9E%B6%E6%9E%84/" rel="next" title="《架构》基础知识">
+      《架构》基础知识 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E6%84%BF%E6%99%AF"><span class="nav-text">一、愿景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E9%A1%B9%E7%9B%AE%E7%AE%A1%E7%90%86%E6%B5%81%E7%A8%8B"><span class="nav-text">二、项目管理流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E5%8F%8A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88"><span class="nav-text">三、常见问题及解决方案</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1%E3%80%81%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7%E9%97%AE%E9%A2%98%EF%BC%9A"><span class="nav-text">3.1、数据一致性问题：</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#3-1-1%E3%80%81%E5%AD%98%E9%87%8F%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7%EF%BC%9A"><span class="nav-text">3.1.1、存量数据一致性：</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-1-2%E3%80%81%E5%A2%9E%E9%87%8F%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7%EF%BC%9A"><span class="nav-text">3.1.2、增量数据一致性：</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-1-3%E3%80%81%E4%BD%BF%E7%94%A8%E7%A6%BB%E7%BA%BF%E8%A1%A8%E6%96%B9%E5%BC%8F%EF%BC%8C%E5%85%88%E5%BC%80%E5%8F%8C%E5%86%99%E8%BF%98%E6%98%AF%E5%85%88%E5%AD%98%E9%87%8F%E5%90%8C%E6%AD%A5%EF%BC%9F"><span class="nav-text">3.1.3、使用离线表方式，先开双写还是先存量同步？</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#%E5%85%88%E5%BC%80%E5%8F%8C%E5%86%99%EF%BC%88%E7%81%B0%E5%BA%A6%E5%AE%8C%E6%88%90%E5%90%8E%EF%BC%89%EF%BC%8C%E5%86%8D%E5%81%9A%E5%AD%98%E9%87%8F%E5%90%8C%E6%AD%A5"><span class="nav-text">先开双写（灰度完成后），再做存量同步</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#%E5%85%88%E5%AD%98%E9%87%8F%E5%90%8C%E6%AD%A5%EF%BC%8C%E5%86%8D%E5%BC%80%E5%8F%8C%E5%86%99"><span class="nav-text">先存量同步，再开双写</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#%E2%AD%90%EF%B8%8F%E6%96%B9%E6%A1%88%E5%AF%B9%E6%AF%94"><span class="nav-text">⭐️方案对比</span></a></li></ol></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-1-4%E3%80%81%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%96%B9%E6%A1%88"><span class="nav-text">3.1.4、数据一致性保障方案</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2%E3%80%81ID%E9%97%AE%E9%A2%98"><span class="nav-text">3.2、ID问题</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

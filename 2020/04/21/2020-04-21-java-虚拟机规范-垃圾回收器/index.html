@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是Java虚拟机规范系列的第十篇文章，主要介绍的是经典的垃圾回收器。  一、垃圾回收器《Java虚拟机规范》中对垃圾收集器应该如何实现并没有做出任何规定。因此不同的厂商、不同版本的虚拟机所包含的垃圾收集器都可能会有很大差别。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Java》垃圾回收器">
+<meta property="og:url" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是Java虚拟机规范系列的第十篇文章，主要介绍的是经典的垃圾回收器。  一、垃圾回收器《Java虚拟机规范》中对垃圾收集器应该如何实现并没有做出任何规定。因此不同的厂商、不同版本的虚拟机所包含的垃圾收集器都可能会有很大差别。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/%E7%BB%8F%E5%85%B8%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E5%99%A8%E5%85%B3%E7%B3%BB%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/serial.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/parnew.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/serial-old.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/parallel-old.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/CMS.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/CMS%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/G1.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/ZGC_%E6%9F%93%E8%89%B2%E6%8C%87%E9%92%88.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/ZGC.png">
+<meta property="article:published_time" content="2020-04-21T04:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.260Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/%E7%BB%8F%E5%85%B8%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E5%99%A8%E5%85%B3%E7%B3%BB%E5%9B%BE.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Java》垃圾回收器 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Java》垃圾回收器
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-21 12:19:31" itemprop="dateCreated datePublished" datetime="2020-04-21T12:19:31+08:00">2020-04-21</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/" itemprop="url" rel="index"><span itemprop="name">java</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/" itemprop="url" rel="index"><span itemprop="name">jvm</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/" itemprop="url" rel="index"><span itemprop="name">虚拟机规范</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6/" itemprop="url" rel="index"><span itemprop="name">垃圾回收</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>6.4k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>16 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是Java虚拟机规范系列的第十篇文章，主要介绍的是经典的垃圾回收器。
+</code></pre>
+<h1 id="一、垃圾回收器"><a href="#一、垃圾回收器" class="headerlink" title="一、垃圾回收器"></a>一、垃圾回收器</h1><pre><code>《Java虚拟机规范》中对垃圾收集器应该如何实现并没有做出任何规定。因此不同的厂商、不同版本的虚拟机所包含的垃圾收集器都可能会有很大差别。
+</code></pre>
+<span id="more"></span>
+
+<p><img src="/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/%E7%BB%8F%E5%85%B8%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E5%99%A8%E5%85%B3%E7%B3%BB%E5%9B%BE.png" alt="经典垃圾收集器关系图"><br>图中展示了七种作用于不同分代的收集器，如果两个收集器之间存在连线，就说明它们可以搭配使用。图中收集器所处的区域，则表示它是属于新生代收集器 or 老年代收集器。</p>
+<h2 id="1-1、serial收集器-【新生代】"><a href="#1-1、serial收集器-【新生代】" class="headerlink" title="1.1、serial收集器 【新生代】"></a>1.1、serial收集器 【新生代】</h2><p><img src="/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/serial.png" alt="serial"></p>
+<pre><code>单线程收集器：使用一个收集线程去完成垃圾收集工作，进行垃圾收集时，必须暂停其他所有工作线程，直到它收集结束。
+简单高效，内存消耗低
+采用复制算法
+</code></pre>
+<h2 id="1-2、ParNew收集器-【新生代】"><a href="#1-2、ParNew收集器-【新生代】" class="headerlink" title="1.2、ParNew收集器 【新生代】"></a>1.2、ParNew收集器 【新生代】</h2><p>ParNew 收集器实质上是 Serial 收集器的多线程并行版本。ParNew 收集器的工作过程如图所示：<br><img src="/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/parnew.png" alt="parnew"></p>
+<pre><code>serial的多线程并行版本
+只有它能和CMS配合使用
+采用复制算法
+</code></pre>
+<h2 id="1-3、Parallel-Scavenge-【新生代】"><a href="#1-3、Parallel-Scavenge-【新生代】" class="headerlink" title="1.3、Parallel Scavenge 【新生代】"></a>1.3、Parallel Scavenge 【新生代】</h2><p>关注点与其他收集器不同，它的目标是达到一个可控制的吞吐量（Throughput）。</p>
+<pre><code>吞吐量=用户代码运行时间/(用户代码运行时间+运行垃圾收集时间)
+采用复制算法
+</code></pre>
+<h2 id="1-4、Serial-Old收集器-【老年代】"><a href="#1-4、Serial-Old收集器-【老年代】" class="headerlink" title="1.4、Serial Old收集器 【老年代】"></a>1.4、Serial Old收集器 【老年代】</h2><p>老年代收集器，同样是一个单线程收集器。<br><img src="/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/serial-old.png" alt="serial-old"></p>
+<pre><code>采用整理算法
+</code></pre>
+<h2 id="1-5、Parallel-Old收集器【老年代】"><a href="#1-5、Parallel-Old收集器【老年代】" class="headerlink" title="1.5、Parallel Old收集器【老年代】"></a>1.5、Parallel Old收集器【老年代】</h2><p>parallel old是parallel scavenge收集器的老年代版本，支持多线程并发收集。<br><img src="/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/parallel-old.png" alt="parallel-old"></p>
+<pre><code>多线程并发收集
+采用整理算法
+</code></pre>
+<h2 id="1-6、CMS【老年代】"><a href="#1-6、CMS【老年代】" class="headerlink" title="1.6、CMS【老年代】"></a>1.6、CMS【老年代】</h2><p>Concurrent Mark Sweep收集器，是一种以获取最短回收停顿时间为目标的收集器。标记-清除算法<br><img src="/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/CMS.png" alt="CMS"></p>
+<h3 id="1-6-1、整个收集过程分为四个步骤："><a href="#1-6-1、整个收集过程分为四个步骤：" class="headerlink" title="1.6.1、整个收集过程分为四个步骤："></a>1.6.1、整个收集过程分为四个步骤：</h3><ol>
+<li>初始标记（CMSinitial mark）<br>“Stop The World”<br>仅仅只是标记一下GC Roots能直接关联到的对象，速度很快<br>在初始阶段的时候，所有的对象都是存放在白色容器中。<br>初始标记阶段，GCRoot标记直接关联对象置为灰色</li>
+<li>并发标记（CMS concurrent mark）<br>并发标记阶段就是从GC Roots的直接关联对象开始遍历整个对象图的过程，这个过程耗时较长但是不需要停顿用户线程，可以与垃圾收集线程一起并发运行<br>并发标记阶段，扫描整个引用链，有子节点的话，则当前节点变为黑色，子节点变为灰色<br>下次GCRoot起点从灰色节点开始计算</li>
+<li>重新标记（CMS remark）<br>“Stop The World”<br>为了修正并发标记期间，因用户程序继续运作而导致标记产生变动的那一部分对象的 标记记录</li>
+<li>并发清除（CMS concurrent sweep）<br>清理删除掉标记阶段判断的已经死亡的 对象，由于不需要移动存活对象，所以这个阶段也是可以与用户线程同时并发的</li>
+</ol>
+<p><img src="/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/CMS%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B.png" alt="CMS工作流程"></p>
+<h3 id="1-6-2、存在的问题："><a href="#1-6-2、存在的问题：" class="headerlink" title="1.6.2、存在的问题："></a>1.6.2、存在的问题：</h3><h4 id="碎片化问题"><a href="#碎片化问题" class="headerlink" title="碎片化问题"></a>碎片化问题</h4><p>解决方案</p>
+<ul>
+<li>-XX：+UseCMS-CompactAtFullCollection开关参数（默认是开启的，此参数从 JDK 9开始废弃），用于在CMS收集器不得不进行Full GC时开启内存碎片的合并整理过程，由于这个 内存整理必须移动存活对象，（在Shenandoah和ZGC出现前）是无法并发的</li>
+<li>另外一个参数-XX：CMSFullGCsBefore- Compaction（此参数从JDK 9开始废弃），这个参数的作用是要求CMS收集器在执行过若干次（数量 由参数值决定）不整理空间的Full GC之后，下一次进入Full GC前会先进行碎片整理（默认值为0，表 示每次进入Full GC时都进行碎片整理）。</li>
+</ul>
+<h4 id="漏标"><a href="#漏标" class="headerlink" title="漏标"></a>漏标</h4><p>假设初始情况<br>    A黑、B灰、C白<br>    并发标记过程中，如果线程使B -&gt; C 的指向删除，然后将A -&gt; C，此时会出现漏标问题<br>漏标解决方案<br>    CMS<br>        写屏障+增量更新方式<br>            在重新标记阶段（所有用户线程暂停），有将B对象变为灰色对象将整个引用链全部扫描。<br>            缺点：遍历B整个链的效率非常低，有可能会导致用户线程等待的时间非常长。<br>    G1<br>        原始快照方式</p>
+<h2 id="1-7、G1"><a href="#1-7、G1" class="headerlink" title="1.7、G1"></a>1.7、G1</h2><p>Garbage First（简称G1）收集器是垃圾收集器技术发展历史上的里程碑式的成果，它开创了收集器而向局部收集的设计思路和基于Region的内存布局形式。<br><img src="/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/G1.png" alt="G1"></p>
+<h3 id="结构"><a href="#结构" class="headerlink" title="结构"></a>结构</h3><p>堆划分成大小相等的Region</p>
+<ol>
+<li>region内存大小在1M ~ 32M范围内，2的幂次方，默认个数2048</li>
+<li>每一个region都可以扮演新生代的Eden、survivor空间，或者老年代，根据不同类型，再根据不同策略进行回收</li>
+<li>Region中还有一类特殊的Humongous区域，专门用来存储大对象。</li>
+</ol>
+<ul>
+<li>G1认为只要大小超过了一个Region容量一半的对象即可判定为大对象。每个Region的大小可以通过参数-XX：G1HeapRegionSize设定，取值范围为1MB～32MB，且应为2的N次幂。而对于那些超过了整个Region容量的超级大对象，将会被存放在N个连续的Humongous Region之中，G1的大多数行为都把Humongous Region作为老年代的一部分来进行看待，如图所示。</li>
+</ul>
+<h3 id="可预测的停顿时间"><a href="#可预测的停顿时间" class="headerlink" title="可预测的停顿时间"></a>可预测的停顿时间</h3><p>因为将region作为垃圾回收的最小单位，每次回收都是region的整数倍，这样就可以避免对堆全部空间的垃圾回收<br>更具体思路：跟踪各region中的垃圾堆积的价值大小，维护一个优先级列表，优秀收集价值更高的region</p>
+<p>用户通过-XX：MaxGCPauseMillis参数指定的停顿时间只意味着垃圾收集发生之前的期望值，但G1收集器要怎么做才能满足用户的期望呢？G1收集器的停顿预测模型是以衰减均值（Decaying Average）为理论基础来实现的，在垃圾收集过程中，Gl收集器会记录每个Region的回收耗时、每个Reaion记忆集里的脏卡数量等各个可测量的步骤花费的成本，并分析得出平均值、标准偏差、置信度等统计信息。这里强调的“衰减平均值”是指它会比普通的平均值更容易受到新数据的影响，平均值代表整体平均状态，但衰减平均值更准确地代表“最近的”平均状态。换句话说，Region的统计状态越新越能决定其回收的价值。然后通过这些信息预测现在开始回收的话，由哪些Region组成回收集才可以在不超过期望停顿时间的约束下获得最高的收益。</p>
+<h3 id="跨区引用对象"><a href="#跨区引用对象" class="headerlink" title="跨区引用对象"></a>跨区引用对象</h3><p>将Java堆分成多个独立Region后，Region里面存在的跨Region引用对象如何解决？</p>
+<p>使用记忆集来避免全局扫描： RememberedSets<br>每个region都有对应的记忆集：G1的记忆集，可以理解成一个哈希表，key是region的起始地址，value是卡表的索引号集合<br>每次refrence类型的数据写时，都会生成一个写屏障<br>            然后检查将要写入的引用 指向的对象是否和该Reference类型数据在不同的 Region（其他收集器：检查老年代对象是否引用了新生代对象）<br>            如果不同，通过 卡表（Card Table）把相关引用信息记录到引用指向对象的所在Region对应的记忆集(Remembered Set) 中</p>
+<p><strong>卡表的本质是用来解决跨代引用的问题</strong></p>
+<p>当进行垃圾收集时，在GC Roots枚举范围加上记忆集；就可以保证不进行全局扫描了。</p>
+<h3 id="并发标记阶段如何保证收集线程与用户线程互不干扰地运行？"><a href="#并发标记阶段如何保证收集线程与用户线程互不干扰地运行？" class="headerlink" title="并发标记阶段如何保证收集线程与用户线程互不干扰地运行？"></a>并发标记阶段如何保证收集线程与用户线程互不干扰地运行？</h3><p>这里首先要解决的是用户线程改变对象引用关系时，必须保证其不能打破原本的对象图结构，导致标记结果出现错误，CMS收集器采用增量更新算法实现，<strong>而G1 收集器则是通过原始快照（SATB）算法来实现的</strong>。此外，垃圾收集对用户线程的影响还体现在回收过程中新创建对象的内存分配上，程序要继续运行就肯定会持续有新对象被创建，G1为每一个Region设计了两个名为TAMS（Top at Mark Start）的指针，把Region中的一部分空间划分出来用于并发回收过程中的新对象分配，并发回收时新分配的对象地址都必须要在这两个指针位置以上。G1收集器默认在这个地址以上的对象是被隐式标记过的，即默认它们是存活的，不纳入回收范围。与CMS中的”Concurrent Mode Failure”失败会导致Full GC类似，如果内存回收的速度赶不上内存分配的速度，Gl收集器也要被迫冻结用户线程执行，导致Full GC而产生长时间“Stop The World”。</p>
+<h3 id="工作流程"><a href="#工作流程" class="headerlink" title="工作流程"></a>工作流程</h3><h4 id="初始标记-停顿线程"><a href="#初始标记-停顿线程" class="headerlink" title="初始标记  (停顿线程)"></a>初始标记  <font color="red">(停顿线程)</font></h4><p>仅仅是标记一下GC Roots能直接关联到的对象，并且修改TAMS 指针的值，让下一阶段用户线程并发运行时，能正确地在可用的Region中分配新对象。这个阶段需要 停顿线程，但耗时很短，而且是借用进行Minor GC的时候同步完成的，所以G1收集器在这个阶段实际 并没有额外的停顿。</p>
+<h4 id="并发标记"><a href="#并发标记" class="headerlink" title="并发标记"></a>并发标记</h4><p>从GC Root开始进行可达性分析，递归扫描整个堆里的对象图，找出要回收的对象，这个阶段耗时较长，但可以并发执行。当对象图扫描完成后，还要重新处理SATB记录下的在并发期间有引用变化的对象</p>
+<h4 id="最终标记-停顿线程"><a href="#最终标记-停顿线程" class="headerlink" title="最终标记 (停顿线程)"></a>最终标记 <font color="red">(停顿线程)</font></h4><p>对用户进程进行另一个短暂的暂停，用于处理并发阶段产生的SATB记录</p>
+<h4 id="筛选回收-涉及对象移动，停顿线程，多条线程进行并行进行"><a href="#筛选回收-涉及对象移动，停顿线程，多条线程进行并行进行" class="headerlink" title="筛选回收 (涉及对象移动，停顿线程，多条线程进行并行进行)"></a>筛选回收 <font color="red">(涉及对象移动，停顿线程，多条线程进行并行进行)</font></h4><p>负责更新Region的统计数据，对各个region的回收价值和成本进行重新计算，然后把决定回收的那一部分region的存活对象复制到新的region，再清理旧的region的整个空间</p>
+<h2 id="1-8、shenandoah"><a href="#1-8、shenandoah" class="headerlink" title="1.8、shenandoah"></a>1.8、shenandoah</h2><p>也是使用基于Region的堆内存布局，同样有着用于存放大对象的humongous region，默认的回收策略也同样是优先处理回收价值最大的Region。</p>
+<p>但在管理堆内存方面，它与G1至少有三个明显的不同之处：</p>
+<ul>
+<li>最重要的当然是支持并发的整理算法，G1 的回收阶段是可以多线程并行的，但不能与用户线程并发，但是shenandoah可以。</li>
+<li>默认不使用分代收集，换言之，不会有专门的新生代Region或者老年代Region存在，没有实现分代，并不是说分代对shenandoah没有价值，这更多是出于性价比的权衡。</li>
+<li>shenandoah摒弃了在G1中耗费大量内存和计算资源去维护的记忆集，改用名为“连接矩阵”的全局数据结构来记录跨region的引用关系，降低了处理跨代指针时的记忆集维护消耗，也降低了伪共享内存问题的发生概率。<ul>
+<li>连接矩阵：可以连接是一张二维表格。如果Region N有对象指向Region M，就在表格的N行M列打上标记</li>
+</ul>
+</li>
+</ul>
+<h3 id="工作过程"><a href="#工作过程" class="headerlink" title="工作过程"></a>工作过程</h3><p>可以划分成九个阶段。</p>
+<ul>
+<li>初始标记</li>
+<li>并发标记</li>
+<li>最终标记</li>
+<li>并发清理</li>
+<li>并发回收：该阶段是与其他收集器的核心差异。在这个阶段，把回收集里面的存活对象先复制一份到其他未被使用的Region中。通过读屏障和被称为”brooks pointers“来保障移动对象的同时，支持用户线程对对象的读写访问。</li>
+<li>初始引用更新：并发回收阶段复制对象结束后，还需要把堆中所有指向旧对象的引用修正到复制后的新地址，这个操作称为引用更新。</li>
+<li>并发引用更新：</li>
+<li>最终引用更新：</li>
+<li>并发清理</li>
+</ul>
+<h2 id="1-8、ZGC"><a href="#1-8、ZGC" class="headerlink" title="1.8、ZGC"></a>1.8、ZGC</h2><p>一款在JDK11中新加入的具有实验性质的低延迟垃圾收集器。</p>
+<p>ZGC和shenandoah的目标是高度相似的，都希望在尽可能对吞吐量影响不大的前提下，实现在任意堆内存大小下都可以把垃圾收集的停顿时间限制在十毫秒以内的低延迟。</p>
+<h3 id="1-8-1、内存布局"><a href="#1-8-1、内存布局" class="headerlink" title="1.8.1、内存布局"></a>1.8.1、内存布局</h3><p>也采用基于Region的堆内存布局，ZGC的Region具有动态性：动态创建和销毁，以及动态的区域容量大小。</p>
+<p>X64硬件下，3种容量类型</p>
+<ul>
+<li><strong>小型Region：</strong> 容量固定为2M，存放小于256KB的对象</li>
+<li><strong>中型Region：</strong> 容量固定为32M，存放大于256KB但小于4M的对象</li>
+<li><strong>大型Region：</strong> 容量不固定，但是必须是2的整数倍，用于存放4M或更大的对象</li>
+<li><pre><code>每个大型region只存放一个大对象
+</code></pre>
+</li>
+</ul>
+<h3 id="1-8-2、关键技术"><a href="#1-8-2、关键技术" class="headerlink" title="1.8.2、关键技术"></a>1.8.2、关键技术</h3><p>ZGC通过染色指针和读屏障技术，解决了转移过程中准确访问对象的问题，实现了并发转移。大致原理描述如下：并发转移中“并发”意味着GC线程在转移对象的过程中，应用线程也在不停地访问对象。假设对象发生转移，但对象地址未及时更新，那么应用线程可能访问到旧地址，从而造成错误。而在ZGC中，应用线程访问对象将触发“读屏障”，如果发现对象被移动了，那么“读屏障”会把读出来的指针更新到对象的新地址上，这样应用线程始终访问的都是对象的新地址。那么，JVM是如何判断对象被移动过呢？就是利用对象引用的地址，即着色指针。下面介绍着色指针和读屏障技术细节。</p>
+<h4 id="1-8-2-1、如何标志一个对象的？"><a href="#1-8-2-1、如何标志一个对象的？" class="headerlink" title="1.8.2.1、如何标志一个对象的？"></a>1.8.2.1、如何标志一个对象的？</h4><p>Hotspot虚拟机的几种收集器有不同的标记实现方案：常见的方案有： 位图（Bitmap）或对象头（Object Header）</p>
+<ul>
+<li><strong>对象头方式（以 Java 为例）：</strong> 在 Java 虚拟机（JVM）中，对象头是对象在内存中的一部分，用于存储对象的一些元数据，如哈希码、分代年龄等信息。可以利用对象头的部分位来记录对象的标记颜色。有的把标记直接记录在对象头上（如serial收集器）</li>
+<li><strong>位图方式：</strong> 可以使用位图来记录对象的标记颜色。位图是一种简单的数据结构，由一系列的位（bit）组成。对于堆中的每个对象，可以使用位图中的一个或多个位来表示其颜色。例如，使用 2 位来表示三种颜色，00 表示白色、01 表示灰色、10 表示黑色。 有的把标记记录在与对象相互独立的数据结构上（如G1、Shenandoah使用了一种相当于堆内存的1&#x2F;64大小的，称为bitmap的结构来记录标记信息）</li>
+<li><strong>而ZGC的染色指针</strong>是最直接的、最纯粹的，它直接把标记信息记录在引用对象的指针上，这时，与其说可达性分析是遍历对象图来标记对象，还不如说是遍历”引用图“来标记”引用“了。</li>
+</ul>
+<p>三色标记算法在现代垃圾回收器（如 G1 垃圾回收器）中得到了广泛应用，通过合理的标记记录方式，能够高效地进行垃圾回收，减少内存泄漏和提高内存利用率。</p>
+<h4 id="1-8-2-2、染色指针技术（colored-pointer）"><a href="#1-8-2-2、染色指针技术（colored-pointer）" class="headerlink" title="1.8.2.2、染色指针技术（colored pointer）"></a>1.8.2.2、染色指针技术（colored pointer）</h4><p><font color="#e98787"><strong>染色指针是一种直接将少量额外信息存储在指针上的技术</strong></font><br>可是为什么指针本身也可以存储额外信息呢？查看下图：<br><img src="/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/ZGC_%E6%9F%93%E8%89%B2%E6%8C%87%E9%92%88.png" alt="ZGC_染色指针"></p>
+<h4 id="1-8-2-3、读屏障"><a href="#1-8-2-3、读屏障" class="headerlink" title="1.8.2.3、读屏障"></a>1.8.2.3、读屏障</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">读屏障是JVM向应用代码插入一小段代码的技术。当应用线程从堆中读取对象引用时，就会执行这段代码。需要注意的是，仅“从堆中读取对象引用”才会触发这段代码。</span><br></pre></td></tr></table></figure>
+<p>读屏障示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Object o = obj.FieldA   // 从堆中读取引用，需要加入屏障</span><br><span class="line">&lt;Load barrier&gt;</span><br><span class="line">Object p = o  // 无需加入屏障，因为不是从堆中读取引用</span><br><span class="line">o.dosomething() // 无需加入屏障，因为不是从堆中读取引用</span><br><span class="line">int i =  obj.FieldB  //无需加入屏障，因为不是对象引用</span><br></pre></td></tr></table></figure>
+<p>ZGC中读屏障的代码作用：在对象标记和转移过程中，用于确定对象的引用地址是否满足条件，并作出相应动作。</p>
+<h3 id="1-8-3、工作流程"><a href="#1-8-3、工作流程" class="headerlink" title="1.8.3、工作流程"></a>1.8.3、工作流程</h3><p><img src="/2020/04/21/2020-04-21-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8/ZGC.png" alt="ZGC"><br>与CMS中的ParNew和G1类似，ZGC也采用标记-复制算法，不过ZGC对该算法做了重大改进：ZGC在标记、转移和重定位阶段几乎都是并发的，这是ZGC实现停顿时间小于10ms目标的最关键原因。</p>
+<p>ZGC只有三个STW阶段：<strong>初始标记，再标记，初始转移</strong>。其中，初始标记和初始转移分别都只需要扫描所有GC Roots，其处理时间和GC Roots的数量成正比，一般情况耗时非常短；再标记阶段STW时间很短，最多1ms，超过1ms则再次进入并发标记阶段。即，ZGC几乎所有暂停都只依赖于GC Roots集合大小，停顿时间不会随着堆的大小或者活跃对象的大小而增加。与ZGC对比，G1的转移阶段完全STW的，且停顿时间随存活对象的大小增加而增加。</p>
+<h3 id="1-8-4、总结和区别"><a href="#1-8-4、总结和区别" class="headerlink" title="1.8.4、总结和区别"></a>1.8.4、总结和区别</h3><ul>
+<li><p>和Shenandoah的区别：<br>Shenandoah使用转发指针和读屏障来实现并发整理，ZGC虽然同样用到了读屏障，但用的却是一条与Shenandoah完全不同。</p>
+</li>
+<li><p>和G1的区别：<br>即，ZGC几乎所有暂停都只依赖于GC Roots集合大小，停顿时间不会随着堆的大小或者活跃对象的大小而增加。与ZGC对比，G1的转移阶段完全STW的，且停顿时间随存活对象的大小增加而增加。</p>
+</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/20/2020-04-20-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6/" rel="prev" title="《Java》垃圾回收">
+      <i class="fa fa-chevron-left"></i> 《Java》垃圾回收
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/22/2020-04-22-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E7%B1%BB%E5%9E%8B%E5%8F%8A%E6%97%B6%E6%9C%BA/" rel="next" title="《Java》垃圾回收类型及时机">
+      《Java》垃圾回收类型及时机 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8"><span class="nav-text">一、垃圾回收器</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-1%E3%80%81serial%E6%94%B6%E9%9B%86%E5%99%A8-%E3%80%90%E6%96%B0%E7%94%9F%E4%BB%A3%E3%80%91"><span class="nav-text">1.1、serial收集器 【新生代】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-2%E3%80%81ParNew%E6%94%B6%E9%9B%86%E5%99%A8-%E3%80%90%E6%96%B0%E7%94%9F%E4%BB%A3%E3%80%91"><span class="nav-text">1.2、ParNew收集器 【新生代】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-3%E3%80%81Parallel-Scavenge-%E3%80%90%E6%96%B0%E7%94%9F%E4%BB%A3%E3%80%91"><span class="nav-text">1.3、Parallel Scavenge 【新生代】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-4%E3%80%81Serial-Old%E6%94%B6%E9%9B%86%E5%99%A8-%E3%80%90%E8%80%81%E5%B9%B4%E4%BB%A3%E3%80%91"><span class="nav-text">1.4、Serial Old收集器 【老年代】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-5%E3%80%81Parallel-Old%E6%94%B6%E9%9B%86%E5%99%A8%E3%80%90%E8%80%81%E5%B9%B4%E4%BB%A3%E3%80%91"><span class="nav-text">1.5、Parallel Old收集器【老年代】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-6%E3%80%81CMS%E3%80%90%E8%80%81%E5%B9%B4%E4%BB%A3%E3%80%91"><span class="nav-text">1.6、CMS【老年代】</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-6-1%E3%80%81%E6%95%B4%E4%B8%AA%E6%94%B6%E9%9B%86%E8%BF%87%E7%A8%8B%E5%88%86%E4%B8%BA%E5%9B%9B%E4%B8%AA%E6%AD%A5%E9%AA%A4%EF%BC%9A"><span class="nav-text">1.6.1、整个收集过程分为四个步骤：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-6-2%E3%80%81%E5%AD%98%E5%9C%A8%E7%9A%84%E9%97%AE%E9%A2%98%EF%BC%9A"><span class="nav-text">1.6.2、存在的问题：</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%A2%8E%E7%89%87%E5%8C%96%E9%97%AE%E9%A2%98"><span class="nav-text">碎片化问题</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%BC%8F%E6%A0%87"><span class="nav-text">漏标</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-7%E3%80%81G1"><span class="nav-text">1.7、G1</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%93%E6%9E%84"><span class="nav-text">结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%AF%E9%A2%84%E6%B5%8B%E7%9A%84%E5%81%9C%E9%A1%BF%E6%97%B6%E9%97%B4"><span class="nav-text">可预测的停顿时间</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B7%A8%E5%8C%BA%E5%BC%95%E7%94%A8%E5%AF%B9%E8%B1%A1"><span class="nav-text">跨区引用对象</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B9%B6%E5%8F%91%E6%A0%87%E8%AE%B0%E9%98%B6%E6%AE%B5%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%E6%94%B6%E9%9B%86%E7%BA%BF%E7%A8%8B%E4%B8%8E%E7%94%A8%E6%88%B7%E7%BA%BF%E7%A8%8B%E4%BA%92%E4%B8%8D%E5%B9%B2%E6%89%B0%E5%9C%B0%E8%BF%90%E8%A1%8C%EF%BC%9F"><span class="nav-text">并发标记阶段如何保证收集线程与用户线程互不干扰地运行？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B"><span class="nav-text">工作流程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%88%9D%E5%A7%8B%E6%A0%87%E8%AE%B0-%E5%81%9C%E9%A1%BF%E7%BA%BF%E7%A8%8B"><span class="nav-text">初始标记  (停顿线程)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%B9%B6%E5%8F%91%E6%A0%87%E8%AE%B0"><span class="nav-text">并发标记</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9C%80%E7%BB%88%E6%A0%87%E8%AE%B0-%E5%81%9C%E9%A1%BF%E7%BA%BF%E7%A8%8B"><span class="nav-text">最终标记 (停顿线程)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%AD%9B%E9%80%89%E5%9B%9E%E6%94%B6-%E6%B6%89%E5%8F%8A%E5%AF%B9%E8%B1%A1%E7%A7%BB%E5%8A%A8%EF%BC%8C%E5%81%9C%E9%A1%BF%E7%BA%BF%E7%A8%8B%EF%BC%8C%E5%A4%9A%E6%9D%A1%E7%BA%BF%E7%A8%8B%E8%BF%9B%E8%A1%8C%E5%B9%B6%E8%A1%8C%E8%BF%9B%E8%A1%8C"><span class="nav-text">筛选回收 (涉及对象移动，停顿线程，多条线程进行并行进行)</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-8%E3%80%81shenandoah"><span class="nav-text">1.8、shenandoah</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B7%A5%E4%BD%9C%E8%BF%87%E7%A8%8B"><span class="nav-text">工作过程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-8%E3%80%81ZGC"><span class="nav-text">1.8、ZGC</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-8-1%E3%80%81%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80"><span class="nav-text">1.8.1、内存布局</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-8-2%E3%80%81%E5%85%B3%E9%94%AE%E6%8A%80%E6%9C%AF"><span class="nav-text">1.8.2、关键技术</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-8-2-1%E3%80%81%E5%A6%82%E4%BD%95%E6%A0%87%E5%BF%97%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%E7%9A%84%EF%BC%9F"><span class="nav-text">1.8.2.1、如何标志一个对象的？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1-8-2-2%E3%80%81%E6%9F%93%E8%89%B2%E6%8C%87%E9%92%88%E6%8A%80%E6%9C%AF%EF%BC%88colored-pointer%EF%BC%89"><span class="nav-text">1.8.2.2、染色指针技术（colored pointer）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1-8-2-3%E3%80%81%E8%AF%BB%E5%B1%8F%E9%9A%9C"><span class="nav-text">1.8.2.3、读屏障</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-8-3%E3%80%81%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B"><span class="nav-text">1.8.3、工作流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-8-4%E3%80%81%E6%80%BB%E7%BB%93%E5%92%8C%E5%8C%BA%E5%88%AB"><span class="nav-text">1.8.4、总结和区别</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

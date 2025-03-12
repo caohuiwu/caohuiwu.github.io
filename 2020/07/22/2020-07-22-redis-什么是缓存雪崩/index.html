@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是“Redis”系列的第十一篇文章，主要介绍的是Redis“什么是缓存雪崩、击穿、穿透？”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Redis》缓存问题，一致性、缓存雪崩、缓存穿透">
+<meta property="og:url" content="http://yoursite.com/2020/07/22/2020-07-22-redis-%E4%BB%80%E4%B9%88%E6%98%AF%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“Redis”系列的第十一篇文章，主要介绍的是Redis“什么是缓存雪崩、击穿、穿透？”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/07/22/2020-07-22-redis-%E4%BB%80%E4%B9%88%E6%98%AF%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9/%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/22/2020-07-22-redis-%E4%BB%80%E4%B9%88%E6%98%AF%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9/%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98%E6%80%BB%E7%BB%93.png">
+<meta property="article:published_time" content="2020-07-22T09:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.548Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/07/22/2020-07-22-redis-%E4%BB%80%E4%B9%88%E6%98%AF%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9/%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/07/22/2020-07-22-redis-%E4%BB%80%E4%B9%88%E6%98%AF%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Redis》缓存问题，一致性、缓存雪崩、缓存穿透 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/22/2020-07-22-redis-%E4%BB%80%E4%B9%88%E6%98%AF%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Redis》缓存问题，一致性、缓存雪崩、缓存穿透
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-22 17:19:31" itemprop="dateCreated datePublished" datetime="2020-07-22T17:19:31+08:00">2020-07-22</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9/" itemprop="url" rel="index"><span itemprop="name">缓存雪崩</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7/" itemprop="url" rel="index"><span itemprop="name">数据一致性</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E5%A4%A7key/" itemprop="url" rel="index"><span itemprop="name">大key</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E7%83%ADkey/" itemprop="url" rel="index"><span itemprop="name">热key</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>9.4k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>23 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是“Redis”系列的第十一篇文章，主要介绍的是Redis“什么是缓存雪崩、击穿、穿透？”。
+</code></pre>
+<h1 id="一、Redis"><a href="#一、Redis" class="headerlink" title="一、Redis"></a>一、Redis</h1><p><code>Redis（Remote Dictionary Server）</code>是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。</p>
+<span id="more"></span>
+
+<h1 id="二、什么是缓存雪崩、击穿、穿透？"><a href="#二、什么是缓存雪崩、击穿、穿透？" class="headerlink" title="二、什么是缓存雪崩、击穿、穿透？"></a>二、什么是缓存雪崩、击穿、穿透？</h1><p>在高并发的业务场景下，数据库大多数情况都是用户并发访问最薄弱的环节。所以，就需要使用redis做一个缓冲操作，让请求先访问到redis，而不是直接访问Mysql等数据库。这样可以大大缓解数据库的压力。当缓存库出现时，必须要考虑如下问题：缓存穿透缓存穿击缓存雪崩缓存污染（或者满了）缓存和数据库一致性</p>
+<ul>
+<li>缓存穿透</li>
+<li>缓存穿击</li>
+<li>缓存雪崩</li>
+<li>缓存污染（或者满了）</li>
+<li>缓存和数据库一致性</li>
+</ul>
+<hr>
+<h2 id="2-1、缓存穿透"><a href="#2-1、缓存穿透" class="headerlink" title="2.1、缓存穿透"></a>2.1、缓存穿透</h2><p>缓存穿透是指查询一个<font color="red">不存在的数据<font color="green">（既不在缓存中，也不在数据库中）</font></font>，由于缓存中没有该数据，请求会直接到达数据库。如果大量此类请求发生，数据库可能会被压垮。<br><img src="/2020/07/22/2020-07-22-redis-%E4%BB%80%E4%B9%88%E6%98%AF%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9/%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F.png" alt="缓存穿透"></p>
+<p>缓存穿透的发生一般有这两种情况：</p>
+<ol>
+<li>业务误操作，缓存中的数据和数据库中的数据都被误删除了，所以导致缓存和数据库中都没有数据；</li>
+<li>黑客恶意攻击，故意大量访问某些读取不存在数据的业务；</li>
+</ol>
+<p>应对缓存穿透的方案，常见的方案有三种。</p>
+<ul>
+<li>第一种方案，非法请求的限制；</li>
+<li>第二种方案，缓存空值或者默认值；</li>
+<li>第三种方案，使用布隆过滤器快速判断数据是否存在，避免通过查询数据库来判断数据是否存在；</li>
+</ul>
+<blockquote>
+<p>第一种方案，非法请求的限制</p>
+</blockquote>
+<p>当有大量恶意请求访问不存在的数据的时候，也会发生缓存穿透，因此在 API 入口处我们要判断求请求参数是否合理，请求参数是否含有非法值、请求字段是否存在，如果判断出是恶意请求就直接返回错误，避免进一步访问缓存和数据库。</p>
+<blockquote>
+<p>第二种方案，缓存空值或者默认值</p>
+</blockquote>
+<p>当我们线上业务发现缓存穿透的现象时，可以针对查询的数据，在缓存中设置一个空值或者默认值，这样后续请求就可以从缓存中读取到空值或者默认值，返回给应用，而不会继续查询数据库。</p>
+<blockquote>
+<p>第三种方案，使用布隆过滤器快速判断数据是否存在，避免通过查询数据库来判断数据是否存在。</p>
+</blockquote>
+<p>我们可以在写入数据库数据时，使用布隆过滤器做个标记，然后在用户请求到来时，业务线程确认缓存失效后，可以通过查询布隆过滤器快速判断数据是否存在，如果不存在，就不用通过查询数据库来判断数据是否存在。</p>
+<p>即使发生了缓存穿透，大量请求只会查询 Redis 和布隆过滤器，而不会查询数据库，保证了数据库能正常运行，Redis 自身也是支持布隆过滤器的。</p>
+<h3 id="2-1-1、小结"><a href="#2-1-1、小结" class="headerlink" title="2.1.1、小结"></a>2.1.1、小结</h3><p>缓存穿透之所以叫“穿透”，是因为请求直接绕过了缓存层，击中了数据库。</p>
+<hr>
+<h2 id="2-2、缓存雪崩"><a href="#2-2、缓存雪崩" class="headerlink" title="2.2、缓存雪崩"></a>2.2、缓存雪崩</h2><p>通常我们为了保证缓存中的数据与数据库中的数据一致性，会给 Redis 里的数据设置过期时间，当缓存数据过期后，用户访问的数据如果不在缓存里，业务系统需要重新生成缓存，因此就会访问数据库，并将数据更新到 Redis 里，这样后续请求都可以直接命中缓存。</p>
+<p>那么，<font color="green"><strong>当大量缓存数据在同一时间过期（失效）</strong></font>或者 <font color="green"><strong>Redis 故障宕机时</strong></font>，如果此时有大量的用户请求，都无法在 Redis 中处理，于是全部请求都直接访问数据库，从而导致数据库的压力骤增，严重的会造成数据库宕机，从而形成一系列连锁反应，造成整个系统崩溃，这就是<font color="green">缓存雪崩</font>的问题。</p>
+<p>可以看到，发生缓存雪崩有两个原因：</p>
+<ol>
+<li>大量数据同时过期；</li>
+<li>Redis 故障宕机；</li>
+</ol>
+<p>不同的诱因，应对的策略也会不同。</p>
+<h3 id="2-2-1、大量数据同时过期"><a href="#2-2-1、大量数据同时过期" class="headerlink" title="2.2.1、大量数据同时过期"></a>2.2.1、大量数据同时过期</h3><p>针对大量数据同时过期而引发的缓存雪崩问题，常见的应对方法有下面这几种：</p>
+<ul>
+<li>均匀设置过期时间；</li>
+<li>互斥锁；</li>
+<li>后台更新缓存；</li>
+</ul>
+<ol>
+<li><p>均匀设置过期时间<br>如果要给缓存数据设置过期时间，应该避免将大量的数据设置成同一个过期时间。我们可以在对缓存数据设置过期时间时，给这些数据的过期时间加上一个随机数，这样就保证数据不会在同一时间过期。</p>
+</li>
+<li><p>互斥锁<br>当业务线程在处理用户请求时，如果发现访问的数据不在 Redis 里，就加个互斥锁，保证同一时间内只有一个请求来构建缓存（从数据库读取数据，再将数据更新到 Redis 里），当缓存构建完成后，再释放锁。未能获取互斥锁的请求，要么等待锁释放后重新读取缓存，要么就返回空值或者默认值。</p>
+</li>
+</ol>
+<p>实现互斥锁的时候，最好设置超时时间，不然第一个请求拿到了锁，然后这个请求发生了某种意外而一直阻塞，一直不释放锁，这时其他请求也一直拿不到锁，整个系统就会出现无响应的现象。</p>
+<ol start="3">
+<li>后台更新缓存<br>业务线程不再负责更新缓存，缓存也不设置有效期，而是让缓存“永久有效”，并将更新缓存的工作交由后台线程定时更新。</li>
+</ol>
+<p>事实上，缓存数据不设置有效期，并不是意味着数据一直能在内存里，因为当系统内存紧张的时候，有些缓存数据会被“淘汰”，而在缓存被“淘汰”到下一次后台定时更新缓存的这段时间内，业务线程读取缓存失败就返回空值，业务的视角就以为是数据丢失了。</p>
+<p>解决上面的问题的方式有两种。</p>
+<p><strong>第一种方式，后台线程不仅负责定时更新缓存</strong>，而且也负责频繁地检测缓存是否有效，检测到缓存失效了，原因可能是系统紧张而被淘汰的，于是就要马上从数据库读取数据，并更新到缓存。</p>
+<p>这种方式的检测时间间隔不能太长，太长也导致用户获取的数据是一个空值而不是真正的数据，所以检测的间隔最好是毫秒级的，但是总归是有个间隔时间，用户体验一般。</p>
+<p><strong>第二种方式，在业务线程发现缓存数据失效后（缓存数据被淘汰），通过消息队列发送一条消息通知后台线程更新缓存</strong>，后台线程收到消息后，在更新缓存前可以判断缓存是否存在，存在就不执行更新缓存操作；不存在就读取数据库数据，并将数据加载到缓存。这种方式相比第一种方式缓存的更新会更及时，用户体验也比较好。</p>
+<p>在业务刚上线的时候，我们最好提前把数据缓起来，而不是等待用户访问才来触发缓存构建，这就是所谓的<font color="green"><strong>缓存预热</strong></font>，后台更新缓存的机制刚好也适合干这个事情。</p>
+<h3 id="2-2-2、Redis-故障宕机"><a href="#2-2-2、Redis-故障宕机" class="headerlink" title="2.2.2、Redis 故障宕机"></a>2.2.2、Redis 故障宕机</h3><p>针对 Redis 故障宕机而引发的缓存雪崩问题，常见的应对方法有下面这几种：</p>
+<ul>
+<li>服务熔断或请求限流机制；</li>
+<li>构建 Redis 缓存高可靠集群；</li>
+</ul>
+<h4 id="1-服务熔断或请求限流机制"><a href="#1-服务熔断或请求限流机制" class="headerlink" title="1. 服务熔断或请求限流机制"></a>1. 服务熔断或请求限流机制</h4><p>因为 Redis 故障宕机而导致缓存雪崩问题时，我们可以启动服务熔断机制，暂停业务应用对缓存服务的访问，直接返回错误，不用再继续访问数据库，从而降低对数据库的访问压力，保证数据库系统的正常运行，然后等到 Redis 恢复正常后，再允许业务应用访问缓存服务。</p>
+<p>服务熔断机制是保护数据库的正常允许，但是暂停了业务应用访问缓存服系统，全部业务都无法正常工作</p>
+<p>为了减少对业务的影响，我们可以启用请求限流机制，只将少部分请求发送到数据库进行处理，再多的请求就在入口直接拒绝服务，等到 Redis 恢复正常并把缓存预热完后，再解除请求限流的机制。</p>
+<h4 id="2-构建-Redis-缓存高可靠集群"><a href="#2-构建-Redis-缓存高可靠集群" class="headerlink" title="2. 构建 Redis 缓存高可靠集群"></a>2. 构建 Redis 缓存高可靠集群</h4><p>服务熔断或请求限流机制是缓存雪崩发生后的应对方案，我们最好通过主从节点的方式构建 Redis 缓存高可靠集群。</p>
+<p>如果 Redis 缓存的主节点故障宕机，从节点可以切换成为主节点，继续提供缓存服务，避免了由于 Redis 故障宕机而导致的缓存雪崩问题。</p>
+<hr>
+<h2 id="2-3、缓存击穿"><a href="#2-3、缓存击穿" class="headerlink" title="2.3、缓存击穿"></a>2.3、缓存击穿</h2><p>我们的业务通常会有几个数据会被频繁地访问，比如秒杀活动，这类被频繁访问的数据被称为热点数据。</p>
+<p>如果缓存中的<font color="green"><strong>某个热点数据过期了</strong></font>，此时大量的请求访问了该热点数据，就无法从缓存中读取，直接访问数据库，数据库很容易就被高并发的请求冲垮，这就是<font color="green"><strong>缓存击穿</strong></font>的问题。</p>
+<p>可以发现缓存击穿跟缓存雪崩很相似，你可以认为缓存击穿是缓存雪崩的一个子集。</p>
+<p>应对缓存击穿可以采取前面说到两种方案：</p>
+<ul>
+<li>互斥锁方案，保证同一时间只有一个业务线程更新缓存，未能获取互斥锁的请求，要么等待锁释放后重新读取缓存，要么就返回空值或者默认值。</li>
+<li>不给热点数据设置过期时间，由后台异步更新缓存，或者在热点数据准备要过期前，提前通知后台线程更新缓存以及重新设置过期时间；</li>
+</ul>
+<p>以下是使用 <strong>Java</strong> 实现基于互斥锁（Mutex Lock）的缓存获取代码。我们使用 <code>ReentrantLock</code> 来实现互斥锁，并通过 <code>ConcurrentHashMap</code> 模拟缓存。</p>
+<h3 id="2-3-1、“互斥锁”代码实现"><a href="#2-3-1、“互斥锁”代码实现" class="headerlink" title="2.3.1、“互斥锁”代码实现"></a>2.3.1、“互斥锁”代码实现</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CacheWithMutexLock</span> &#123;</span><br><span class="line">    <span class="comment">// 模拟缓存</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ConcurrentHashMap&lt;String, String&gt; cache = <span class="keyword">new</span> <span class="title class_">ConcurrentHashMap</span>&lt;&gt;();</span><br><span class="line">    <span class="comment">// 互斥锁</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Lock</span> <span class="variable">lock</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReentrantLock</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 模拟数据库查询</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> String <span class="title function_">queryDatabase</span><span class="params">(String key)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 模拟数据库查询耗时</span></span><br><span class="line">            Thread.sleep(<span class="number">2000</span>);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;Data for &quot;</span> + key; <span class="comment">// 假设从数据库获取的数据</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取缓存数据</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> String <span class="title function_">getData</span><span class="params">(String key)</span> &#123;</span><br><span class="line">        <span class="comment">// 尝试从缓存中获取数据</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">data</span> <span class="operator">=</span> cache.get(key);</span><br><span class="line">        <span class="keyword">if</span> (data != <span class="literal">null</span>) &#123;</span><br><span class="line">            System.out.println(Thread.currentThread().getName() + <span class="string">&quot;: Cache hit!&quot;</span>);</span><br><span class="line">            <span class="keyword">return</span> data;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 缓存未命中，尝试获取锁</span></span><br><span class="line">        lock.lock();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 再次检查缓存（防止其他线程已经更新了缓存）</span></span><br><span class="line">            data = cache.get(key);</span><br><span class="line">            <span class="keyword">if</span> (data != <span class="literal">null</span>) &#123;</span><br><span class="line">                System.out.println(Thread.currentThread().getName() + <span class="string">&quot;: Cache hit after lock!&quot;</span>);</span><br><span class="line">                <span class="keyword">return</span> data;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">// 模拟从数据库获取数据</span></span><br><span class="line">            System.out.println(Thread.currentThread().getName() + <span class="string">&quot;: Querying database...&quot;</span>);</span><br><span class="line">            data = queryDatabase(key);</span><br><span class="line">            <span class="comment">// 将数据写入缓存</span></span><br><span class="line">            cache.put(key, data);</span><br><span class="line">            System.out.println(Thread.currentThread().getName() + <span class="string">&quot;: Cache updated!&quot;</span>);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            <span class="comment">// 释放锁</span></span><br><span class="line">            lock.unlock();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> data;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="2-3-2、总结"><a href="#2-3-2、总结" class="headerlink" title="2.3.2、总结"></a>2.3.2、总结</h3><p>通过互斥锁的方式，可以有效解决缓存击穿问题，确保系统在高并发场景下的稳定性和性能。Java 的 <code>ReentrantLock</code> 提供了灵活的锁机制，适合实现此类需求。</p>
+<h2 id="2-4、缓存污染（或满了）"><a href="#2-4、缓存污染（或满了）" class="headerlink" title="2.4、缓存污染（或满了）"></a>2.4、缓存污染（或满了）</h2><p>缓存污染问题说的是缓存中一些只会被访问一次或者几次的的数据，被访问完后，再也不会被访问到，但这部分数据依然留存在缓存中，消耗缓存空间。</p>
+<p>缓存污染会随着数据的持续增加而逐渐显露，随着服务的不断运行，缓存中会存在大量的永远不会再次被访问的数据。缓存空间是有限的，如果缓存空间满了，再往缓存里写数据时就会有额外开销，影响Redis性能。这部分额外开销主要是指写的时候判断淘汰策略，根据淘汰策略去选择要淘汰的数据，然后进行删除操作。</p>
+<h2 id="2-5、缓存问题小结"><a href="#2-5、缓存问题小结" class="headerlink" title="2.5、缓存问题小结"></a>2.5、缓存问题小结</h2><p><img src="/2020/07/22/2020-07-22-redis-%E4%BB%80%E4%B9%88%E6%98%AF%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9/%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98%E6%80%BB%E7%BB%93.png" alt="缓存问题总结"></p>
+<h1 id="三、大key问题"><a href="#三、大key问题" class="headerlink" title="三、大key问题"></a>三、大key问题</h1><p>大key指的是key对应的value值所占的内存空间比较大</p>
+<blockquote>
+<p>例如一个字符串类型的value最大可以存储512MB的内容，一个列表类型的value最多可以存储2的32次方-1个元素，一般情况下，我们认为字符串类型的key的value值超过10kb，就算大key。</p>
+</blockquote>
+<h2 id="3-1、大key的危害"><a href="#3-1、大key的危害" class="headerlink" title="3.1、大key的危害"></a>3.1、大key的危害</h2><h3 id="3-1-1、内存占用过高"><a href="#3-1-1、内存占用过高" class="headerlink" title="3.1.1、内存占用过高"></a>3.1.1、内存占用过高</h3><p>大key会占用大量内存，可能导致Redis内存不足，触发淘汰策略（如LRU）或直接崩溃。</p>
+<h3 id="3-1-2、阻塞请求"><a href="#3-1-2、阻塞请求" class="headerlink" title="3.1.2、阻塞请求"></a>3.1.2、阻塞请求</h3><p>对大key的操作（如读取、删除）会消耗大量CPU和网络资源，导致其他请求被阻塞。</p>
+<h3 id="3-1-3、持久化性能下降"><a href="#3-1-3、持久化性能下降" class="headerlink" title="3.1.3、持久化性能下降"></a>3.1.3、持久化性能下降</h3><p>在生成RDB快照或AOF重写时，大key会导致持久化过程变慢，甚至影响主线程的性能。（具体内容查看Redis的数据持久化流程）</p>
+<h3 id="3-1-4、数据迁移困难"><a href="#3-1-4、数据迁移困难" class="headerlink" title="3.1.4、数据迁移困难"></a>3.1.4、数据迁移困难</h3><p>在集群模式下，大key会导致数据迁移变得非常缓慢，影响集群的扩展性。</p>
+<h2 id="3-2、大key产生原因"><a href="#3-2、大key产生原因" class="headerlink" title="3.2、大key产生原因"></a>3.2、大key产生原因</h2><ul>
+<li>在不适用的场景下使用Redis，易造成Key的value过大<ul>
+<li>如使用String类型的Key存放大体积二进制文件型数据；</li>
+</ul>
+</li>
+<li>业务上线前规划设计不足，没有对Key中的成员进行合理的拆分，造成个别Key中的成员数量过多</li>
+<li>未定期清理无效数据，造成如HASH类型Key中的成员持续不断地增加</li>
+<li>使用LIST类型Key的业务消费侧发生代码故障，造成对应Key的成员只增不减</li>
+</ul>
+<h2 id="3-3、如何发现大key"><a href="#3-3、如何发现大key" class="headerlink" title="3.3、如何发现大key"></a>3.3、如何发现大key</h2><ol>
+<li><p>redis-cli –bigkeys命令可以统计bigkey的分布情况<br>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">redis-cli --bigkeys</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>使用 ”MEMORY USAGE“命令，可以查看某个key的内存占用情况<br>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MEMORY USAGE my_key</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>使用SCAN命令<br>结合scan和 STRLEN、HLEN、LLEN等命令，手动查找大key。<br>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">scan 0 match * count 100</span><br><span class="line">STRLEN my_key</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h2 id="3-4、大key如何处理？"><a href="#3-4、大key如何处理？" class="headerlink" title="3.4、大key如何处理？"></a>3.4、大key如何处理？</h2><ol>
+<li><strong>对大Key进行拆分</strong><blockquote>
+<p>例如将含有数万成员的一个HASH Key拆分为多个HASH Key，并确保每个Key的成员数量在合理范围。在Redis集群架构中，拆分大Key能对数据分片间的内存平衡起到显著作用</p>
+</blockquote>
+</li>
+</ol>
+<p>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">HSET big_hash field1 value1 field2 value2 ... field10000 value10000</span><br></pre></td></tr></table></figure>
+<p>拆分成多个小key</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">HSET hash_part1 field1 value1 field2 value2 ... field1000 value1000</span><br><span class="line">HSET hash_part2 field1001 value1001 ... field2000 value2000</span><br><span class="line">....</span><br></pre></td></tr></table></figure>
+
+
+<ol start="2">
+<li><p><strong>压缩数据</strong><br>对value进行压缩，减少内存占用。例如使用GZIP、Snappy等压缩算法。<br>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">//压缩数据</span><br><span class="line">byte[] compressedData = compress(data);</span><br><span class="line">redis.set(&quot;my_key&quot;, compressedData);</span><br><span class="line"></span><br><span class="line">//解压数据</span><br><span class="line">byte[] compressedData = redis.get(&quot;my_key&quot;);</span><br><span class="line">byte[] data = decompress(compressedData);</span><br></pre></td></tr></table></figure>
+
+</li>
+<li><p><strong>使用合适的数据结构</strong><br>根据业务需求选择合适的数据结构，避免不必要的大key。<br>例如使用 HyperLogLog代替集合进行基数统计。</p>
+</li>
+<li><p><strong>异步删除大key</strong><br>直接删除大key 会阻塞Redis，可以使用 UNLINK 命令异步删除。<br>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">UNLINK my_key</span><br></pre></td></tr></table></figure>
+
+</li>
+<li><p><strong>限制大key的大小</strong><br>在业务层面限制 key 的大小，避免生成大 key 。<br>例如：限制列表、集合、哈希表的最大长度。</p>
+</li>
+</ol>
+<h2 id="3-5、大key的预防措施"><a href="#3-5、大key的预防措施" class="headerlink" title="3.5、大key的预防措施"></a>3.5、大key的预防措施</h2><ol>
+<li>监控和告警<br>定期监控redis的内存使用情况，设置大key的告警阈值。</li>
+<li>数据分片<br>将数据分散到多个Redis实例中，避免单个实例出现大key。</li>
+<li>优化业务逻辑<br>避免在单个key中存储过多数据，合理设计数据结构。</li>
+</ol>
+<h2 id="3-6、大key小结"><a href="#3-6、大key小结" class="headerlink" title="3.6、大key小结"></a>3.6、大key小结</h2><p>大key是Redis中常见的问题，会对性能和稳定性产生严重影响。通过拆分、压缩、异步删除等方法，可以有效解决大key问题。同时，通过监控和优化业务逻辑，可以预防大key的产生。</p>
+<h1 id="四、热key问题"><a href="#四、热key问题" class="headerlink" title="四、热key问题"></a>四、热key问题</h1><p>热key是指在Redis中访问频率非常高的key。热key会导致Redis的某些实例负载过高，从而影响整体性能和稳定性。热key问题在分布式缓存系统中尤为常见，尤其是在高并发场景下。</p>
+<h2 id="4-1、热key的危害"><a href="#4-1、热key的危害" class="headerlink" title="4.1、热key的危害"></a>4.1、热key的危害</h2><ol>
+<li><p>单实例负载过高<br>热key集中在某个Redis实例上，导致该实例的CPU、内存和网络带宽压力过大。</p>
+</li>
+<li><p>性能瓶颈<br>热key的频繁访问可能导致Redis响应变慢，甚至触发连接超时</p>
+</li>
+<li><p>数据倾斜<br>在Redis集群模式下，热key会导致数据分布不均匀，某些节点负载过高。</p>
+</li>
+<li><p>缓存击穿<br>热Key的请求压力数量超出Redis的承受能力易造成缓存击穿，即大量请求将被直接指向后端的存储层，导致存储访问量激增甚至宕机，从而影响其他业务。</p>
+</li>
+</ol>
+<h2 id="4-2、热key产生原因"><a href="#4-2、热key产生原因" class="headerlink" title="4.2、热key产生原因"></a>4.2、热key产生原因</h2><p>预期外的访问量陡增，如突然出现的爆款商品、访问量暴涨的热点新闻、直播间某主播搞活动带来的大量刷屏点赞、游戏中某区域发生多个工会之间的战斗涉及大量玩家等</p>
+<h2 id="4-3、如何发现热key"><a href="#4-3、如何发现热key" class="headerlink" title="4.3、如何发现热key"></a>4.3、如何发现热key</h2><ol>
+<li><p>通过redis-cli hotkeys参数查找热Key<br>Redis 6.0 及以上版本支持 –hotkeys 命令，可以扫描并识别热key。<br>示例</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">redis-cli --hotkeys</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>使用MONITOR命令<br>实时监控Redis的所有操作，分析访问频率较高的key。<br>示例</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">redis-cli monitor</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>使用SLOWLOG命令<br>查看慢查询日志，分析是否有某些key的访问频率过高<br>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">redis-cli slowlog get</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>通过业务层定位热Key<br>通过在业务层增加相应的代码对Redis的访问进行记录并异步汇总分析</p>
+</li>
+</ol>
+<h2 id="4-4、热key如何处理？"><a href="#4-4、热key如何处理？" class="headerlink" title="4.4、热key如何处理？"></a>4.4、热key如何处理？</h2><h3 id="4-4-1、多级缓存"><a href="#4-4-1、多级缓存" class="headerlink" title="4.4.1、多级缓存"></a>4.4.1、多级缓存</h3><p>定义缓存级别：首先，确定你希望使用多少级别的缓存。这可以是一级、二级或更多级别，具体取决于你的需求。</p>
+<h4 id="4-4-1-1、本地缓存"><a href="#4-4-1-1、本地缓存" class="headerlink" title="4.4.1.1、本地缓存"></a>4.4.1.1、本地缓存</h4><p>在应用层（如Java的Guava cache或Caffeine）缓存热key的数据，减少对Redis的访问。</p>
+<h4 id="4-4-1-2、示例：本地缓存-Redis的代码"><a href="#4-4-1-2、示例：本地缓存-Redis的代码" class="headerlink" title="4.4.1.2、示例：本地缓存 + Redis的代码"></a>4.4.1.2、示例：本地缓存 + Redis的代码</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HotKeySolution</span> &#123;</span><br><span class="line">    <span class="comment">// 本地缓存</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Cache&lt;String, String&gt; localCache = CacheBuilder.newBuilder()</span><br><span class="line">            .maximumSize(<span class="number">1000</span>) <span class="comment">// 最大缓存数量</span></span><br><span class="line">            .expireAfterWrite(<span class="number">10</span>, TimeUnit.MINUTES) <span class="comment">// 缓存过期时间</span></span><br><span class="line">            .build();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 连接 Redis</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Jedis</span> <span class="variable">jedis</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Jedis</span>(<span class="string">&quot;localhost&quot;</span>, <span class="number">6379</span>);</span><br><span class="line">    <span class="comment">// 获取数据</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> String <span class="title function_">getData</span><span class="params">(String key)</span> &#123;</span><br><span class="line">        <span class="comment">// 先从本地缓存获取</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">data</span> <span class="operator">=</span> localCache.getIfPresent(key);</span><br><span class="line">        <span class="keyword">if</span> (data != <span class="literal">null</span>) &#123;</span><br><span class="line">            System.out.println(<span class="string">&quot;Local cache hit!&quot;</span>);</span><br><span class="line">            <span class="keyword">return</span> data;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 本地缓存未命中，从 Redis 获取</span></span><br><span class="line">        data = jedis.get(key);</span><br><span class="line">        <span class="keyword">if</span> (data != <span class="literal">null</span>) &#123;</span><br><span class="line">            System.out.println(<span class="string">&quot;Redis cache hit!&quot;</span>);</span><br><span class="line">            localCache.put(key, data); <span class="comment">// 更新本地缓存</span></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            System.out.println(<span class="string">&quot;Cache miss!&quot;</span>);</span><br><span class="line">            <span class="comment">// 从数据库获取数据并更新缓存</span></span><br><span class="line">            data = queryDatabase(key);</span><br><span class="line">            jedis.set(key, data);</span><br><span class="line">            localCache.put(key, data);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> data;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 模拟数据库查询</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> String <span class="title function_">queryDatabase</span><span class="params">(String key)</span> &#123;</span><br><span class="line">        <span class="comment">// 模拟数据库查询耗时</span></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Thread.sleep(<span class="number">1000</span>);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;Data for &quot;</span> + key;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 测试</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> <span class="string">&quot;hot_key&quot;</span>;</span><br><span class="line">        System.out.println(getData(key)); <span class="comment">// 第一次访问</span></span><br><span class="line">        System.out.println(getData(key)); <span class="comment">// 第二次访问（命中本地缓存）</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-4-2、数据分片"><a href="#4-4-2、数据分片" class="headerlink" title="4.4.2、数据分片"></a>4.4.2、数据分片</h3><p>将热key的数据分散到多个key中，减轻单个key的压力。</p>
+<p>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># 原始热 key</span><br><span class="line">SET hot_key value</span><br><span class="line"></span><br><span class="line"># 分片为多个 key</span><br><span class="line">SET hot_key_part1 value1</span><br><span class="line">SET hot_key_part2 value2</span><br><span class="line">SET hot_key_part3 value3</span><br></pre></td></tr></table></figure>
+
+<p>在Redis集群架构中，由于热Key的迁移粒度问题，无法将请求分散至其他数据分片，导致单个数据分片的压力无法下降。此时，可以将对应热Key进行复制并迁移至其他数据分片，例如将热Key foo复制出3个内容完全一样的Key并名为foo2、foo3、foo4，将这三个Key迁移到其他数据分片来解决单个数据分片的热Key压力。</p>
+<p>说明 该方案的缺点在于需要联动修改代码，同时带来了数据一致性的挑战（由原来更新一个Key演变为需要更新多个Key），仅建议该方案用来解决临时棘手的问题。</p>
+<h3 id="4-4-3、读写分离"><a href="#4-4-3、读写分离" class="headerlink" title="4.4.3、读写分离"></a>4.4.3、读写分离</h3><p>使用Redis的主从复制功能，将读请求分散到从节点，减轻主节点的压力。</p>
+<p>如果热Key的产生来自于读请求，您可以将实例改造成读写分离架构来降低每个数据分片的读请求压力，甚至可以不断地增加从节点。但是读写分离架构在增加业务代码复杂度的同时，也会增加Redis集群架构复杂度。不仅要为多个从节点提供转发层（如Proxy，LVS等）来实现负载均衡，还要考虑从节点数量显著增加后带来故障率增加的问题。Redis集群架构变更会为监控、运维、故障处理带来了更大的挑战。</p>
+<p>说明 读写分离架构同样存在缺点，在请求量极大的场景下，读写分离架构会产生不可避免的延迟，此时会有读取到脏数据的问题。因此，在读、写压力都较大且对数据一致性要求很高的场景下，读写分离架构并不是最优方案。</p>
+<h3 id="4-4-4、限流和熔断"><a href="#4-4-4、限流和熔断" class="headerlink" title="4.4.4、限流和熔断"></a>4.4.4、限流和熔断</h3><ul>
+<li>对热key的访问进行限流，防止请求过多导致Redis崩溃。</li>
+<li>使用熔断机制，在Redis压力过大时直接拒绝请求。</li>
+</ul>
+<h3 id="4-4-5、数据预热"><a href="#4-4-5、数据预热" class="headerlink" title="4.4.5、数据预热"></a>4.4.5、数据预热</h3><p>在系统启动或低峰期，提前加载热key的数据到缓存中，避免高峰期缓存失效。</p>
+<p>参考文章：<br><a href="https://pdai.tech/md/db/nosql-redis/db-redis-x-cache.html">Redis进阶 - 缓存问题：一致性, 穿击, 穿透, 雪崩, 污染等</a><br><a href="https://xiaolincoding.com/redis/storage/bigkey_aof_rdb.html#%E6%80%BB%E7%BB%93">Redis 大 Key 对持久化有什么影响？</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="prev" title="《Redis》分布式锁">
+      <i class="fa fa-chevron-left"></i> 《Redis》分布式锁
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/24/2020-07-24-redis-%E6%95%B0%E6%8D%AE%E5%BA%93%E5%92%8C%E7%BC%93%E5%AD%98%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%E4%B8%80%E8%87%B4%E6%80%A7/" rel="next" title="《Redis》数据库和缓存如何保证一致性？">
+      《Redis》数据库和缓存如何保证一致性？ <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Redis"><span class="nav-text">一、Redis</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AF%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9%E3%80%81%E5%87%BB%E7%A9%BF%E3%80%81%E7%A9%BF%E9%80%8F%EF%BC%9F"><span class="nav-text">二、什么是缓存雪崩、击穿、穿透？</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F"><span class="nav-text">2.1、缓存穿透</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-1%E3%80%81%E5%B0%8F%E7%BB%93"><span class="nav-text">2.1.1、小结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9"><span class="nav-text">2.2、缓存雪崩</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1%E3%80%81%E5%A4%A7%E9%87%8F%E6%95%B0%E6%8D%AE%E5%90%8C%E6%97%B6%E8%BF%87%E6%9C%9F"><span class="nav-text">2.2.1、大量数据同时过期</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-2%E3%80%81Redis-%E6%95%85%E9%9A%9C%E5%AE%95%E6%9C%BA"><span class="nav-text">2.2.2、Redis 故障宕机</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-%E6%9C%8D%E5%8A%A1%E7%86%94%E6%96%AD%E6%88%96%E8%AF%B7%E6%B1%82%E9%99%90%E6%B5%81%E6%9C%BA%E5%88%B6"><span class="nav-text">1. 服务熔断或请求限流机制</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-%E6%9E%84%E5%BB%BA-Redis-%E7%BC%93%E5%AD%98%E9%AB%98%E5%8F%AF%E9%9D%A0%E9%9B%86%E7%BE%A4"><span class="nav-text">2. 构建 Redis 缓存高可靠集群</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81%E7%BC%93%E5%AD%98%E5%87%BB%E7%A9%BF"><span class="nav-text">2.3、缓存击穿</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-1%E3%80%81%E2%80%9C%E4%BA%92%E6%96%A5%E9%94%81%E2%80%9D%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0"><span class="nav-text">2.3.1、“互斥锁”代码实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-2%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">2.3.2、总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4%E3%80%81%E7%BC%93%E5%AD%98%E6%B1%A1%E6%9F%93%EF%BC%88%E6%88%96%E6%BB%A1%E4%BA%86%EF%BC%89"><span class="nav-text">2.4、缓存污染（或满了）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-5%E3%80%81%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98%E5%B0%8F%E7%BB%93"><span class="nav-text">2.5、缓存问题小结</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%A4%A7key%E9%97%AE%E9%A2%98"><span class="nav-text">三、大key问题</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E5%A4%A7key%E7%9A%84%E5%8D%B1%E5%AE%B3"><span class="nav-text">3.1、大key的危害</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E5%86%85%E5%AD%98%E5%8D%A0%E7%94%A8%E8%BF%87%E9%AB%98"><span class="nav-text">3.1.1、内存占用过高</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-2%E3%80%81%E9%98%BB%E5%A1%9E%E8%AF%B7%E6%B1%82"><span class="nav-text">3.1.2、阻塞请求</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-3%E3%80%81%E6%8C%81%E4%B9%85%E5%8C%96%E6%80%A7%E8%83%BD%E4%B8%8B%E9%99%8D"><span class="nav-text">3.1.3、持久化性能下降</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-4%E3%80%81%E6%95%B0%E6%8D%AE%E8%BF%81%E7%A7%BB%E5%9B%B0%E9%9A%BE"><span class="nav-text">3.1.4、数据迁移困难</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E5%A4%A7key%E4%BA%A7%E7%94%9F%E5%8E%9F%E5%9B%A0"><span class="nav-text">3.2、大key产生原因</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E5%A6%82%E4%BD%95%E5%8F%91%E7%8E%B0%E5%A4%A7key"><span class="nav-text">3.3、如何发现大key</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4%E3%80%81%E5%A4%A7key%E5%A6%82%E4%BD%95%E5%A4%84%E7%90%86%EF%BC%9F"><span class="nav-text">3.4、大key如何处理？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-5%E3%80%81%E5%A4%A7key%E7%9A%84%E9%A2%84%E9%98%B2%E6%8E%AA%E6%96%BD"><span class="nav-text">3.5、大key的预防措施</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-6%E3%80%81%E5%A4%A7key%E5%B0%8F%E7%BB%93"><span class="nav-text">3.6、大key小结</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%83%ADkey%E9%97%AE%E9%A2%98"><span class="nav-text">四、热key问题</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E7%83%ADkey%E7%9A%84%E5%8D%B1%E5%AE%B3"><span class="nav-text">4.1、热key的危害</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81%E7%83%ADkey%E4%BA%A7%E7%94%9F%E5%8E%9F%E5%9B%A0"><span class="nav-text">4.2、热key产生原因</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81%E5%A6%82%E4%BD%95%E5%8F%91%E7%8E%B0%E7%83%ADkey"><span class="nav-text">4.3、如何发现热key</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-4%E3%80%81%E7%83%ADkey%E5%A6%82%E4%BD%95%E5%A4%84%E7%90%86%EF%BC%9F"><span class="nav-text">4.4、热key如何处理？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-1%E3%80%81%E5%A4%9A%E7%BA%A7%E7%BC%93%E5%AD%98"><span class="nav-text">4.4.1、多级缓存</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-1-1%E3%80%81%E6%9C%AC%E5%9C%B0%E7%BC%93%E5%AD%98"><span class="nav-text">4.4.1.1、本地缓存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-1-2%E3%80%81%E7%A4%BA%E4%BE%8B%EF%BC%9A%E6%9C%AC%E5%9C%B0%E7%BC%93%E5%AD%98-Redis%E7%9A%84%E4%BB%A3%E7%A0%81"><span class="nav-text">4.4.1.2、示例：本地缓存 + Redis的代码</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-2%E3%80%81%E6%95%B0%E6%8D%AE%E5%88%86%E7%89%87"><span class="nav-text">4.4.2、数据分片</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-3%E3%80%81%E8%AF%BB%E5%86%99%E5%88%86%E7%A6%BB"><span class="nav-text">4.4.3、读写分离</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-4%E3%80%81%E9%99%90%E6%B5%81%E5%92%8C%E7%86%94%E6%96%AD"><span class="nav-text">4.4.4、限流和熔断</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-5%E3%80%81%E6%95%B0%E6%8D%AE%E9%A2%84%E7%83%AD"><span class="nav-text">4.4.5、数据预热</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是“Redis”系列的第九篇文章，主要介绍的是Redis的“事件机制和线程模型”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Redis》事件机制及线程模型">
+<meta property="og:url" content="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“Redis”系列的第九篇文章，主要介绍的是Redis的“事件机制和线程模型”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/aeEventLoop.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/%E6%96%87%E4%BB%B6%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86%E5%99%A8.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/%E6%97%B6%E9%97%B4%E4%BA%8B%E4%BB%B6.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/aeEventLoop%E5%B0%8F%E7%BB%93.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E5%B0%8F%E7%BB%93.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B_%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png">
+<meta property="article:published_time" content="2020-07-17T15:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.535Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/aeEventLoop.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Redis》事件机制及线程模型 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Redis》事件机制及线程模型
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-17 23:19:31" itemprop="dateCreated datePublished" datetime="2020-07-17T23:19:31+08:00">2020-07-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6/" itemprop="url" rel="index"><span itemprop="name">事件机制</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E6%BA%90%E7%A0%81/" itemprop="url" rel="index"><span itemprop="name">源码</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/" itemprop="url" rel="index"><span itemprop="name">线程模型</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>20k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>50 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是“Redis”系列的第九篇文章，主要介绍的是Redis的“事件机制和线程模型”。
+</code></pre>
+<h1 id="一、Redis"><a href="#一、Redis" class="headerlink" title="一、Redis"></a>一、Redis</h1><p><code>Redis（Remote Dictionary Server）</code>是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。</p>
+<span id="more"></span>
+
+<h1 id="二、Redis事件模型"><a href="#二、Redis事件模型" class="headerlink" title="二、Redis事件模型"></a>二、Redis事件模型</h1><p>Redis 的<font color="green">事件模型是其高性能和高并发处理能力的关键基础</font>，主要由<strong>文件事件</strong>和<strong>时间事件</strong>组成：</p>
+<ul>
+<li>**文件事件(file event)**：用于处理 Redis 服务器和客户端之间的网络IO。</li>
+<li>**时间事件(time eveat)**：Redis 服务器中的一些操作（比如serverCron函数）需要在给定的时间点执行，而时间事件就是处理这类定时操作的。</li>
+</ul>
+<p>事件驱动库的代码主要是在<code>src/ae.c</code>中实现的，其示意图如下所示。<br><img src="/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/aeEventLoop.png" alt="aeEventLoop"><br><code>aeEventloop</code>是redis事件模型基础数据，它主要包含文件事件和时间事件的两个链表。对于文件事件来说，包含文件句柄fd，事件类型mask，对应处理函数fileProc；对于时间事件来说包含id、执行时间（when_sec、when_ms）和对应执行函数timeProc 对应的源代码如下：</p>
+<h2 id="2-1、文件事件"><a href="#2-1、文件事件" class="headerlink" title="2.1、文件事件"></a>2.1、文件事件</h2><p>Redis 基于网络套接字进行客户端连接和数据交互，文件事件就是对套接字操作的抽象。Redis 通过文件事件来监听套接字上的可读、可写等事件，以实现对客户端请求的响应和数据的传输。</p>
+<blockquote>
+<p>Redis基于Reactor模式开发了自己的网络事件处理器，也就是文件事件处理器。文件事件处理器使用IO多路复用技术（建议先看下 Java IO多路复用详解 ），同时监听多个套接字，并为套接字关联不同的事件处理函数。当套接字的可读或者可写事件触发时，就会调用相应的事件处理函数。</p>
+</blockquote>
+<p>Redis 的文件事件的具体定义结构如下所示。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* File event structure */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">aeFileEvent</span> &#123;</span><br><span class="line">    <span class="type">int</span> fd; <span class="comment">// 事件对应的文件句柄ID</span></span><br><span class="line">    <span class="type">int</span> mask; <span class="comment">/* one of AE_(READABLE|WRITABLE|EXCEPTION) */</span></span><br><span class="line">    aeFileProc *fileProc; <span class="comment">// 文件事件回调函数</span></span><br><span class="line">    aeEventFinalizerProc *finalizerProc; <span class="comment">// 事件结束时执行的函数</span></span><br><span class="line">    <span class="type">void</span> *clientData; <span class="comment">// 对应客户端的扩展数据</span></span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">aeFileEvent</span> *next; <span class="comment">// 下一个文件事件（链表存储）</span></span><br><span class="line">&#125; aeFileEvent;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-1-1、线程模型"><a href="#2-1-1、线程模型" class="headerlink" title="2.1.1、线程模型"></a>2.1.1、线程模型</h3><p>单线程事件循环</p>
+<blockquote>
+<p>从 Redis 的 v1.0 到 v6.0 版本之前，Redis 的核心网络模型一直是一个典型的单 Reactor 模型：利用 epoll&#x2F;select&#x2F;kqueue 等多路复用技术，在单线程的事件循环中不断去处理事件（客户端请求），最后回写响应数据到客户端</p>
+</blockquote>
+<h3 id="2-1-2、为什么单线程的-Redis-能那么快？"><a href="#2-1-2、为什么单线程的-Redis-能那么快？" class="headerlink" title="2.1.2、为什么单线程的 Redis 能那么快？"></a>2.1.2、为什么单线程的 Redis 能那么快？</h3><p>Redis的瓶颈主要在IO而不是CPU，所以为了省开发量，在6.0版本前是单线程模型；其次，Redis 是单线程主要是指 Redis 的网络 IO 和键值对读写是由一个线程来完成的，这也是 Redis 对外提供键值存储服务的主要流程。（但 Redis 的其他功能，比如持久化、异步删除、集群数据同步等，其实是由额外的线程执行的）。</p>
+<p>Redis 采用了多路复用机制使其在网络 IO 操作中能并发处理大量的客户端请求，实现高吞吐率。</p>
+<h3 id="2-1-3、Redis事件响应框架ae-event及文件事件处理器"><a href="#2-1-3、Redis事件响应框架ae-event及文件事件处理器" class="headerlink" title="2.1.3、Redis事件响应框架ae_event及文件事件处理器"></a>2.1.3、Redis事件响应框架ae_event及文件事件处理器</h3><p>Redis 使用的IO多路复用技术主要有：select、epoll、evport和kqueue等。每个IO多路复用函数库在 Redis 源码中都对应一个单独的文件，比如ae_select.c，ae_epoll.c， ae_kqueue.c等。</p>
+<p>如下图所示，文件事件处理器有四个组成部分，它们分别是套接字、I&#x2F;O多路复用程序、文件事件分派器以及事件处理器。<br><img src="/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/%E6%96%87%E4%BB%B6%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86%E5%99%A8.png" alt="文件事件处理器"><br>文件事件是对套接字操作的抽象，每当一个套接字准备好执行 <code>accept、read、write和 close</code> 等操作时，就会产生一个文件事件。因为 Redis 通常会连接多个套接字，所以多个文件事件有可能并发的出现。</p>
+<h2 id="2-2、时间事件"><a href="#2-2、时间事件" class="headerlink" title="2.2、时间事件"></a>2.2、时间事件</h2><p>时间事件用于处理定时任务和周期性任务，比如定期执行内存数据的持久化、检查客户端连接的超时等。<br>Redis 的时间事件分为以下两类：</p>
+<ul>
+<li>定时事件：让一段程序在指定的时间之后执行一次。</li>
+<li>周期性事件：让一段程序每隔指定时间就执行一次。</li>
+</ul>
+<p>Redis 的时间事件的具体定义结构如下所示。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">aeTimeEvent</span> &#123;</span><br><span class="line">    <span class="comment">/* 全局唯一ID */</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> id; <span class="comment">/* time event identifier. */</span></span><br><span class="line">    <span class="comment">/* 秒精确的UNIX时间戳，记录时间事件到达的时间*/</span></span><br><span class="line">    <span class="type">long</span> when_sec; <span class="comment">/* seconds */</span></span><br><span class="line">    <span class="comment">/* 毫秒精确的UNIX时间戳，记录时间事件到达的时间*/</span></span><br><span class="line">    <span class="type">long</span> when_ms; <span class="comment">/* milliseconds */</span></span><br><span class="line">    <span class="comment">/* 时间处理器 */</span></span><br><span class="line">    aeTimeProc *timeProc;</span><br><span class="line">    <span class="comment">/* 事件结束回调函数，析构一些资源*/</span></span><br><span class="line">    aeEventFinalizerProc *finalizerProc;</span><br><span class="line">    <span class="comment">/* 私有数据 */</span></span><br><span class="line">    <span class="type">void</span> *clientData;</span><br><span class="line">    <span class="comment">/* 前驱节点 */</span></span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">aeTimeEvent</span> *prev;</span><br><span class="line">    <span class="comment">/* 后继节点 */</span></span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">aeTimeEvent</span> *next;</span><br><span class="line">&#125; aeTimeEvent;</span><br></pre></td></tr></table></figure>
+<p>一个时间事件是定时事件还是周期性事件取决于时间处理器的返回值：</p>
+<ul>
+<li>如果返回值是 AE_NOMORE，那么这个事件是一个定时事件，该事件在达到后删除，之后不会再重复。</li>
+<li>如果返回值是非 AE_NOMORE 的值，那么这个事件为周期性事件，当一个时间事件到达后，服务器会根据时间处理器的返回值，对时间事件的 when 属性进行更新，让这个事件在一段时间后再次达到。</li>
+</ul>
+<p><img src="/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/%E6%97%B6%E9%97%B4%E4%BA%8B%E4%BB%B6.png" alt="时间事件"><br>服务器所有的时间事件都放在一个无序链表中，每当时间事件执行器运行时，它就遍历整个链表，查找所有已到达的时间事件，并调用相应的事件处理器。正常模式下的Redis服务器只使用serverCron一个时间事件，而在benchmark模式下，服务器也只使用两个时间事件，所以不影响事件执行的性能。#</p>
+<h2 id="2-3、aeEventLoop事件管理器源码分析"><a href="#2-3、aeEventLoop事件管理器源码分析" class="headerlink" title="2.3、aeEventLoop事件管理器源码分析"></a>2.3、aeEventLoop事件管理器源码分析</h2><p>redisServer是存储redis服务端运行的结构体，在启动的时候就会初始化完成，结构如下，它主要包含跟监听的socket有关的参数port和fd；对应存储数据的redisDb列表；链接的客户端列表clients；事件循环<code>aeEventLoop *el</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">redisServer</span> &#123;</span><br><span class="line">    <span class="type">int</span> port;       <span class="comment">// 服务端监听的端口</span></span><br><span class="line">    <span class="type">int</span> fd;         <span class="comment">// 服务端起的socket对应的文件句柄</span></span><br><span class="line">    redisDb *db;    <span class="comment">// redis db的列表，一般实际生产环境只用一个</span></span><br><span class="line"><span class="comment">//  3-lines</span></span><br><span class="line">    list *clients;  <span class="comment">// 服务端的列表</span></span><br><span class="line"><span class="comment">// 2 lines</span></span><br><span class="line">    aeEventLoop *el; <span class="comment">// 事件循环</span></span><br><span class="line"><span class="comment">//  36 lines</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>aeEventLoop</code>内部有aeFileEvent和aeTimeEvent</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">aeEventLoop</span> &#123;</span><br><span class="line">    <span class="comment">// 时间事件的最大ID</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> timeEventNextId;</span><br><span class="line">    <span class="comment">// 已分配的文件事件数组大小</span></span><br><span class="line">    <span class="type">int</span> eventsSize;</span><br><span class="line">    <span class="comment">// 已分配的时间事件数组大小</span></span><br><span class="line">    <span class="type">int</span> timeEventSize;</span><br><span class="line">    <span class="comment">// 已使用的文件事件数量</span></span><br><span class="line">    <span class="type">int</span> fileEventCount;</span><br><span class="line">    <span class="comment">// 指向时间事件的指针数组</span></span><br><span class="line">    aeTimeEvent **timeEventHead;</span><br><span class="line">    <span class="comment">// 文件事件数组，每个元素对应一个文件描述符的事件信息</span></span><br><span class="line">    aeFileEvent *events;</span><br><span class="line">    <span class="comment">// 用于存储已就绪的文件事件的数组</span></span><br><span class="line">    aeFiredEvent *fired;</span><br><span class="line">    <span class="comment">// 事件多路复用库的私有数据</span></span><br><span class="line">    <span class="type">void</span> *apidata;</span><br><span class="line">    <span class="comment">// 时间事件处理器函数</span></span><br><span class="line">    <span class="built_in">int</span> (*timeProc)(aeEventLoop *eventLoop, <span class="type">long</span> <span class="type">long</span> id, <span class="type">void</span> *clientData);</span><br><span class="line">    <span class="comment">// 事件循环结束标志</span></span><br><span class="line">    <span class="type">int</span> stop;</span><br><span class="line">    <span class="comment">// 最后一次执行时间事件的时间</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> lastTime;</span><br><span class="line">&#125; aeEventLoop;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>timeEventHead</code>：是一个指向 aeTimeEvent 结构体的指针数组，用于存储所有的时间事件。数组中的每个元素都是一个时间事件节点的指针，通过这个数组可以方便地遍历和管理所有的时间事件</li>
+<li><code>events</code>：文件事件数组，每个元素对应一个文件描述符的事件信息</li>
+<li><code>fired</code>：用于存储已就绪的文件事件的数组</li>
+</ul>
+<h3 id="2-3-1、aeEventLoop的创建及启动"><a href="#2-3-1、aeEventLoop的创建及启动" class="headerlink" title="2.3.1、aeEventLoop的创建及启动"></a>2.3.1、aeEventLoop的创建及启动</h3><p>这部分涉及了redis的启动流程。</p>
+<h4 id="2-3-1-1、主入口main"><a href="#2-3-1-1、主入口main" class="headerlink" title="2.3.1.1、主入口main()"></a>2.3.1.1、主入口main()</h4><p>从main函数看起，redis启动的main函数位于<code>redis.c</code>中，可以看到启动时，首先初始化了配置<code>initServerConfig()</code>，然后初始化了server端服务<code>initServer()</code>，接下来注册处理函数为<code>acceptHandler</code>的文件事件，然后启动了redis的主循环开始处理事件了。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">initServerConfig</span>(); <span class="comment">// 初始化配置</span></span><br><span class="line"><span class="comment">// 8-lines 从文件中读取配置</span></span><br><span class="line">    <span class="built_in">initServer</span>(); <span class="comment">// 初始化服务</span></span><br><span class="line">    <span class="keyword">if</span> (server.daemonize) <span class="built_in">daemonize</span>(); <span class="comment">// TODO</span></span><br><span class="line">    <span class="built_in">redisLog</span>(REDIS_NOTICE,<span class="string">&quot;Server started, Redis version &quot;</span> REDIS_VERSION);</span><br><span class="line"><span class="comment">// 5-lines,内存检查，加载rdb</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">aeCreateFileEvent</span>(server.el, server.fd, AE_READABLE,</span><br><span class="line">        acceptHandler, <span class="literal">NULL</span>, <span class="literal">NULL</span>) == AE_ERR) <span class="built_in">oom</span>(<span class="string">&quot;creating file event&quot;</span>); <span class="comment">// 创建一个读的文件事件，处理者是acceptHandler</span></span><br><span class="line">    <span class="built_in">redisLog</span>(REDIS_NOTICE,<span class="string">&quot;The server is now ready to accept connections on port %d&quot;</span>, server.port);</span><br><span class="line">    <span class="built_in">aeMain</span>(server.el); <span class="comment">// 启动redis主循环</span></span><br><span class="line">    <span class="built_in">aeDeleteEventLoop</span>(server.el); <span class="comment">// 主循环退出清理资源</span></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-3-1-2、initServer【初始化服务端】"><a href="#2-3-1-2、initServer【初始化服务端】" class="headerlink" title="2.3.1.2、initServer【初始化服务端】"></a>2.3.1.2、initServer【初始化服务端】</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">initServer</span><span class="params">()</span> </span>&#123;</span><br><span class="line"><span class="comment">// 5-lines ...</span></span><br><span class="line">    server.clients = <span class="built_in">listCreate</span>(); <span class="comment">// 初始化客户端列表</span></span><br><span class="line"><span class="comment">// 4-lines</span></span><br><span class="line">    server.el = <span class="built_in">aeCreateEventLoop</span>(); <span class="comment">// 初始化事件循环</span></span><br><span class="line">    server.db = <span class="built_in">zmalloc</span>(<span class="built_in">sizeof</span>(redisDb)*server.dbnum); <span class="comment">// 为db分配内存</span></span><br><span class="line"><span class="comment">// 3-lines ...</span></span><br><span class="line">    server.fd = <span class="built_in">anetTcpServer</span>(server.neterr, server.port, server.bindaddr); <span class="comment">// 初始化服务端的sever socket</span></span><br><span class="line"><span class="comment">// 4-lines ...</span></span><br><span class="line">    <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; server.dbnum; j++) &#123; <span class="comment">// 初始化数据存储</span></span><br><span class="line">        server.db[j].dict = <span class="built_in">dictCreate</span>(&amp;hashDictType,<span class="literal">NULL</span>);</span><br><span class="line">        server.db[j].expires = <span class="built_in">dictCreate</span>(&amp;setDictType,<span class="literal">NULL</span>);</span><br><span class="line">        server.db[j].id = j;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="comment">// 8-lines ...</span></span><br><span class="line">    <span class="built_in">aeCreateTimeEvent</span>(server.el, <span class="number">1000</span>, serverCron, <span class="literal">NULL</span>, <span class="literal">NULL</span>);<span class="comment">// 初始化时间事件</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>初始化了客户端列表、事件循环、db、创建了时间事件，主要工作内容就是将这几个核心的组件初始化了。</p>
+<h5 id="2-3-1-2-1、内部小步骤：aeCreateEventLoop"><a href="#2-3-1-2-1、内部小步骤：aeCreateEventLoop" class="headerlink" title="2.3.1.2.1、内部小步骤：aeCreateEventLoop"></a>2.3.1.2.1、内部小步骤：aeCreateEventLoop</h5><p>初始化时间循环。</p>
+<h4 id="2-3-1-3、主循环aeEventProcess执行过程"><a href="#2-3-1-3、主循环aeEventProcess执行过程" class="headerlink" title="2.3.1.3、主循环aeEventProcess执行过程"></a>2.3.1.3、主循环aeEventProcess执行过程</h4><p>上一步在<code>initServer</code>初始化服务端时就创建好了<code>eventLoop</code>事件循环。接下来就是执行事件循环了。</p>
+<p>如何执行：main函数中调用<code>aeMain</code>函数 <code>aeMain</code>函数则不停的循环调用<code>aeEventProcess</code>处理事件。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">aeMain</span><span class="params">(aeEventLoop *eventLoop)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    eventLoop-&gt;stop = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">while</span> (!eventLoop-&gt;stop)</span><br><span class="line">        <span class="built_in">aeProcessEvents</span>(eventLoop, AE_ALL_EVENTS);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>while循环，调用<code>aeEventProcess</code>，接下来详细了解方法内部执行逻辑。</p>
+<h4 id="2-3-1-4、aeEventProcess"><a href="#2-3-1-4、aeEventProcess" class="headerlink" title="2.3.1.4、aeEventProcess"></a>2.3.1.4、<code>aeEventProcess</code></h4><p>方法主要逻辑是处理所有已到达的时间事件，以及所有已就绪的文件事件</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">aeProcessEvents</span><span class="params">(aeEventLoop *eventLoop, <span class="type">int</span> flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="comment">// 9-line 变量初始化和前置判断</span></span><br><span class="line">    <span class="built_in">FD_ZERO</span>(&amp;rfds); <span class="comment">// 清空fd集合</span></span><br><span class="line">    <span class="built_in">FD_ZERO</span>(&amp;wfds); <span class="comment">// 清空fd集合</span></span><br><span class="line">    <span class="built_in">FD_ZERO</span>(&amp;efds); <span class="comment">// 清空fd集合</span></span><br><span class="line"></span><br><span class="line">   <span class="comment">// 检查文件事件，将它们分别放到对应的集合中</span></span><br><span class="line">    <span class="keyword">if</span> (flags &amp; AE_FILE_EVENTS) &#123;</span><br><span class="line">        <span class="keyword">while</span> (fe != <span class="literal">NULL</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (fe-&gt;mask &amp; AE_READABLE) <span class="built_in">FD_SET</span>(fe-&gt;fd, &amp;rfds);</span><br><span class="line">            <span class="keyword">if</span> (fe-&gt;mask &amp; AE_WRITABLE) <span class="built_in">FD_SET</span>(fe-&gt;fd, &amp;wfds);</span><br><span class="line">            <span class="keyword">if</span> (fe-&gt;mask &amp; AE_EXCEPTION) <span class="built_in">FD_SET</span>(fe-&gt;fd, &amp;efds);</span><br><span class="line">            <span class="keyword">if</span> (maxfd &lt; fe-&gt;fd) maxfd = fe-&gt;fd;</span><br><span class="line">            numfd++;</span><br><span class="line">            fe = fe-&gt;next;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"> <span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>将这些文件事件装到不同的集合（可读、可写、异常）中</p>
+<h5 id="2-3-1-4-1、计算超时时间"><a href="#2-3-1-4-1、计算超时时间" class="headerlink" title="2.3.1.4.1、计算超时时间"></a>2.3.1.4.1、计算超时时间</h5><p>在调用select()函数的时候，在监听的fd没有就绪时，会阻塞住；这里还需要处理时间事件，因此我们需要给select()设置一个超时时间，以防阻塞的时候错过了执行时间事件。超时时间计算通过找到最近的一条时间事件的执行时间计算的到</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">aeProcessEvents</span><span class="params">(aeEventLoop *eventLoop, <span class="type">int</span> flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="comment">// 42-lines ...接上文</span></span><br><span class="line">       <span class="keyword">if</span> (numfd || ((flags &amp; AE_TIME_EVENTS) &amp;&amp; !(flags &amp; AE_DONT_WAIT))) &#123;</span><br><span class="line">        <span class="type">int</span> retval;</span><br><span class="line">        aeTimeEvent *shortest = <span class="literal">NULL</span>;</span><br><span class="line">        <span class="keyword">struct</span> <span class="title class_">timeval</span> tv, *tvp;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (flags &amp; AE_TIME_EVENTS &amp;&amp; !(flags &amp; AE_DONT_WAIT))</span><br><span class="line">            shortest = <span class="built_in">aeSearchNearestTimer</span>(eventLoop); <span class="comment">// 遍历timeEvent的链表，拿到最近的执行时间事件</span></span><br><span class="line">        <span class="keyword">if</span> (shortest) &#123;</span><br><span class="line">            <span class="type">long</span> now_sec, now_ms;</span><br><span class="line">            <span class="comment">// 计算时间差</span></span><br><span class="line">            <span class="built_in">aeGetTime</span>(&amp;now_sec, &amp;now_ms); <span class="comment">// 拿到当前时间</span></span><br><span class="line">            tvp = &amp;tv;</span><br><span class="line">            tvp-&gt;tv_sec = shortest-&gt;when_sec - now_sec;<span class="comment">// 计算秒差</span></span><br><span class="line">            <span class="keyword">if</span> (shortest-&gt;when_ms &lt; now_ms) &#123; <span class="comment">// 比较毫秒位</span></span><br><span class="line">                tvp-&gt;tv_usec = ((shortest-&gt;when_ms<span class="number">+1000</span>) - now_ms)*<span class="number">1000</span>; <span class="comment">// 计算微秒差</span></span><br><span class="line">                tvp-&gt;tv_sec --;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                tvp-&gt;tv_usec = (shortest-&gt;when_ms - now_ms)*<span class="number">1000</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123; <span class="comment">//在某些情况下，事件循环需要立即返回，而不是等待事件的发生。这通常发生在非阻塞模式下，即使没有事件发生，事件循环也不应该阻塞等待。AE_DONT_WAIT 是一个标志，用于指示事件循环在这种非阻塞模式下运行。所以此处就进尽快返回ASAP</span></span><br><span class="line">            <span class="keyword">if</span> (flags &amp; AE_DONT_WAIT) &#123;</span><br><span class="line">                tv.tv_sec = tv.tv_usec = <span class="number">0</span>;</span><br><span class="line">                tvp = &amp;tv;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">// 设置为NULL，永久阻塞等待就绪</span></span><br><span class="line">                tvp = <span class="literal">NULL</span>; <span class="comment">/* wait forever */</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h5 id="2-3-1-4-1、执行文件事件"><a href="#2-3-1-4-1、执行文件事件" class="headerlink" title="2.3.1.4.1、执行文件事件"></a>2.3.1.4.1、执行文件事件</h5><p>拿到超时时间后就开始执行事件了，首先调用epoll_wait，拿到就绪文件事件的个数，然后开始挨个检查就绪的文件事件执行</p>
+<ul>
+<li>值的注意的是在redis1.0中调用的是select()系统调用，在后续的redis版本中调用的是epoll()相关函数。</li>
+</ul>
+<h6 id="1、获取文件事件：aeApiPoll"><a href="#1、获取文件事件：aeApiPoll" class="headerlink" title="1、获取文件事件：aeApiPoll"></a>1、获取文件事件：aeApiPoll</h6><p>执行<code>epoll_wait</code>去获取</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">aeApiPoll</span><span class="params">(aeEventLoop *eventLoop, <span class="keyword">struct</span> timeval *tvp)</span> </span>&#123;</span><br><span class="line">    aeApiState *state = eventLoop-&gt;apidata;</span><br><span class="line">    <span class="type">int</span> retval, numevents = <span class="number">0</span>;</span><br><span class="line">    <span class="comment">// 等待时间</span></span><br><span class="line">    retval = <span class="built_in">epoll_wait</span>(state-&gt;epfd,state-&gt;events,eventLoop-&gt;setsize,</span><br><span class="line">            tvp ? (tvp-&gt;tv_sec*<span class="number">1000</span> + tvp-&gt;tv_usec/<span class="number">1000</span>) : <span class="number">-1</span>);</span><br><span class="line">    <span class="comment">// 有至少一个事件就绪？</span></span><br><span class="line">    <span class="keyword">if</span> (retval &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="type">int</span> j;</span><br><span class="line">        <span class="comment">// 为已就绪事件设置相应的模式</span></span><br><span class="line">        <span class="comment">// 并加入到 eventLoop 的 fired 数组中</span></span><br><span class="line">        numevents = retval;</span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; numevents; j++) &#123;</span><br><span class="line">            <span class="type">int</span> mask = <span class="number">0</span>;</span><br><span class="line">            <span class="keyword">struct</span> <span class="title class_">epoll_event</span> *e = state-&gt;events+j;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (e-&gt;events &amp; EPOLLIN) mask |= AE_READABLE;</span><br><span class="line">            <span class="keyword">if</span> (e-&gt;events &amp; EPOLLOUT) mask |= AE_WRITABLE;</span><br><span class="line">            <span class="keyword">if</span> (e-&gt;events &amp; EPOLLERR) mask |= AE_WRITABLE;</span><br><span class="line">            <span class="keyword">if</span> (e-&gt;events &amp; EPOLLHUP) mask |= AE_WRITABLE;</span><br><span class="line"></span><br><span class="line">            eventLoop-&gt;fired[j].fd = e-&gt;data.fd;</span><br><span class="line">            eventLoop-&gt;fired[j].mask = mask;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 返回已就绪事件个数</span></span><br><span class="line">    <span class="keyword">return</span> numevents;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h6 id="2、处理文件事件"><a href="#2、处理文件事件" class="headerlink" title="2、处理文件事件"></a>2、处理文件事件</h6><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 处理文件事件，阻塞时间由 tvp 决定</span></span><br><span class="line">numevents = <span class="built_in">aeApiPoll</span>(eventLoop, tvp);</span><br><span class="line"><span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; numevents; j++) &#123;</span><br><span class="line">    <span class="comment">// 从已就绪数组中获取事件</span></span><br><span class="line">    aeFileEvent *fe = &amp;eventLoop-&gt;events[eventLoop-&gt;fired[j].fd];</span><br><span class="line">    <span class="type">int</span> mask = eventLoop-&gt;fired[j].mask;</span><br><span class="line">    <span class="type">int</span> fd = eventLoop-&gt;fired[j].fd;</span><br><span class="line">    <span class="type">int</span> rfired = <span class="number">0</span>;</span><br><span class="line">   <span class="comment">/* note the fe-&gt;mask &amp; mask &amp; ... code: maybe an already processed</span></span><br><span class="line"><span class="comment">     * event removed an element that fired and we still didn&#x27;t</span></span><br><span class="line"><span class="comment">     * processed, so we check if the event is still valid. */</span></span><br><span class="line">    <span class="comment">// 读事件</span></span><br><span class="line">    <span class="keyword">if</span> (fe-&gt;mask &amp; mask &amp; AE_READABLE) &#123;</span><br><span class="line">        <span class="comment">// rfired 确保读/写事件只能执行其中一个</span></span><br><span class="line">        rfired = <span class="number">1</span>;</span><br><span class="line">        fe-&gt;<span class="built_in">rfileProc</span>(eventLoop,fd,fe-&gt;clientData,mask);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 写事件</span></span><br><span class="line">    <span class="keyword">if</span> (fe-&gt;mask &amp; mask &amp; AE_WRITABLE) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!rfired || fe-&gt;wfileProc != fe-&gt;rfileProc)</span><br><span class="line">            fe-&gt;<span class="built_in">wfileProc</span>(eventLoop,fd,fe-&gt;clientData,mask);</span><br><span class="line">    &#125;</span><br><span class="line">    processed++;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h5 id="2-3-1-4-2、执行时间事件"><a href="#2-3-1-4-2、执行时间事件" class="headerlink" title="2.3.1.4.2、执行时间事件"></a>2.3.1.4.2、执行时间事件</h5><p>时间事件的执行就相对简单一些，主要逻辑就是比较事件执行时间是否比当前时间大了，到达执行时间便执行；另外一个点是看这个事件是一次性的还是周期性，一次性的事件要删掉；另外下一次执行的时间点是回调函数返回的，然后写到事件的结构体中</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (flags &amp; AE_TIME_EVENTS) &#123; <span class="comment">// 需要处理时间事件</span></span><br><span class="line">    te = eventLoop-&gt;timeEventHead; <span class="comment">// 取到第一个事件</span></span><br><span class="line">    maxId = eventLoop-&gt;timeEventNextId<span class="number">-1</span>; <span class="comment">// 记录最大的ID</span></span><br><span class="line">    <span class="keyword">while</span>(te) &#123;</span><br><span class="line">        <span class="type">long</span> now_sec, now_ms;</span><br><span class="line">        <span class="type">long</span> <span class="type">long</span> id;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (te-&gt;id &gt; maxId) &#123;<span class="comment">// 如果ID&gt;maxID则认为这个事件是新加的不在此次循环处理，否则可能出现无限循环的情况</span></span><br><span class="line">            te = te-&gt;next;</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">aeGetTime</span>(&amp;now_sec, &amp;now_ms); <span class="comment">//拿到当前时间</span></span><br><span class="line">        <span class="keyword">if</span> (now_sec &gt; te-&gt;when_sec || <span class="comment">//比较秒</span></span><br><span class="line">            (now_sec == te-&gt;when_sec &amp;&amp; now_ms &gt;= te-&gt;when_ms)) <span class="comment">// 比较毫秒</span></span><br><span class="line">        &#123;</span><br><span class="line">            <span class="type">int</span> retval;</span><br><span class="line"></span><br><span class="line">            id = te-&gt;id;</span><br><span class="line">            retval = te-&gt;<span class="built_in">timeProc</span>(eventLoop, id, te-&gt;clientData); <span class="comment">//执行时间事件的回调函数</span></span><br><span class="line">            </span><br><span class="line">            <span class="keyword">if</span> (retval != AE_NOMORE) &#123;<span class="comment">// 如果是不是一次性的</span></span><br><span class="line">                <span class="built_in">aeAddMillisecondsToNow</span>(retval,&amp;te-&gt;when_sec,&amp;te-&gt;when_ms); <span class="comment">//添加下一次时间事件</span></span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="built_in">aeDeleteTimeEvent</span>(eventLoop, id); <span class="comment">//如果是一次性的删除这个时间</span></span><br><span class="line">            &#125;</span><br><span class="line">            te = eventLoop-&gt;timeEventHead; <span class="comment">// 执行完一次时间事件后，列表可能发生变化，下一次需要从头开始处理</span></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            te = te-&gt;next;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-3-1-5、小结"><a href="#2-3-1-5、小结" class="headerlink" title="2.3.1.5、小结"></a>2.3.1.5、小结</h4><p>整个过程如图，简单来说：在redis启动时，在初始化配置和server的数据后，便启动了主循环aeMain，主循环的任务就是等待事件就绪和处理事件。对于文件事件，redis使用了 IO多路复用技术，通过系统调用<code>select()/epoll()</code>，检查就绪的文件事件，就绪后则会遍历aeEventLoop进行事件处理；对于时间事件，则是与系统当前时间比较，就绪的执行。<br><img src="/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/aeEventLoop%E5%B0%8F%E7%BB%93.png" alt="aeEventLoop小结"></p>
+<h1 id="三、事件处理"><a href="#三、事件处理" class="headerlink" title="三、事件处理"></a>三、事件处理</h1><p>了解完redis整体事件驱动的运行架构后，我们看下redis的一条命令执行的过程中经过了哪些过程 简单来说有四个过程：redis启动、客户端前来连接、客户端发送命令到服务端、服务端回复结果给客户端。 下面让我们详细看看：</p>
+<h2 id="3-1、过程1（redis启动）"><a href="#3-1、过程1（redis启动）" class="headerlink" title="3.1、过程1（redis启动）"></a>3.1、过程1（redis启动）</h2><p>上一章中，redis在启动的时候会通过<code>anetTcpSever</code>创建一个socket server，再调用<code>aeCreateFileEvent</code>注册一个<code>readable</code>事件，回调函数为<code>acceptHander</code>，对应文件的句柄就是server的fd。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">initServer</span><span class="params">()</span> </span>&#123;</span><br><span class="line"><span class="comment">// 5-lines ...</span></span><br><span class="line">    server.clients = <span class="built_in">listCreate</span>(); <span class="comment">// 初始化客户端列表</span></span><br><span class="line"><span class="comment">// 4-lines</span></span><br><span class="line">    server.el = <span class="built_in">aeCreateEventLoop</span>(); <span class="comment">// 初始化事件循环</span></span><br><span class="line">    server.db = <span class="built_in">zmalloc</span>(<span class="built_in">sizeof</span>(redisDb)*server.dbnum); <span class="comment">// 为db分配内存</span></span><br><span class="line"><span class="comment">// 3-lines ...</span></span><br><span class="line">    server.fd = <span class="built_in">anetTcpServer</span>(server.neterr, server.port, server.bindaddr); <span class="comment">// 初始化服务端的sever socket</span></span><br><span class="line"><span class="comment">// 4-lines ...</span></span><br><span class="line">    <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; server.dbnum; j++) &#123; <span class="comment">// 初始化数据存储</span></span><br><span class="line">        server.db[j].dict = <span class="built_in">dictCreate</span>(&amp;hashDictType,<span class="literal">NULL</span>);</span><br><span class="line">        server.db[j].expires = <span class="built_in">dictCreate</span>(&amp;setDictType,<span class="literal">NULL</span>);</span><br><span class="line">        server.db[j].id = j;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="comment">// 8-lines ...</span></span><br><span class="line">    <span class="built_in">aeCreateTimeEvent</span>(server.el, <span class="number">1000</span>, serverCron, <span class="literal">NULL</span>, <span class="literal">NULL</span>);<span class="comment">// 初始化时间事件</span></span><br><span class="line">    <span class="comment">/* Create an event handler for accepting new connections in TCP and Unix</span></span><br><span class="line"><span class="comment">     * domain sockets. */</span></span><br><span class="line">    <span class="comment">// 为 TCP 连接关联连接应答（accept）处理器</span></span><br><span class="line">    <span class="comment">// 用于接受并应答客户端的 connect() 调用</span></span><br><span class="line">    <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; server.ipfd_count; j++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">aeCreateFileEvent</span>(server.el, server.ipfd[j], AE_READABLE,</span><br><span class="line">            acceptTcpHandler,<span class="literal">NULL</span>) == AE_ERR)</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="built_in">redisPanic</span>(</span><br><span class="line">                    <span class="string">&quot;Unrecoverable error creating server.ipfd file event.&quot;</span>);</span><br><span class="line">            &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">initServerConfig</span>(); <span class="comment">// 初始化配置</span></span><br><span class="line"><span class="comment">// 8-lines 从文件中读取配置</span></span><br><span class="line">    <span class="built_in">initServer</span>(); <span class="comment">// 初始化服务</span></span><br><span class="line">    <span class="keyword">if</span> (server.daemonize) <span class="built_in">daemonize</span>(); <span class="comment">// TODO</span></span><br><span class="line">    <span class="built_in">redisLog</span>(REDIS_NOTICE,<span class="string">&quot;Server started, Redis version &quot;</span> REDIS_VERSION);</span><br><span class="line"><span class="comment">// 5-lines,内存检查，加载rdb</span></span><br><span class="line">    <span class="built_in">redisLog</span>(REDIS_NOTICE,<span class="string">&quot;The server is now ready to accept connections on port %d&quot;</span>, server.port);</span><br><span class="line">    <span class="built_in">aeMain</span>(server.el); <span class="comment">// 启动redis主循环</span></span><br><span class="line">    <span class="built_in">aeDeleteEventLoop</span>(server.el); <span class="comment">// 循环推出清理资源</span></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-2、过程2（客户端与服务端建立链接）"><a href="#3-2、过程2（客户端与服务端建立链接）" class="headerlink" title="3.2、过程2（客户端与服务端建立链接）"></a>3.2、过程2（客户端与服务端建立链接）</h2><p>第一个事件中处理函数是<code>acceptHander</code>，顾名思义就是接收客户端了链接并进行进一步处理，首先执行了<code>anetAccept()</code>函数，拿到了客户端和服务端交互的文件句柄fd，接下来执行<code>createClient()</code>函数，创建客户端实例</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">acceptHandler</span><span class="params">(aeEventLoop *el, <span class="type">int</span> fd, <span class="type">void</span> *privdata, <span class="type">int</span> mask)</span> </span>&#123;</span><br><span class="line"><span class="comment">// 6-lines ...</span></span><br><span class="line">    cfd = <span class="built_in">anetAccept</span>(server.neterr, fd, cip, &amp;cport); <span class="comment">// 核心是执行了accept，建立了连接拿到了与client交互的cfd</span></span><br><span class="line">    <span class="keyword">if</span> (cfd == AE_ERR) &#123;</span><br><span class="line">        <span class="built_in">redisLog</span>(REDIS_DEBUG,<span class="string">&quot;Accepting client connection: %s&quot;</span>, server.neterr);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">redisLog</span>(REDIS_DEBUG,<span class="string">&quot;Accepted %s:%d&quot;</span>, cip, cport);</span><br><span class="line">    <span class="keyword">if</span> ((c = <span class="built_in">createClient</span>(cfd)) == <span class="literal">NULL</span>) &#123; <span class="comment">// 初始化客户端</span></span><br><span class="line">        <span class="built_in">redisLog</span>(REDIS_WARNING,<span class="string">&quot;Error allocating resoures for the client&quot;</span>);</span><br><span class="line">        <span class="built_in">close</span>(cfd); <span class="comment">/* May be already closed, just ingore errors */</span></span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 如果当前客户端数量超过了 `maxclients` 的设置，服务器会接受新的连接，发送错误消息，然后关闭连接。</span></span><br><span class="line">    <span class="keyword">if</span> (server.maxclients &amp;&amp; <span class="built_in">listLength</span>(server.clients) &gt; server.maxclients) &#123;</span><br><span class="line">        <span class="type">char</span> *err = <span class="string">&quot;-ERR max number of clients reached\r\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* That&#x27;s a best effort error message, don&#x27;t check write errors */</span></span><br><span class="line">        (<span class="type">void</span>) <span class="built_in">write</span>(c-&gt;fd,err,<span class="built_in">strlen</span>(err));</span><br><span class="line">        <span class="built_in">freeClient</span>(c);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    server.stat_numconnections++;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在<code>createClient()</code>中，初始化了<code>redisClient</code>的一些参数，最重要的是注册了一个文件事件，对应的执行函数是<code>readQueryFromClient</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> redisClient *<span class="title">createClient</span><span class="params">(<span class="type">int</span> fd)</span> </span>&#123;</span><br><span class="line">    redisClient *c = <span class="built_in">zmalloc</span>(<span class="built_in">sizeof</span>(*c));</span><br><span class="line"><span class="comment">// 15-lines...</span></span><br><span class="line">    <span class="built_in">listSetFreeMethod</span>(c-&gt;reply,decrRefCount);  <span class="comment">//设置了链表 c-&gt;reply 的释放方法为 decrRefCount 函数</span></span><br><span class="line">    <span class="built_in">listSetDupMethod</span>(c-&gt;reply,dupClientReplyValue);<span class="comment">// 设置了链表 c-&gt;reply 的复制方法为 dupClientReplyValue 函数</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">aeCreateFileEvent</span>(server.el, c-&gt;fd, AE_READABLE,</span><br><span class="line">        readQueryFromClient, c, <span class="literal">NULL</span>) == AE_ERR) &#123; <span class="comment">// 创建了一个文件事件，执行函数为readQueryFromClient</span></span><br><span class="line">        <span class="built_in">freeClient</span>(c);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">listAddNodeTail</span>(server.clients,c)) <span class="built_in">oom</span>(<span class="string">&quot;listAddNodeTail&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span> c;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-3、过程3（客户端发送命令给服务端）"><a href="#3-3、过程3（客户端发送命令给服务端）" class="headerlink" title="3.3、过程3（客户端发送命令给服务端）"></a>3.3、过程3（客户端发送命令给服务端）</h2><p>接上文 当客户端发送命令到服务端时，数据到达服务端经过网卡、协议栈等一系列操作后，达到可读状态后，就会执行<code>readQueryFromClient()</code>，处理客户端传过来的命令，首先会执行read()方法从缓冲区中读取一块数据，将其追加到c-&gt;querybuf后面，根据redis协议进行querybuf的解析，并将其转换成sds的redisObject，存储到argv中，然后执行<code>processCommand()</code>处理命令，注意这里只是展示主流程的代码和说明，这里为了保证客户端输入能在各种情况下都work做了比较多的校验和错误处理；另外redis客户端和服务端交互的协议有两种一种是inline的、另外一种是bulk的，在querybuf转换成argv时，根据协议不同（bulklen&#x3D;&#x3D;-1），走的也是不同的解析逻辑。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">readQueryFromClient</span><span class="params">(aeEventLoop *el, <span class="type">int</span> fd, <span class="type">void</span> *privdata, <span class="type">int</span> mask)</span> </span>&#123;</span><br><span class="line">    redisClient *c = (redisClient*) privdata;</span><br><span class="line">    <span class="type">char</span> buf[REDIS_IOBUF_LEN];</span><br><span class="line">    <span class="type">int</span> nread;</span><br><span class="line">    <span class="built_in">REDIS_NOTUSED</span>(el);</span><br><span class="line">    <span class="built_in">REDIS_NOTUSED</span>(mask);</span><br><span class="line"></span><br><span class="line">    nread = <span class="built_in">read</span>(fd, buf, REDIS_IOBUF_LEN);</span><br><span class="line"><span class="comment">// 14-lines ... 读取buf检验处理</span></span><br><span class="line">    <span class="keyword">if</span> (nread) &#123;</span><br><span class="line">        c-&gt;querybuf = <span class="built_in">sdscatlen</span>(c-&gt;querybuf, buf, nread); <span class="comment">// 将buf追加到querybuf后面</span></span><br><span class="line">        c-&gt;lastinteraction = <span class="built_in">time</span>(<span class="literal">NULL</span>); <span class="comment">// 更新最后一次交互时间</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">again:</span><br><span class="line">    <span class="keyword">if</span> (c-&gt;bulklen == <span class="number">-1</span>) &#123; <span class="comment">// inline协议</span></span><br><span class="line">        <span class="comment">/* Read the first line of the query */</span></span><br><span class="line">        <span class="type">char</span> *p = <span class="built_in">strchr</span>(c-&gt;querybuf,<span class="string">&#x27;\n&#x27;</span>);</span><br><span class="line">        <span class="type">size_t</span> querylen;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (p) &#123;</span><br><span class="line"><span class="comment">// 28-lines... 处理读取的buf</span></span><br><span class="line">            <span class="comment">//   这里将输入的参数存到argv中，argc++</span></span><br><span class="line">            <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; argc; j++) &#123;</span><br><span class="line">                <span class="keyword">if</span> (<span class="built_in">sdslen</span>(argv[j])) &#123;</span><br><span class="line">                    c-&gt;argv[c-&gt;argc] = <span class="built_in">createObject</span>(REDIS_STRING,argv[j]);</span><br><span class="line">                    c-&gt;argc++;</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    <span class="built_in">sdsfree</span>(argv[j]);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="built_in">zfree</span>(argv);</span><br><span class="line">            <span class="comment">// 执行processCommand处理命令</span></span><br><span class="line">            <span class="keyword">if</span> (c-&gt;argc &amp;&amp; <span class="built_in">processCommand</span>(c) &amp;&amp; <span class="built_in">sdslen</span>(c-&gt;querybuf)) <span class="keyword">goto</span> again;</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="built_in">sdslen</span>(c-&gt;querybuf) &gt;= REDIS_REQUEST_MAX_SIZE) &#123;</span><br><span class="line">            <span class="built_in">redisLog</span>(REDIS_DEBUG, <span class="string">&quot;Client protocol error&quot;</span>);</span><br><span class="line">            <span class="built_in">freeClient</span>(c);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"> <span class="comment">//  15 lines ... bulk命令处理</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>接下来我们继续看看重头戏<code>processCommand</code>的处理过程，首先执行<code>lookupCommand</code>，从cmdTable中遍历找到符合要求的命令，然后进行一些认证和数据合法性校验后，执行cmd的proc函数执行命令，执行完毕后，清理命令执行的过程数据。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">processCommand</span><span class="params">(redisClient *c)</span> </span>&#123;</span><br><span class="line"><span class="comment">// 11 lines...</span></span><br><span class="line">    cmd = <span class="built_in">lookupCommand</span>(c-&gt;argv[<span class="number">0</span>]-&gt;ptr); <span class="comment">// 从表里面查找命令</span></span><br><span class="line"><span class="comment">// 46 lines ... cmd、argv、argc、内存、认证等校验</span></span><br><span class="line"></span><br><span class="line">    dirty = server.dirty;</span><br><span class="line">    cmd-&gt;<span class="built_in">proc</span>(c); <span class="comment">// 执行命令</span></span><br><span class="line"><span class="comment">// 4 lines.. 变更通知给连接的从服务器（slaves）和监控客户端（monitors）</span></span><br><span class="line">   </span><br><span class="line">    <span class="keyword">if</span> (c-&gt;flags &amp; REDIS_CLOSE) &#123; </span><br><span class="line">        <span class="built_in">freeClient</span>(c);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">resetClient</span>(c); <span class="comment">// 清理client命令相关字段</span></span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">struct</span> <span class="title class_">redisCommand</span> cmdTable[] = &#123;</span><br><span class="line">    &#123;<span class="string">&quot;get&quot;</span>,getCommand,<span class="number">2</span>,REDIS_CMD_INLINE&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;set&quot;</span>,setCommand,<span class="number">3</span>,REDIS_CMD_BULK|REDIS_CMD_DENYOOM&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;setnx&quot;</span>,setnxCommand,<span class="number">3</span>,REDIS_CMD_BULK|REDIS_CMD_DENYOOM&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;del&quot;</span>,delCommand,<span class="number">-2</span>,REDIS_CMD_INLINE&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;exists&quot;</span>,existsCommand,<span class="number">2</span>,REDIS_CMD_INLINE&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;incr&quot;</span>,incrCommand,<span class="number">2</span>,REDIS_CMD_INLINE|REDIS_CMD_DENYOOM&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>让我们以get命令为例看看 getCommand()做了什么事，首先从DB里面去查找这个key，然后调用addReply，将结果回复加到回复队列中去，可以看到它回复了协议头、数据、协议尾三段数据。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">getCommand</span><span class="params">(redisClient *c)</span> </span>&#123;</span><br><span class="line">    robj *o = <span class="built_in">lookupKeyRead</span>(c-&gt;db,c-&gt;argv[<span class="number">1</span>]);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (o == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="built_in">addReply</span>(c,shared.nullbulk);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (o-&gt;type != REDIS_STRING) &#123;</span><br><span class="line">            <span class="built_in">addReply</span>(c,shared.wrongtypeerr);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="built_in">addReplySds</span>(c,<span class="built_in">sdscatprintf</span>(<span class="built_in">sdsempty</span>(),<span class="string">&quot;$%d\r\n&quot;</span>,(<span class="type">int</span>)<span class="built_in">sdslen</span>(o-&gt;ptr)));</span><br><span class="line">            <span class="built_in">addReply</span>(c,o);</span><br><span class="line">            <span class="built_in">addReply</span>(c,shared.crlf);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>让我们看看<code>lookupKeyRead</code> 做了什么，最终执行的是dict的方法<code>dictFind</code>,这个函数首先根据key算出在table中的位置，然后开始遍历entry链表，通过<code>dictCompareHashKeys</code>方法比较key是不是相等最终找到这个key取出返回。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> robj *<span class="title">lookupKeyRead</span><span class="params">(redisDb *db, robj *key)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">expireIfNeeded</span>(db,key); <span class="comment">// 检查过期</span></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">lookupKey</span>(db,key);</span><br><span class="line">&#125; <span class="function"><span class="type">static</span> robj *<span class="title">lookupKey</span><span class="params">(redisDb *db, robj *key)</span> </span>&#123;</span><br><span class="line">    dictEntry *de = <span class="built_in">dictFind</span>(db-&gt;dict,key); <span class="comment">//找到key</span></span><br><span class="line">    <span class="keyword">return</span> de ? <span class="built_in">dictGetEntryVal</span>(de) : <span class="literal">NULL</span>; <span class="comment">//找到key对应的value</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="function">dictEntry *<span class="title">dictFind</span><span class="params">(dict *ht, <span class="type">const</span> <span class="type">void</span> *key)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    dictEntry *he;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> h;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ht-&gt;size == <span class="number">0</span>) <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    h = <span class="built_in">dictHashKey</span>(ht, key) &amp; ht-&gt;sizemask; <span class="comment">// 计算在哈希表的位置</span></span><br><span class="line">    he = ht-&gt;table[h];</span><br><span class="line">    <span class="keyword">while</span>(he) &#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">dictCompareHashKeys</span>(ht, key, he-&gt;key)) <span class="comment">// 比较entry和key是否相等</span></span><br><span class="line">            <span class="keyword">return</span> he;</span><br><span class="line">        he = he-&gt;next;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>具体是怎么回复结果的呢，addReply函数通过调用aeCreateFileEvent 创建了写入类型的文件事件，然后就是尾插法将要回复的obj添加到c-&gt;reply的尾部，等待fd写就绪时执行事件</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">addReply</span><span class="params">(redisClient *c, robj *obj)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">listLength</span>(c-&gt;reply) == <span class="number">0</span> &amp;&amp;</span><br><span class="line">        (c-&gt;replstate == REDIS_REPL_NONE ||</span><br><span class="line">         c-&gt;replstate == REDIS_REPL_ONLINE) &amp;&amp;</span><br><span class="line">        <span class="built_in">aeCreateFileEvent</span>(server.el, c-&gt;fd, AE_WRITABLE,</span><br><span class="line">        sendReplyToClient, c, <span class="literal">NULL</span>) == AE_ERR) <span class="keyword">return</span>; <span class="comment">//创建了文件事件</span></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">listAddNodeTail</span>(c-&gt;reply,obj)) <span class="built_in">oom</span>(<span class="string">&quot;listAddNodeTail&quot;</span>);</span><br><span class="line">    <span class="built_in">incrRefCount</span>(obj); <span class="comment">// 引用+1</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-4、过程4-（写就绪将结果写回客户端）"><a href="#3-4、过程4-（写就绪将结果写回客户端）" class="headerlink" title="3.4、过程4 （写就绪将结果写回客户端）"></a>3.4、过程4 （写就绪将结果写回客户端）</h2><p>当 socket 的发送缓冲区有足够空间，并且网络状态允许数据发送时，socket 变为写就绪状态时，这时候就会<code>aeEventLoop->fileEvents</code>中取出就绪的reply事件，执行<code>sendReplyToClient()</code>函数，这个函数会遍历c-&gt;reply列表，按照顺序一个一个通过调用write()方法写回给客户端，值的注意的是，Redis 限制了单次事件循环中可以写入的最大字节数（REDIS_MAX_WRITE_PER_EVENT），防止一个客户端占用所有的服务器资源，特别是当该客户端连接速度非常快（例如通过本地回环接口 loopback interface）并且发送了一个大请求（如 KEYS * 命令），如果c-&gt;reply全写完了，就干掉这个写入事件</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">sendReplyToClient</span><span class="params">(aeEventLoop *el, <span class="type">int</span> fd, <span class="type">void</span> *privdata, <span class="type">int</span> mask)</span> </span>&#123;</span><br><span class="line">    redisClient *c = privdata;</span><br><span class="line">    <span class="type">int</span> nwritten = <span class="number">0</span>, totwritten = <span class="number">0</span>, objlen;</span><br><span class="line">    robj *o;</span><br><span class="line"><span class="comment">// 4 lines ...</span></span><br><span class="line">    <span class="keyword">while</span>(<span class="built_in">listLength</span>(c-&gt;reply)) &#123;</span><br><span class="line">        o = <span class="built_in">listNodeValue</span>(<span class="built_in">listFirst</span>(c-&gt;reply)); <span class="comment">// 取出第一个</span></span><br><span class="line">        objlen = <span class="built_in">sdslen</span>(o-&gt;ptr); <span class="comment">// 拿到长度</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (objlen == <span class="number">0</span>) &#123; <span class="comment">// 长度为零删掉</span></span><br><span class="line">            <span class="built_in">listDelNode</span>(c-&gt;reply,<span class="built_in">listFirst</span>(c-&gt;reply));</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (c-&gt;flags &amp; REDIS_MASTER) &#123;</span><br><span class="line">            <span class="comment">/* Don&#x27;t reply to a master */</span></span><br><span class="line">            nwritten = objlen - c-&gt;sentlen;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// 从上一次发送的最后的位置(c—&gt;sentlen)，发送剩余长度的数据(objlen - c-&gt;sentlen)</span></span><br><span class="line">            nwritten = <span class="built_in">write</span>(fd, ((<span class="type">char</span>*)o-&gt;ptr)+c-&gt;sentlen, objlen - c-&gt;sentlen);</span><br><span class="line">            <span class="keyword">if</span> (nwritten &lt;= <span class="number">0</span>) <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        c-&gt;sentlen += nwritten; <span class="comment">// 更新已经发送的长度</span></span><br><span class="line">        totwritten += nwritten; <span class="comment">// 更新本次事件已经发送的长度</span></span><br><span class="line">        <span class="comment">// 如果已经发送的长度==要发送的对象长度，这个对象就发送完了，删掉</span></span><br><span class="line">        <span class="keyword">if</span> (c-&gt;sentlen == objlen) &#123;</span><br><span class="line">            <span class="built_in">listDelNode</span>(c-&gt;reply,<span class="built_in">listFirst</span>(c-&gt;reply));</span><br><span class="line">            c-&gt;sentlen = <span class="number">0</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 对单个客户端单个事件发送的长度进行限制，因为redis时单线程，防止一个客户端有</span></span><br><span class="line">        <span class="comment">// 大量返回数据时，会阻塞主循环处理，导致无法服务其他客户端</span></span><br><span class="line">        <span class="keyword">if</span> (totwritten &gt; REDIS_MAX_WRITE_PER_EVENT) <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="comment">// 9-lines... </span></span><br><span class="line">    <span class="keyword">if</span> (totwritten &gt; <span class="number">0</span>) c-&gt;lastinteraction = <span class="built_in">time</span>(<span class="literal">NULL</span>); <span class="comment">// 更新最后交互时间</span></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 当Redis在事件循环中处理客户端连接的数据发送时，它会逐个取出回复列表中的数据进行发送。</span></span><br><span class="line"><span class="comment">     * 每发送完一个数据，就从列表中删除该数据。</span></span><br><span class="line"><span class="comment">     * 因此，如果回复列表的长度为0，说明所有的回复数据都已经发送完毕。</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">listLength</span>(c-&gt;reply) == <span class="number">0</span>) &#123;</span><br><span class="line">        c-&gt;sentlen = <span class="number">0</span>;</span><br><span class="line">        <span class="built_in">aeDeleteFileEvent</span>(server.el,c-&gt;fd,AE_WRITABLE);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-5、命令执行小结"><a href="#3-5、命令执行小结" class="headerlink" title="3.5、命令执行小结"></a>3.5、命令执行小结</h2><p>命令执行的完整流程总结如下<br><img src="/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E5%B0%8F%E7%BB%93.png" alt="命令执行小结"></p>
+<h1 id="四、线程模型"><a href="#四、线程模型" class="headerlink" title="四、线程模型"></a>四、线程模型</h1><p>通过学习上面对事件模型的详解再来总结一下Redis的线程模型。</p>
+<blockquote>
+<p>redis 内部使用文件事件处理器 file event handler，它是单线程的，所以redis才叫做单线程模型。它采用IO多路复用机制同时监听多个 socket，将产生事件的 socket 压入内存队列中，事件分派器根据 socket 上的事件类型来选择对应的事件处理器进行处理。</p>
+</blockquote>
+<h2 id="4-1、线程模型"><a href="#4-1、线程模型" class="headerlink" title="4.1、线程模型"></a>4.1、线程模型</h2><p>多个 socket 可能会并发产生不同的操作，每个操作对应不同的文件事件，但是 IO多路复用程序会监听多个 socket，会将产生事件的 socket 放入队列中排队，事件分派器（<code>aeEventLoop</code>）每次从队列中取出一个 socket，根据 socket 的事件类型交给对应的事件处理器进行处理。<br><img src="/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B.png" alt="线程模型"><br>更具体的流程：<br><img src="/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B_%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.png" alt="线程模型_执行流程"></p>
+<ul>
+<li><strong>连接应答处理器</strong>：networking.c&#x2F;acceptTcpHandler 函数是 Redis 的连接应答处理器</li>
+<li><strong>命令请求处理器</strong>：networking.c&#x2F;readQueryFromClient 函数是 Redis 的命令请求处理器， 这个处理器负责从套接字中读入客户端发送的命令请求内容， 具体实现为 unistd.h&#x2F;read 函数的包装。</li>
+<li><strong>命令回复处理器</strong>：networking.c&#x2F;sendReplyToClient 函数是 Redis 的命令回复处理器， 这个处理器负责将服务器执行命令后得到的命令回复通过套接字返回给客户端， 具体实现为 unistd.h&#x2F;write 函数的包装。</li>
+</ul>
+<p>参考文章：<br><a href="https://xiaolincoding.com/redis/data_struct/command.html#string">Redis 常见数据类型和应用场景</a><br><a href="https://xiaolincoding.com/redis/data_struct/data_struct.html">Redis 数据结构</a><br><a href="https://www.51cto.com/article/766539.html">Redis Stream 数据结构实现原理真的很强</a><br><a href="https://cloud.tencent.com/developer/article/2427055">Redis源码解析：一条Redis命令是如何执行的？</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/15/2020-07-15-redis-%E4%BA%8B%E5%8A%A1%E5%8F%8A%E5%8E%9F%E5%AD%90%E6%80%A7/" rel="prev" title="《Redis》事务及原子性">
+      <i class="fa fa-chevron-left"></i> 《Redis》事务及原子性
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="next" title="《Redis》分布式锁">
+      《Redis》分布式锁 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Redis"><span class="nav-text">一、Redis</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Redis%E4%BA%8B%E4%BB%B6%E6%A8%A1%E5%9E%8B"><span class="nav-text">二、Redis事件模型</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E6%96%87%E4%BB%B6%E4%BA%8B%E4%BB%B6"><span class="nav-text">2.1、文件事件</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-1%E3%80%81%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B"><span class="nav-text">2.1.1、线程模型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-2%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E5%8D%95%E7%BA%BF%E7%A8%8B%E7%9A%84-Redis-%E8%83%BD%E9%82%A3%E4%B9%88%E5%BF%AB%EF%BC%9F"><span class="nav-text">2.1.2、为什么单线程的 Redis 能那么快？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-3%E3%80%81Redis%E4%BA%8B%E4%BB%B6%E5%93%8D%E5%BA%94%E6%A1%86%E6%9E%B6ae-event%E5%8F%8A%E6%96%87%E4%BB%B6%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86%E5%99%A8"><span class="nav-text">2.1.3、Redis事件响应框架ae_event及文件事件处理器</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E6%97%B6%E9%97%B4%E4%BA%8B%E4%BB%B6"><span class="nav-text">2.2、时间事件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81aeEventLoop%E4%BA%8B%E4%BB%B6%E7%AE%A1%E7%90%86%E5%99%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-text">2.3、aeEventLoop事件管理器源码分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-1%E3%80%81aeEventLoop%E7%9A%84%E5%88%9B%E5%BB%BA%E5%8F%8A%E5%90%AF%E5%8A%A8"><span class="nav-text">2.3.1、aeEventLoop的创建及启动</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-1-1%E3%80%81%E4%B8%BB%E5%85%A5%E5%8F%A3main"><span class="nav-text">2.3.1.1、主入口main()</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-1-2%E3%80%81initServer%E3%80%90%E5%88%9D%E5%A7%8B%E5%8C%96%E6%9C%8D%E5%8A%A1%E7%AB%AF%E3%80%91"><span class="nav-text">2.3.1.2、initServer【初始化服务端】</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#2-3-1-2-1%E3%80%81%E5%86%85%E9%83%A8%E5%B0%8F%E6%AD%A5%E9%AA%A4%EF%BC%9AaeCreateEventLoop"><span class="nav-text">2.3.1.2.1、内部小步骤：aeCreateEventLoop</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-1-3%E3%80%81%E4%B8%BB%E5%BE%AA%E7%8E%AFaeEventProcess%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B"><span class="nav-text">2.3.1.3、主循环aeEventProcess执行过程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-1-4%E3%80%81aeEventProcess"><span class="nav-text">2.3.1.4、aeEventProcess</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#2-3-1-4-1%E3%80%81%E8%AE%A1%E7%AE%97%E8%B6%85%E6%97%B6%E6%97%B6%E9%97%B4"><span class="nav-text">2.3.1.4.1、计算超时时间</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-3-1-4-1%E3%80%81%E6%89%A7%E8%A1%8C%E6%96%87%E4%BB%B6%E4%BA%8B%E4%BB%B6"><span class="nav-text">2.3.1.4.1、执行文件事件</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#1%E3%80%81%E8%8E%B7%E5%8F%96%E6%96%87%E4%BB%B6%E4%BA%8B%E4%BB%B6%EF%BC%9AaeApiPoll"><span class="nav-text">1、获取文件事件：aeApiPoll</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#2%E3%80%81%E5%A4%84%E7%90%86%E6%96%87%E4%BB%B6%E4%BA%8B%E4%BB%B6"><span class="nav-text">2、处理文件事件</span></a></li></ol></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-3-1-4-2%E3%80%81%E6%89%A7%E8%A1%8C%E6%97%B6%E9%97%B4%E4%BA%8B%E4%BB%B6"><span class="nav-text">2.3.1.4.2、执行时间事件</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-1-5%E3%80%81%E5%B0%8F%E7%BB%93"><span class="nav-text">2.3.1.5、小结</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86"><span class="nav-text">三、事件处理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E8%BF%87%E7%A8%8B1%EF%BC%88redis%E5%90%AF%E5%8A%A8%EF%BC%89"><span class="nav-text">3.1、过程1（redis启动）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E8%BF%87%E7%A8%8B2%EF%BC%88%E5%AE%A2%E6%88%B7%E7%AB%AF%E4%B8%8E%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%BB%BA%E7%AB%8B%E9%93%BE%E6%8E%A5%EF%BC%89"><span class="nav-text">3.2、过程2（客户端与服务端建立链接）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E8%BF%87%E7%A8%8B3%EF%BC%88%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%8F%91%E9%80%81%E5%91%BD%E4%BB%A4%E7%BB%99%E6%9C%8D%E5%8A%A1%E7%AB%AF%EF%BC%89"><span class="nav-text">3.3、过程3（客户端发送命令给服务端）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4%E3%80%81%E8%BF%87%E7%A8%8B4-%EF%BC%88%E5%86%99%E5%B0%B1%E7%BB%AA%E5%B0%86%E7%BB%93%E6%9E%9C%E5%86%99%E5%9B%9E%E5%AE%A2%E6%88%B7%E7%AB%AF%EF%BC%89"><span class="nav-text">3.4、过程4 （写就绪将结果写回客户端）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-5%E3%80%81%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E5%B0%8F%E7%BB%93"><span class="nav-text">3.5、命令执行小结</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B"><span class="nav-text">四、线程模型</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B"><span class="nav-text">4.1、线程模型</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

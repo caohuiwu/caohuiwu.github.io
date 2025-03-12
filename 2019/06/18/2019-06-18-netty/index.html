@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、Reactor反应堆模式一个进程轮询接受客户端请求，再将客户端连接分发给另外一个进程，再通过这个反应堆分发给线程池去处理 二、netty三种模式单reactor单线程： 一个线程，需要处理连接、读写，有性能瓶颈单reactor多线程： 一个线程处理连接，将读写分发给其他线程，容易出现一个线程无法处理过多连接的问题。主从reactor多线程： 为了解决一个线程无法处理过多连接的问题，引入了多线程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="netty">
+<meta property="og:url" content="http://yoursite.com/2019/06/18/2019-06-18-netty/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、Reactor反应堆模式一个进程轮询接受客户端请求，再将客户端连接分发给另外一个进程，再通过这个反应堆分发给线程池去处理 二、netty三种模式单reactor单线程： 一个线程，需要处理连接、读写，有性能瓶颈单reactor多线程： 一个线程处理连接，将读写分发给其他线程，容易出现一个线程无法处理过多连接的问题。主从reactor多线程： 为了解决一个线程无法处理过多连接的问题，引入了多线程">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-06-18T13:43:40.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:54.961Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2019/06/18/2019-06-18-netty/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>netty | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/06/18/2019-06-18-netty/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          netty
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-06-18 21:43:40" itemprop="dateCreated datePublished" datetime="2019-06-18T21:43:40+08:00">2019-06-18</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:54" itemprop="dateModified" datetime="2025-03-04T15:37:54+08:00">2025-03-04</time>
+              </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.5k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>14 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、Reactor反应堆模式"><a href="#一、Reactor反应堆模式" class="headerlink" title="一、Reactor反应堆模式"></a>一、Reactor反应堆模式</h1><p>一个进程轮询接受客户端请求，再将客户端连接分发给另外一个进程，再通过这个反应堆分发给线程池去处理</p>
+<h1 id="二、netty三种模式"><a href="#二、netty三种模式" class="headerlink" title="二、netty三种模式"></a>二、netty三种模式</h1><p><em><strong>单reactor单线程：</strong></em> 一个线程，需要处理连接、读写，有性能瓶颈<br><em><strong>单reactor多线程：</strong></em> 一个线程处理连接，将读写分发给其他线程，容易出现一个线程无法处理过多连接的问题。<br><em><strong>主从reactor多线程：</strong></em> 为了解决一个线程无法处理过多连接的问题，引入了多线程解决该问题。  </p>
+<blockquote>
+<p>serverSocket会创建一个监听的socket，监听客户端的连接。会为每一个client再创建一个socket，该socket用于和客户端进行数据通信。（如果不做处理，这些socket对应的fd会放入同一个selector）<br>基于一个selector，如果一个线程去遍历该selector会遇到性能问题，所以netty的主从多线程模式，会将为client创建的socket添加到另外一个新的selector，再起新线程去处理该selector，<br>从而解决netty单reactor中遇到洪峰连接的性能问题。（即selector内的socket不仅仅有连接请求，还有数据读写等请求）</p>
+</blockquote>
+<span id="more"></span>    
+
+<h1 id="三、代码解析"><a href="#三、代码解析" class="headerlink" title="三、代码解析"></a>三、代码解析</h1><h2 id="3-1、服务端代码"><a href="#3-1、服务端代码" class="headerlink" title="3.1、服务端代码"></a>3.1、服务端代码</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">public static void main(String[] args)&#123;</span><br><span class="line">    try &#123;</span><br><span class="line">        //主线程池，用于接收客户端连接</span><br><span class="line">        NioEventLoopGroup mainGroup = new NioEventLoopGroup(1);</span><br><span class="line">        //工作线程池，用于分发读写操作</span><br><span class="line">        NioEventLoopGroup workGroup = new NioEventLoopGroup(5);</span><br><span class="line"></span><br><span class="line">        ServerBootstrap serverBootstrap = new ServerBootstrap();</span><br><span class="line">        //此处只是设置了一系列的启动器参数</span><br><span class="line">        serverBootstrap</span><br><span class="line">            //将两个线程池设置到启动器内</span><br><span class="line">            .group(mainGroup, workGroup)</span><br><span class="line">            //设置channel类型</span><br><span class="line">            .channel(NioServerSocketChannel.class)</span><br><span class="line">            //设置channel，只监听TCPNODELAY事件</span><br><span class="line">            .option(ChannelOption.TCP_NODELAY, false)</span><br><span class="line">            //设置处理器（若处理器写多个，实际只有一个有效，以最后一个为准）</span><br><span class="line">            .handler(new LoggingHandler())</span><br><span class="line">            //设置子处理器（若处理器写多个，实际只有一个有效，以最后一个为准）</span><br><span class="line">            .childHandler(new ChannelInitializer&lt;NioSocketChannel&gt;() &#123;</span><br><span class="line">                @Override</span><br><span class="line">                protected void initChannel(NioSocketChannel socketChannel) throws Exception &#123;</span><br><span class="line">                    logger.info(&quot;新客户端连接进来了-----&#123;&#125;&quot;, socketChannel.remoteAddress().toString());</span><br><span class="line">                    ChannelPipeline pipeline = socketChannel.pipeline();</span><br><span class="line">                    pipeline.addLast(new MyHandler());</span><br><span class="line">                    pipeline.addLast(new LoggingHandler());</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">        //bind操作，此处才实际绑定端口并创建channel</span><br><span class="line">        ChannelFuture future = serverBootstrap.bind(1234);</span><br><span class="line">        future.channel().closeFuture().sync();</span><br><span class="line">    &#125; catch (InterruptedException e) &#123;</span><br><span class="line">        e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>代码解析：  </p>
+<ol>
+<li>new NioEventLoopGroup()：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">    public NioEventLoopGroup(int nThreads, Executor executor) &#123;</span><br><span class="line">        this(nThreads, executor, SelectorProvider.provider());</span><br><span class="line">    &#125;</span><br><span class="line">    1、此构造方法，SelectorProvider.provider()会去创建Selector多路复用器；</span><br><span class="line">    2、跟踪至父类构造函数MultithreadEventExecutorGroup(int nThreads, Executor executor, EventExecutorChooserFactory chooserFactory, Object... args)</span><br><span class="line">        protected MultithreadEventExecutorGroup(int nThreads, Executor executor, EventExecutorChooserFactory chooserFactory, Object... args) &#123;</span><br><span class="line">            children = new EventExecutor[nThreads];</span><br><span class="line">            for (int i = 0; i &lt; nThreads; i ++) &#123;</span><br><span class="line">                boolean success = false;</span><br><span class="line">                try &#123;</span><br><span class="line">                    children[i] = newChild(executor, args);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;            </span><br><span class="line">        创建线程池：children = new EventExecutor[nThreads];</span><br><span class="line">        实例化数组元素：实际作用是创建了Selector池</span><br><span class="line">            //实际创建NioEventLoop，NioEventLoop内有Selector</span><br><span class="line">            children[i] = newChild(executor, args);</span><br><span class="line">    3、newChild(executor, args)方法解析</span><br><span class="line">        protected EventLoop newChild(Executor executor, Object... args) throws Exception &#123;</span><br><span class="line">            return new NioEventLoop(this, executor, (SelectorProvider) args[0],</span><br><span class="line">                ((SelectStrategyFactory) args[1]).newSelectStrategy(), (RejectedExecutionHandler) args[2]);</span><br><span class="line">        &#125;</span><br><span class="line">        3.1、实际进入NioEventLoop 的构造函数，然后继续进入SingleThreadEventLoop构造函数</span><br><span class="line">        3.2、SingleThreadEventLoop 的父类 SingleThreadEventExecutor 的构造函数，这是一个只有一个线程的线程池</span><br><span class="line">            state：线程池当前的状态；</span><br><span class="line">            taskQueue：存放任务的队列；</span><br><span class="line">            thread：线程池维护的唯一线程；</span><br><span class="line">            scheduledTaskQueue：定义在其父类AbstractScheduledEventExecutor中，用以保存延迟执行的任务。</span><br><span class="line">```     </span><br><span class="line"></span><br><span class="line">2. bind()操作：</span><br></pre></td></tr></table></figure>
+<ol>
+<li>AbstractBootstrap.initAndRegister()，内部会使用channelFactory.newChannel()去创建channel</li>
+<li><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">3. NioEventLoop</span><br></pre></td></tr></table></figure>
+NioEventLoop(NioEventLoopGroup parent, Executor executor, SelectorProvider selectorProvider,<br>      SelectStrategy strategy, RejectedExecutionHandler rejectedExecutionHandler) {</li>
+</ol>
+<p> super(parent, executor, false, DEFAULT_MAX_PENDING_TASKS, rejectedExecutionHandler);<br> if (selectorProvider &#x3D;&#x3D; null) {<br>     throw new NullPointerException(“selectorProvider”);<br> }<br> if (strategy &#x3D;&#x3D; null) {<br>     throw new NullPointerException(“selectStrategy”);<br> }<br> provider &#x3D; selectorProvider;<br> &#x2F;&#x2F;SelectorProvider.provider()会去创建Selector多路复用器；<br> final SelectorTuple selectorTuple &#x3D; openSelector();&#x2F;&#x2F;<br> selector &#x3D; selectorTuple.selector;<br> unwrappedSelector &#x3D; selectorTuple.unwrappedSelector;<br> selectStrategy &#x3D; strategy;<br>}</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">一个NioEventLoopGroup，对应对个NioEventLoop（对应一个selector），从而可以将很多的socket设置到不同的selector，分配多个线程对selector进行分别的遍历。</span><br><span class="line"></span><br><span class="line">## 3.2、客户端代码</span><br></pre></td></tr></table></figure>
+<p>public static void main(String[] args) {<br> try {<br>     NioEventLoopGroup eventLoopGroup &#x3D; new NioEventLoopGroup(10);<br>     Bootstrap bootstrap &#x3D; new Bootstrap();<br>     bootstrap.group(eventLoopGroup)<br>         .channel(NioSocketChannel.class)<br>         .option(ChannelOption.TCP_NODELAY, false)<br>         .handler(new ChannelInitializer<NioSocketChannel>() {<br>             @Override<br>             protected void initChannel(NioSocketChannel socketChannel) throws Exception {<br>                 ChannelPipeline pipeline &#x3D; socketChannel.pipeline();<br>                 System.out.println(“aaaa”);<br>                 pipeline.addLast(new LoggingHandler());<br>             }<br>         });<br>     ChannelFuture channelFuture &#x3D; bootstrap.connect(“127.0.0.1”, 1234).sync();<br> } catch (Exception e) {<br>     e.printStackTrace();<br> }<br>}</NioSocketChannel></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">代码解析：</span><br></pre></td></tr></table></figure>
+<p>1、new NioEventLoopGroup()，同服务端。<br>2、bootstrap.connect连接操作<br> -&gt; Bootstrap.initAndRegister()<br>     -&gt; &#x2F;&#x2F;使用工厂类ChannelFactory的newChannel通过反射创建Channel实例<br>     -&gt; 2.1、channel &#x3D; channelFactory.newChannel();<br>         -&gt; 3、channelFactory.newChannel()<br>         -&gt;  工厂类创建NioSocketChannel<br>         -&gt;  构造函数：public NioSocketChannel(SelectorProvider provider) {<br>         -&gt;      &#x2F;&#x2F;newSocket(provider) 方法会创建 JDK 的 SocketChannel，<br>         -&gt;      this(newSocket(provider));&#x2F;&#x2F; 实现—&gt; provider.openSocketChannel();<br>         -&gt;  }<br>     -&gt; &#x2F;&#x2F;进行channel初始化，给channel设置handler、option<br>     -&gt; 2.2、init(channel);<br>     -&gt; &#x2F;&#x2F;channel的注册<br>     -&gt; 2.3、ChannelFuture regFuture &#x3D; config().group().register(channel);<br>         -&gt; config().group().register(channel)<br>             -&gt; AbstractChannel.AbstractUnsafe.register()方法<br>             判断 NioEventLoop 的线程是否已经启动，如果已经启动，调用 register0方法；否则调用 eventLoop.execute 方法启动线程<br>                 -&gt; &#x2F;&#x2F;调用JDK去注册Selector<br>                 -&gt; doRegister();<br>                 -&gt; neverRegistered &#x3D; false;<br>                 -&gt; registered &#x3D; true;<br>                 -&gt; &#x2F;&#x2F;设置注册成功通知监听器<br>                 -&gt; safeSetSuccess(promise);<br>                 -&gt; &#x2F;&#x2F;触发注册成功事件<br>                 -&gt; pipeline.fireChannelRegistered();</p>
+</li>
+</ol>
+<pre><code>
+
+</code></pre>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/06/16/2019-06-16-socket%E5%88%9B%E5%BB%BA%E8%BF%87%E7%A8%8B/" rel="prev" title="socket创建过程">
+      <i class="fa fa-chevron-left"></i> socket创建过程
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/06/28/2019-06-28-hadoop/" rel="next" title="hadoop">
+      hadoop <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Reactor%E5%8F%8D%E5%BA%94%E5%A0%86%E6%A8%A1%E5%BC%8F"><span class="nav-text">一、Reactor反应堆模式</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81netty%E4%B8%89%E7%A7%8D%E6%A8%A1%E5%BC%8F"><span class="nav-text">二、netty三种模式</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90"><span class="nav-text">三、代码解析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E6%9C%8D%E5%8A%A1%E7%AB%AF%E4%BB%A3%E7%A0%81"><span class="nav-text">3.1、服务端代码</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

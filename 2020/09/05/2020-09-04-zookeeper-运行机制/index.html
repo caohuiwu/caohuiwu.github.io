@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是“zookeeper”系列的第二篇文章，主要介绍的是相关协议及内部原理。   .my-code {    color: green; } .orange {    color: rgb(255, 53, 2) } .red {    color: red }   一、zookeeperzookeeper是一个分布式协调服务框架，它是一个为分布式应用提供一致性服务的软件。  主要用于实现分布式系">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《zookeeper》运行机制">
+<meta property="og:url" content="http://yoursite.com/2020/09/05/2020-09-04-zookeeper-%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“zookeeper”系列的第二篇文章，主要介绍的是相关协议及内部原理。   .my-code {    color: green; } .orange {    color: rgb(255, 53, 2) } .red {    color: red }   一、zookeeperzookeeper是一个分布式协调服务框架，它是一个为分布式应用提供一致性服务的软件。  主要用于实现分布式系">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-09-04T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-05T05:07:20.039Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2020/09/05/2020-09-04-zookeeper-%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《zookeeper》运行机制 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/09/05/2020-09-04-zookeeper-%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《zookeeper》运行机制
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-09-05 00:00:00" itemprop="dateCreated datePublished" datetime="2020-09-05T00:00:00+08:00">2020-09-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-05 13:07:20" itemprop="dateModified" datetime="2025-03-05T13:07:20+08:00">2025-03-05</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/zookeeper/" itemprop="url" rel="index"><span itemprop="name">zookeeper</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/zookeeper/ZAB/" itemprop="url" rel="index"><span itemprop="name">ZAB</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/zookeeper/watch/" itemprop="url" rel="index"><span itemprop="name">watch</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/zookeeper/%E8%84%91%E8%A3%82/" itemprop="url" rel="index"><span itemprop="name">脑裂</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>8.7k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>22 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是“zookeeper”系列的第二篇文章，主要介绍的是相关协议及内部原理。
+</code></pre>
+<style>
+.my-code {
+   color: green;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+</style>
+
+<h1 id="一、zookeeper"><a href="#一、zookeeper" class="headerlink" title="一、zookeeper"></a>一、zookeeper</h1><p><code>zookeeper</code>是一个分布式协调服务框架，它是一个为分布式应用提供一致性服务的软件。</p>
+<ul>
+<li>主要用于实现分布式系统中master选举、分布式协调、集群管理、负载均衡、分布式锁等功能。</li>
+<li>可以用来统一配置管理、统一命名服务、分布式锁、集群管理</li>
+</ul>
+<span id="more"></span>
+
+<h1 id="二、ZAB协议"><a href="#二、ZAB协议" class="headerlink" title="二、ZAB协议"></a>二、ZAB协议</h1><p>ZAB（Zookeeper Atomic Broadcast，zk原子广播协议）协议是zk实现分布式协调服务的关键，确保集群中各个节点的数据一致性。</p>
+<h2 id="2-1、概念介绍"><a href="#2-1、概念介绍" class="headerlink" title="2.1、概念介绍"></a>2.1、概念介绍</h2><p>在介绍zab协议之前首先要知道zookeeper相关的几个概念，才能更好的了解zab协议。</p>
+<h3 id="2-1-1、集群角色"><a href="#2-1-1、集群角色" class="headerlink" title="2.1.1、集群角色"></a>2.1.1、集群角色</h3><ul>
+<li><code>Leader</code>：同一时间集群总只允许有一个Leader，提供对客户端的读写功能，负责将数据同步至各个节点；</li>
+<li><code>Follower</code>：提供对客户端读功能，写请求则转发给Leader处理，当Leader崩溃失联之后参与Leader选举；</li>
+<li><code>Observer</code>：与Follower不同的是但不参与Leader选举。</li>
+</ul>
+<h3 id="2-1-2、服务状态"><a href="#2-1-2、服务状态" class="headerlink" title="2.1.2、服务状态"></a>2.1.2、服务状态</h3><ul>
+<li><code>LOOKING</code>：当节点认为群集中没有Leader，服务器会进入LOOKING状态，目的是为了查找或者选举Leader；</li>
+<li><code>FOLLOWING</code>：follower角色；</li>
+<li><code>LEADING</code>：leader角色；</li>
+<li><code>OBSERVING</code>：observer角色；</li>
+</ul>
+<h3 id="2-1-3、ZXID"><a href="#2-1-3、ZXID" class="headerlink" title="2.1.3、ZXID"></a>2.1.3、ZXID</h3><p><code>Zxid（Zookeeper transaction ID）</code>是极为重要的概念，用于唯一标识事务的全局有序ID，它是一个long型（64位）整数，分为两部分：</p>
+<ul>
+<li>纪元（epoch）部分</li>
+<li>计数器（counter）部分，是一个全局有序的数字。</li>
+</ul>
+<p>epoch代表当前集群所属的哪个leader，leader的选举就类似一个朝代的更替，你前朝的剑不能斩本朝的官，用epoch代表当前命令的有效性，counter是一个递增的数字。</p>
+<p>zxid的生成和解析逻辑主要集中在以下类中：</p>
+<h4 id="2-1-3-1、ZxidUtils"><a href="#2-1-3-1、ZxidUtils" class="headerlink" title="2.1.3.1、ZxidUtils"></a>2.1.3.1、ZxidUtils</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="type">long</span> <span class="title function_">makeZxid</span><span class="params">(<span class="type">int</span> epoch, <span class="type">int</span> counter)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> ((<span class="type">long</span>)epoch &lt;&lt; <span class="number">32</span>) | (counter &amp; <span class="number">0xffffffffL</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">getEpochFromZxid</span><span class="params">(<span class="type">long</span> zxid)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> (<span class="type">int</span>)(zxid &gt;&gt; <span class="number">32</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">getCounterFromZxid</span><span class="params">(<span class="type">long</span> zxid)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> (<span class="type">int</span>)zxid;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-1-3-2、leader节点生成zxid"><a href="#2-1-3-2、leader节点生成zxid" class="headerlink" title="2.1.3.2、leader节点生成zxid"></a>2.1.3.2、leader节点生成zxid</h4><p>Leader在广播事务前生成Zxid</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Leader 初始化时设置 epoch</span></span><br><span class="line"><span class="keyword">private</span> <span class="type">long</span> <span class="variable">epoch</span> <span class="operator">=</span> <span class="number">1</span>; <span class="comment">// 初始 epoch 由选举结果决定</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 生成新 Zxid</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">long</span> <span class="title function_">getNextZxid</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 递增 counter，高 32 位为 epoch</span></span><br><span class="line">    <span class="keyword">return</span> ZxidUtils.makeZxid(epoch, counter.incrementAndGet());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-2、ZAB的状态"><a href="#2-2、ZAB的状态" class="headerlink" title="2.2、ZAB的状态"></a>2.2、ZAB的状态</h2><p>Zookeeper还给ZAB定义的4中状态，反应Zookeeper从选举到对外提供服务的过程中的四个步骤。状态枚举定义：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">enum</span> <span class="title class_">ZabState</span> &#123;</span><br><span class="line">    ELECTION,</span><br><span class="line">    DISCOVERY,</span><br><span class="line">    SYNCHRONIZATION,</span><br><span class="line">    BROADCAST</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>ELECTION</code>: 集群进入选举状态，此过程会选出一个节点作为leader角色；</li>
+<li><code>DISCOVERY</code>：连接上leader，响应leader心跳，并且检测leader的角色是否更改，通过此步骤之后选举出的leader才能执行真正职务；</li>
+<li><code>SYNCHRONIZATION</code>：整个集群都确认leader之后，将会把leader的数据同步到各个节点，保证整个集群的数据一致性；</li>
+<li><code>BROADCAST</code>：过渡到广播状态，集群开始对外提供服务。</li>
+</ul>
+<h2 id="2-2、ZAB协议的两种模式"><a href="#2-2、ZAB协议的两种模式" class="headerlink" title="2.2、ZAB协议的两种模式"></a>2.2、ZAB协议的两种模式</h2><p>ZAB协议主要包括两个模式。</p>
+<ul>
+<li>消息广播模式</li>
+<li>崩溃恢复模式</li>
+</ul>
+<h3 id="2-2-1、崩溃恢复模式（recovery-phase）"><a href="#2-2-1、崩溃恢复模式（recovery-phase）" class="headerlink" title="2.2.1、崩溃恢复模式（recovery phase）"></a>2.2.1、崩溃恢复模式（recovery phase）</h3><ul>
+<li>触发条件：集群启动或Leader崩溃。</li>
+<li>目标：选举新Leader，同步数据到最新状态。</li>
+</ul>
+<h4 id="2-2-1-1、崩溃恢复过程"><a href="#2-2-1-1、崩溃恢复过程" class="headerlink" title="2.2.1.1、崩溃恢复过程"></a>2.2.1.1、崩溃恢复过程</h4><p>当Leader节点登记或出现其他故障时，集群进入崩溃恢复模式，过程如下：</p>
+<ul>
+<li>选举阶段</li>
+<li>发现阶段</li>
+<li>同步阶段</li>
+</ul>
+<h5 id="1、选举阶段"><a href="#1、选举阶段" class="headerlink" title="1、选举阶段"></a>1、选举阶段</h5><ul>
+<li>每个节点初始化时都处于选举状态（LOOKING）。</li>
+<li>节点向其他节点发送投票信息，包含（节点ID，ZXID）</li>
+<li>节点收到其他节点的投票后，根据（ZXID，节点ID）的优先级更新自己的投票。</li>
+<li>当某个节点的投票获得过半节点的认可时，该节点成为Leader。</li>
+</ul>
+<h5 id="2、发现阶段"><a href="#2、发现阶段" class="headerlink" title="2、发现阶段"></a>2、发现阶段</h5><ul>
+<li>Leader收集所有的Follower的ZXID，确定最新的ZXID。</li>
+<li>Leader生成新的epoch，并将epoch广播给所有Follower</li>
+</ul>
+<h5 id="3、同步阶段"><a href="#3、同步阶段" class="headerlink" title="3、同步阶段"></a>3、同步阶段</h5><ul>
+<li>Leader根据每个Follower的数据状态，发送相应的同步指令</li>
+<li>Follower根据指令进行数据同步，确保与Leader的数据一致。</li>
+</ul>
+<h3 id="2-2-2、消息广播模式（broadcast-phase）"><a href="#2-2-2、消息广播模式（broadcast-phase）" class="headerlink" title="2.2.2、消息广播模式（broadcast phase）"></a>2.2.2、消息广播模式（broadcast phase）</h3><ul>
+<li>触发条件：完成Leader选举后</li>
+<li>目标：将客户端请求（事务）有序广播到所有节点。</li>
+</ul>
+<h4 id="2-2-2-1、消息广播过程"><a href="#2-2-2-1、消息广播过程" class="headerlink" title="2.2.2.1、消息广播过程"></a>2.2.2.1、消息广播过程</h4><p>集群正常运行时，采用消息广播模式（两阶段提交 2PC）保证数据一致性，过程如下：</p>
+<h5 id="1、Proposal阶段"><a href="#1、Proposal阶段" class="headerlink" title="1、Proposal阶段"></a>1、Proposal阶段</h5><ol>
+<li>请求接收与分配ZXID：Leader节点接收客户端的写请求，并为每个请求分配一个全局唯一且递增的ZXID（事务ID）。</li>
+<li>广播事务Proposal：Leader将事务封装成Proposal消息，广播给所有的Follower节点。</li>
+</ol>
+<h5 id="2、ACK阶段"><a href="#2、ACK阶段" class="headerlink" title="2、ACK阶段"></a>2、ACK阶段</h5><ol start="3">
+<li>Follower响应：Follower节点接收到Proposal后，将其写入本地事务日志，并向Leader发送ACK响应。</li>
+</ol>
+<h5 id="3、Commit阶段"><a href="#3、Commit阶段" class="headerlink" title="3、Commit阶段"></a>3、Commit阶段</h5><ol start="4">
+<li>事务提交：当Leader收到超过半数Follower的ACK响应后，认为事务可以提交，向所有Follower发送Commit消息。</li>
+<li>Follower提交事务：Follower接收到Commit消息后，完成事务的提交。</li>
+</ol>
+<h1 id="三、watch机制"><a href="#三、watch机制" class="headerlink" title="三、watch机制"></a>三、watch机制</h1><p>Zookeeper的watch机制是其实现分布式协调功能的核心特性之一，允许客户端监听指定节点（ZNode）的变化，并在事件发生时接收异步通知。以下是Watch机制的详细解析：</p>
+<h2 id="3-1、Watch的工作流程"><a href="#3-1、Watch的工作流程" class="headerlink" title="3.1、Watch的工作流程"></a>3.1、Watch的工作流程</h2><h3 id="3-1-1、客户端注册Watch"><a href="#3-1-1、客户端注册Watch" class="headerlink" title="3.1.1、客户端注册Watch"></a>3.1.1、客户端注册Watch</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Java 示例：监听节点数据变化</span></span><br><span class="line"><span class="type">Stat</span> <span class="variable">stat</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Stat</span>();</span><br><span class="line"><span class="type">byte</span>[] data = zk.getData(<span class="string">&quot;/myNode&quot;</span>, watchedEvent -&gt; &#123;</span><br><span class="line">    System.out.println(<span class="string">&quot;Watch 触发: &quot;</span> + watchedEvent.getType());</span><br><span class="line">&#125;, stat);</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-1-2、服务端记录Watch"><a href="#3-1-2、服务端记录Watch" class="headerlink" title="3.1.2、服务端记录Watch"></a>3.1.2、服务端记录Watch</h3><p>服务端将Watch信息（路径、事件类型、客户端会话）存储在内存中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 添加watcher的示例代码</span></span><br><span class="line"><span class="keyword">public</span> Stat <span class="title function_">setData</span><span class="params">(String path, <span class="type">byte</span> data[], <span class="type">int</span> version, <span class="type">long</span> zxid, <span class="type">long</span> time)</span> <span class="keyword">throws</span> KeeperException.NoNodeException &#123;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">    watchManager.triggerWatch(path, EventType.NodeDataChanged);</span><br><span class="line">    <span class="keyword">return</span> s;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-1-3、事件触发与通知"><a href="#3-1-3、事件触发与通知" class="headerlink" title="3.1.3、事件触发与通知"></a>3.1.3、事件触发与通知</h3><p>当节点发生符合条件的变化时，服务端生成WatchedEvent，通过客户端的Watcher回调通知。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 触发watcher的示例代码</span></span><br><span class="line"><span class="keyword">public</span> Set&lt;Watcher&gt; <span class="title function_">triggerWatch</span><span class="params">(String path, EventType type, Set&lt;Watcher&gt; supress)</span> &#123;</span><br><span class="line">    <span class="type">WatchedEvent</span> <span class="variable">e</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">WatchedEvent</span>(type, KeeperState.SyncConnected, path);</span><br><span class="line">    HashSet&lt;Watcher&gt; watchers;</span><br><span class="line">    <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">        watchers = watchTable.remove(path);</span><br><span class="line">        <span class="keyword">if</span> (watchers == <span class="literal">null</span> || watchers.isEmpty()) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">for</span> (Watcher w : watchers) &#123;</span><br><span class="line">            HashSet&lt;String&gt; paths = watch2Paths.get(w);</span><br><span class="line">            <span class="keyword">if</span> (paths != <span class="literal">null</span>) &#123;</span><br><span class="line">                paths.remove(path);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">for</span> (Watcher w : watchers) &#123;</span><br><span class="line">        <span class="keyword">if</span> (supress != <span class="literal">null</span> &amp;&amp; supress.contains(w)) &#123;</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        w.process(e);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> watchers;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-1-4、客户端处理事件"><a href="#3-1-4、客户端处理事件" class="headerlink" title="3.1.4、客户端处理事件"></a>3.1.4、客户端处理事件</h3><p>客户端收到事件后，需根据业务逻辑重新注册Watch。</p>
+<h2 id="3-2、Watch的服务端实现"><a href="#3-2、Watch的服务端实现" class="headerlink" title="3.2、Watch的服务端实现"></a>3.2、Watch的服务端实现</h2><p>在ZooKeeper服务端，watcher的记录和管理主要通过<code>WatchManager</code>类来实现。以下是相关源码的简要说明：</p>
+<h3 id="3-2-1、-数据结构"><a href="#3-2-1、-数据结构" class="headerlink" title="3.2.1、 数据结构"></a>3.2.1、 <strong>数据结构</strong></h3><ul>
+<li><code>WatchManager</code>内部维护了多个哈希表，用于记录不同事件类型（如<code>NodeDataChanged</code>、<code>NodeDeleted</code>等）的watcher。</li>
+<li>主要数据结构包括<code>watchTable</code>、<code>dataWatches</code>、<code>existWatches</code>和<code>childWatches</code>，分别用于存储节点数据变化、节点存在性变化以及子节点变化的watcher。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 服务端记录watch的主要数据结构</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> WatchManager watchManager;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Map&lt;String, HashSet&lt;Watcher&gt;&gt; watchTable = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;String, HashSet&lt;Watcher&gt;&gt;();</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Map&lt;String, Set&lt;Watcher&gt;&gt; dataWatches = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;String, Set&lt;Watcher&gt;&gt;();</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Map&lt;String, Set&lt;Watcher&gt;&gt; existWatches = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;String, Set&lt;Watcher&gt;&gt;();</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Map&lt;String, Set&lt;Watcher&gt;&gt; childWatches = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;String, Set&lt;Watcher&gt;&gt;();</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-2、-添加watcher"><a href="#3-2-2、-添加watcher" class="headerlink" title="3.2.2、 添加watcher"></a>3.2.2、 <strong>添加watcher</strong></h3><ul>
+<li>当客户端注册watcher时，服务端会将watcher添加到相应的哈希表中。</li>
+<li>例如，在<code>DataTree</code>类的<code>setData</code>方法中，会调用<code>watchManager.triggerWatch</code>来添加watcher。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 添加watcher的示例代码</span></span><br><span class="line"><span class="keyword">public</span> Stat <span class="title function_">setData</span><span class="params">(String path, <span class="type">byte</span> data[], <span class="type">int</span> version, <span class="type">long</span> zxid, <span class="type">long</span> time)</span> <span class="keyword">throws</span> KeeperException.NoNodeException &#123;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">    watchManager.triggerWatch(path, EventType.NodeDataChanged);</span><br><span class="line">    <span class="keyword">return</span> s;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-3、触发watcher"><a href="#3-2-3、触发watcher" class="headerlink" title="3.2.3、触发watcher"></a>3.2.3、<strong>触发watcher</strong></h3><ul>
+<li>当节点状态发生变化时（如数据更新、节点删除等），服务端会调用<code>WatchManager</code>的<code>triggerWatch</code>方法来触发相应的watcher。</li>
+<li><code>triggerWatch</code>方法会从哈希表中获取所有相关的watcher，并调用它们的<code>process</code>方法。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 触发watcher的示例代码</span></span><br><span class="line"><span class="keyword">public</span> Set&lt;Watcher&gt; <span class="title function_">triggerWatch</span><span class="params">(String path, EventType type, Set&lt;Watcher&gt; supress)</span> &#123;</span><br><span class="line">    <span class="type">WatchedEvent</span> <span class="variable">e</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">WatchedEvent</span>(type, KeeperState.SyncConnected, path);</span><br><span class="line">    HashSet&lt;Watcher&gt; watchers;</span><br><span class="line">    <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">        watchers = watchTable.remove(path);</span><br><span class="line">        <span class="keyword">if</span> (watchers == <span class="literal">null</span> || watchers.isEmpty()) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">for</span> (Watcher w : watchers) &#123;</span><br><span class="line">            HashSet&lt;String&gt; paths = watch2Paths.get(w);</span><br><span class="line">            <span class="keyword">if</span> (paths != <span class="literal">null</span>) &#123;</span><br><span class="line">                paths.remove(path);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">for</span> (Watcher w : watchers) &#123;</span><br><span class="line">        <span class="keyword">if</span> (supress != <span class="literal">null</span> &amp;&amp; supress.contains(w)) &#123;</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        w.process(e);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> watchers;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>客户端使用 SendThread.readResponse() 方法来统一处理服务端的相应：</p>
+<h4 id="1、process示例"><a href="#1、process示例" class="headerlink" title="1、process示例"></a>1、process示例</h4><p>在ZooKeeper中，<code>process</code>方法是<code>Watcher</code>接口的一部分，用于处理收到的事件通知。以下是一个简化的<code>process</code>方法示例，展示了如何处理不同类型的事件：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyWatcher</span> <span class="keyword">implements</span> <span class="title class_">Watcher</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">process</span><span class="params">(WatchedEvent event)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;收到事件通知：&quot;</span> + event);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 检查事件的状态</span></span><br><span class="line">        <span class="keyword">switch</span> (event.getState()) &#123;</span><br><span class="line">            <span class="keyword">case</span> SyncConnected:</span><br><span class="line">                <span class="comment">// 客户端与服务端成功连接</span></span><br><span class="line">                System.out.println(<span class="string">&quot;客户端已连接到ZooKeeper服务器&quot;</span>);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> Disconnected:</span><br><span class="line">                <span class="comment">// 客户端与服务端断开连接</span></span><br><span class="line">                System.out.println(<span class="string">&quot;客户端与ZooKeeper服务器断开连接&quot;</span>);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> AuthFailed:</span><br><span class="line">                <span class="comment">// 身份验证失败</span></span><br><span class="line">                System.out.println(<span class="string">&quot;身份验证失败，无法连接到ZooKeeper服务器&quot;</span>);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> Expired:</span><br><span class="line">                <span class="comment">// 会话过期</span></span><br><span class="line">                System.out.println(<span class="string">&quot;会话已过期，需要重新连接&quot;</span>);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="comment">// 其他状态...</span></span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 检查事件的类型</span></span><br><span class="line">        <span class="keyword">switch</span> (event.getType()) &#123;</span><br><span class="line">            <span class="keyword">case</span> None:</span><br><span class="line">                <span class="comment">// 无事件类型</span></span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> NodeCreated:</span><br><span class="line">                <span class="comment">// 节点被创建</span></span><br><span class="line">                System.out.println(<span class="string">&quot;节点创建：&quot;</span> + event.getPath());</span><br><span class="line">                <span class="comment">// 处理节点创建的逻辑</span></span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> NodeDeleted:</span><br><span class="line">                <span class="comment">// 节点被删除</span></span><br><span class="line">                System.out.println(<span class="string">&quot;节点删除：&quot;</span> + event.getPath());</span><br><span class="line">                <span class="comment">// 处理节点删除的逻辑</span></span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> NodeDataChanged:</span><br><span class="line">                <span class="comment">// 节点数据发生变化</span></span><br><span class="line">                System.out.println(<span class="string">&quot;节点数据变化：&quot;</span> + event.getPath());</span><br><span class="line">                <span class="comment">// 处理节点数据变化的逻辑</span></span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> NodeChildrenChanged:</span><br><span class="line">                <span class="comment">// 子节点列表发生变化</span></span><br><span class="line">                System.out.println(<span class="string">&quot;子节点列表变化：&quot;</span> + event.getPath());</span><br><span class="line">                <span class="comment">// 处理子节点列表变化的逻辑</span></span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="comment">// 其他事件类型...</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在这个示例中，<code>MyWatcher</code>类实现了<code>Watcher</code>接口，并重写了<code>process</code>方法。当收到事件通知时，<code>process</code>方法会根据事件的状态和类型执行相应的逻辑。例如，如果收到<code>NodeDataChanged</code>事件，可能会重新获取节点数据并更新本地状态。</p>
+<p>需要注意的是，这个示例是一个简化版本，实际使用中可能需要根据具体业务需求进行更复杂的处理。此外，由于ZooKeeper的watcher是一次性的，触发后会自动移除，因此如果需要在<code>process</code>方法中重新注册watcher，需要确保在适当的时机进行注册。</p>
+<h3 id="3-2-4、-移除watcher"><a href="#3-2-4、-移除watcher" class="headerlink" title="3.2.4、 移除watcher"></a>3.2.4、 <strong>移除watcher</strong></h3><ul>
+<li>当watcher被触发后，服务端会从哈希表中移除该watcher，确保每个watcher只被触发一次。</li>
+</ul>
+<p>通过上述机制，服务端能够高效地记录、触发和移除watcher，实现客户端对节点状态变化的实时感知。</p>
+<h2 id="3-3、Watch的核心特性"><a href="#3-3、Watch的核心特性" class="headerlink" title="3.3、Watch的核心特性"></a>3.3、Watch的核心特性</h2><h3 id="3-3-1、一次性触发"><a href="#3-3-1、一次性触发" class="headerlink" title="3.3.1、一次性触发"></a>3.3.1、一次性触发</h3><ul>
+<li>Watch被触发后自动失效，需要重新注册才能继续监听后续变化。</li>
+<li>设计原因：减少服务端资源占用，避免因客户端未处理事件导致的堆积。</li>
+</ul>
+<h3 id="3-3-2、事件类型"><a href="#3-3-2、事件类型" class="headerlink" title="3.3.2、事件类型"></a>3.3.2、事件类型</h3><ul>
+<li>节点事件：NodeCreated, NodeDeleted, NodeDataChanged, NodeChildrenChanged</li>
+</ul>
+<h3 id="3-3-3、有效性保证"><a href="#3-3-3、有效性保证" class="headerlink" title="3.3.3、有效性保证"></a>3.3.3、有效性保证</h3><ul>
+<li>客户端先看到数据变化，再收到Watch事件通知。</li>
+<li>事件通知的顺序和数据变更顺序一致。</li>
+</ul>
+<h1 id="四、惊群"><a href="#四、惊群" class="headerlink" title="四、惊群"></a>四、惊群</h1><h2 id="4-1、ZK-中惊群问题的根源"><a href="#4-1、ZK-中惊群问题的根源" class="headerlink" title="4.1、ZK 中惊群问题的根源"></a>4.1、ZK 中惊群问题的根源</h2><ol>
+<li>事件通知机制<br>ZooKeeper 使用了一种基于事件的通知机制，当节点数据发生变化、子节点列表发生变化或者其他特定事件发生时，会向注册了监听该节点的客户端发送通知。</li>
+<li>客户端行为模式</li>
+</ol>
+<h2 id="4-2、应对策略的具体实现示例"><a href="#4-2、应对策略的具体实现示例" class="headerlink" title="4.2、应对策略的具体实现示例"></a>4.2、应对策略的具体实现示例</h2><ul>
+<li>合理设计应用逻辑<br>以一个分布式缓存系统为例，多个缓存节点（客户端）监听 ZooKeeper 上的缓存配置节点变化。当配置发生变化时，每个客户端在收到通知后，首先检查自己的本地缓存状态和当前系统负载情况。如果本地缓存已经是最新的或者系统负载过高，就不进行立即的数据更新操作，而是等待一段时间后再次评估是否需要更新，这样可以避免不必要的处理</li>
+<li>使用排队机制<br>在一个分布式锁的实现中，客户端在等待获取锁时，可以将自己加入一个等待队列中，并按照顺序依次尝试获取锁。当锁释放时，只有队列头部的客户端进行获取锁的操作，如果获取失败，它会重新进入队列尾部等待。其他客户端则继续等待，而不是同时进行竞争。这样可以有效地减少竞争和资源浪费。例如，使用 Java 语言可以通过自定义的数据结构和同步机制来实现这样的排队逻辑</li>
+<li>优化客户端数量和监听策略<br>对于一个大型的分布式监控系统，根据监控的层次和功能将客户端进行分组。比如，将负责监控服务器硬件状态的客户端分为一组，监听应用程序性能指标的客户端分为另一组，不同组的客户端监听不同的 ZooKeeper 节点或者节点层次。这样可以减少同时被通知的客户端数量，降低惊群问题的影响。同时，可以根据实际的业务需求和系统负载动态调整客户端的分组和监听策略。</li>
+</ul>
+<h1 id="五、脑裂"><a href="#五、脑裂" class="headerlink" title="五、脑裂"></a>五、脑裂</h1><p><code>脑裂</code>指分布式系统中，由于网络分区（network partition）导致集群被分割成多个独立子集群，每个子集群误认为自己是唯一存活的部分，并继续对外提供服务，导致数据不一致和冲突。</p>
+<p>例如5台机器，部署在2个机房，此时网络出现故障，可能导致2个leader，从而脑裂</p>
+<h2 id="5-1、ZK如何解决脑裂？"><a href="#5-1、ZK如何解决脑裂？" class="headerlink" title="5.1、ZK如何解决脑裂？"></a>5.1、ZK如何解决脑裂？</h2><p>Zookeeper通过ZAB协议和集群配置规则避免脑裂，核心机制如下：</p>
+<h3 id="5-1-1、quorum（多数派原则）"><a href="#5-1-1、quorum（多数派原则）" class="headerlink" title="5.1.1、quorum（多数派原则）"></a>5.1.1、quorum（多数派原则）</h3><ul>
+<li>选举要求：只有获得半数以上（N&#x2F;2+1）节点投票的候选者才能成为Leader。</li>
+<li>写操作要求：事务提交需要半数以上节点确认。</li>
+<li>结果：若集群被分割为两部分，仅包含多数节点的子集群能继续工作，另外一部分因无法达到多数而停止服务。</li>
+</ul>
+<h3 id="5-1-2、Epoch机制"><a href="#5-1-2、Epoch机制" class="headerlink" title="5.1.2、Epoch机制"></a>5.1.2、Epoch机制</h3><ul>
+<li>任期编号：每个Leader分配唯一的epoch值（递增整数）。</li>
+<li>拒绝旧Leader：新Leader广播更高的epoch，旧Leader的请求会被其他节点拒绝。</li>
+</ul>
+<h3 id="5-1-3、节点配置为奇数"><a href="#5-1-3、节点配置为奇数" class="headerlink" title="5.1.3、节点配置为奇数"></a>5.1.3、节点配置为奇数</h3><p>推荐节点数：3、5、7等奇数，确保任何网络分区下，至多一个子集群能形成多数。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/09/03/2020-09-03-zookeeper-%E6%9E%B6%E6%9E%84/" rel="prev" title="《zookeeper》架构及数据结构">
+      <i class="fa fa-chevron-left"></i> 《zookeeper》架构及数据结构
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/09/06/2020-09-06-rocketmq-%E6%9E%B6%E6%9E%84/" rel="next" title="《rocketmq》架构及数据结构">
+      《rocketmq》架构及数据结构 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81zookeeper"><span class="nav-text">一、zookeeper</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81ZAB%E5%8D%8F%E8%AE%AE"><span class="nav-text">二、ZAB协议</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E6%A6%82%E5%BF%B5%E4%BB%8B%E7%BB%8D"><span class="nav-text">2.1、概念介绍</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-1%E3%80%81%E9%9B%86%E7%BE%A4%E8%A7%92%E8%89%B2"><span class="nav-text">2.1.1、集群角色</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-2%E3%80%81%E6%9C%8D%E5%8A%A1%E7%8A%B6%E6%80%81"><span class="nav-text">2.1.2、服务状态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-3%E3%80%81ZXID"><span class="nav-text">2.1.3、ZXID</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-3-1%E3%80%81ZxidUtils"><span class="nav-text">2.1.3.1、ZxidUtils</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-3-2%E3%80%81leader%E8%8A%82%E7%82%B9%E7%94%9F%E6%88%90zxid"><span class="nav-text">2.1.3.2、leader节点生成zxid</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81ZAB%E7%9A%84%E7%8A%B6%E6%80%81"><span class="nav-text">2.2、ZAB的状态</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81ZAB%E5%8D%8F%E8%AE%AE%E7%9A%84%E4%B8%A4%E7%A7%8D%E6%A8%A1%E5%BC%8F"><span class="nav-text">2.2、ZAB协议的两种模式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1%E3%80%81%E5%B4%A9%E6%BA%83%E6%81%A2%E5%A4%8D%E6%A8%A1%E5%BC%8F%EF%BC%88recovery-phase%EF%BC%89"><span class="nav-text">2.2.1、崩溃恢复模式（recovery phase）</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-1-1%E3%80%81%E5%B4%A9%E6%BA%83%E6%81%A2%E5%A4%8D%E8%BF%87%E7%A8%8B"><span class="nav-text">2.2.1.1、崩溃恢复过程</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81%E9%80%89%E4%B8%BE%E9%98%B6%E6%AE%B5"><span class="nav-text">1、选举阶段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2%E3%80%81%E5%8F%91%E7%8E%B0%E9%98%B6%E6%AE%B5"><span class="nav-text">2、发现阶段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3%E3%80%81%E5%90%8C%E6%AD%A5%E9%98%B6%E6%AE%B5"><span class="nav-text">3、同步阶段</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-2%E3%80%81%E6%B6%88%E6%81%AF%E5%B9%BF%E6%92%AD%E6%A8%A1%E5%BC%8F%EF%BC%88broadcast-phase%EF%BC%89"><span class="nav-text">2.2.2、消息广播模式（broadcast phase）</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-2-1%E3%80%81%E6%B6%88%E6%81%AF%E5%B9%BF%E6%92%AD%E8%BF%87%E7%A8%8B"><span class="nav-text">2.2.2.1、消息广播过程</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81Proposal%E9%98%B6%E6%AE%B5"><span class="nav-text">1、Proposal阶段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2%E3%80%81ACK%E9%98%B6%E6%AE%B5"><span class="nav-text">2、ACK阶段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3%E3%80%81Commit%E9%98%B6%E6%AE%B5"><span class="nav-text">3、Commit阶段</span></a></li></ol></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81watch%E6%9C%BA%E5%88%B6"><span class="nav-text">三、watch机制</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81Watch%E7%9A%84%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B"><span class="nav-text">3.1、Watch的工作流程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%B3%A8%E5%86%8CWatch"><span class="nav-text">3.1.1、客户端注册Watch</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-2%E3%80%81%E6%9C%8D%E5%8A%A1%E7%AB%AF%E8%AE%B0%E5%BD%95Watch"><span class="nav-text">3.1.2、服务端记录Watch</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-3%E3%80%81%E4%BA%8B%E4%BB%B6%E8%A7%A6%E5%8F%91%E4%B8%8E%E9%80%9A%E7%9F%A5"><span class="nav-text">3.1.3、事件触发与通知</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-4%E3%80%81%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%A4%84%E7%90%86%E4%BA%8B%E4%BB%B6"><span class="nav-text">3.1.4、客户端处理事件</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81Watch%E7%9A%84%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%AE%9E%E7%8E%B0"><span class="nav-text">3.2、Watch的服务端实现</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1%E3%80%81-%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-text">3.2.1、 数据结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-2%E3%80%81-%E6%B7%BB%E5%8A%A0watcher"><span class="nav-text">3.2.2、 添加watcher</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-3%E3%80%81%E8%A7%A6%E5%8F%91watcher"><span class="nav-text">3.2.3、触发watcher</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1%E3%80%81process%E7%A4%BA%E4%BE%8B"><span class="nav-text">1、process示例</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-4%E3%80%81-%E7%A7%BB%E9%99%A4watcher"><span class="nav-text">3.2.4、 移除watcher</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81Watch%E7%9A%84%E6%A0%B8%E5%BF%83%E7%89%B9%E6%80%A7"><span class="nav-text">3.3、Watch的核心特性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-1%E3%80%81%E4%B8%80%E6%AC%A1%E6%80%A7%E8%A7%A6%E5%8F%91"><span class="nav-text">3.3.1、一次性触发</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-2%E3%80%81%E4%BA%8B%E4%BB%B6%E7%B1%BB%E5%9E%8B"><span class="nav-text">3.3.2、事件类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-3%E3%80%81%E6%9C%89%E6%95%88%E6%80%A7%E4%BF%9D%E8%AF%81"><span class="nav-text">3.3.3、有效性保证</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E6%83%8A%E7%BE%A4"><span class="nav-text">四、惊群</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81ZK-%E4%B8%AD%E6%83%8A%E7%BE%A4%E9%97%AE%E9%A2%98%E7%9A%84%E6%A0%B9%E6%BA%90"><span class="nav-text">4.1、ZK 中惊群问题的根源</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81%E5%BA%94%E5%AF%B9%E7%AD%96%E7%95%A5%E7%9A%84%E5%85%B7%E4%BD%93%E5%AE%9E%E7%8E%B0%E7%A4%BA%E4%BE%8B"><span class="nav-text">4.2、应对策略的具体实现示例</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E8%84%91%E8%A3%82"><span class="nav-text">五、脑裂</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1%E3%80%81ZK%E5%A6%82%E4%BD%95%E8%A7%A3%E5%86%B3%E8%84%91%E8%A3%82%EF%BC%9F"><span class="nav-text">5.1、ZK如何解决脑裂？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-1%E3%80%81quorum%EF%BC%88%E5%A4%9A%E6%95%B0%E6%B4%BE%E5%8E%9F%E5%88%99%EF%BC%89"><span class="nav-text">5.1.1、quorum（多数派原则）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-2%E3%80%81Epoch%E6%9C%BA%E5%88%B6"><span class="nav-text">5.1.2、Epoch机制</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-3%E3%80%81%E8%8A%82%E7%82%B9%E9%85%8D%E7%BD%AE%E4%B8%BA%E5%A5%87%E6%95%B0"><span class="nav-text">5.1.3、节点配置为奇数</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

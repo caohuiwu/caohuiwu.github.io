@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="HBASE1、面向列存储的分布式存储系统。2、概念有row key和cloumn family。3、仅能通过行键(row key)和行键序列来检索数据，仅支持单行事务。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="hbase">
+<meta property="og:url" content="http://yoursite.com/2019/07/03/2019-07-03-hbase/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="HBASE1、面向列存储的分布式存储系统。2、概念有row key和cloumn family。3、仅能通过行键(row key)和行键序列来检索数据，仅支持单行事务。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2019/07/03/2019-07-03-hbase/HBASE%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/03/2019-07-03-hbase/HBASE%E5%AD%98%E5%82%A8.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/03/2019-07-03-hbase/hregion.png">
+<meta property="article:published_time" content="2019-07-03T13:58:49.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:54.970Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2019/07/03/2019-07-03-hbase/HBASE%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/07/03/2019-07-03-hbase/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>hbase | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/07/03/2019-07-03-hbase/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          hbase
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-07-03 21:58:49" itemprop="dateCreated datePublished" datetime="2019-07-03T21:58:49+08:00">2019-07-03</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:54" itemprop="dateModified" datetime="2025-03-04T15:37:54+08:00">2025-03-04</time>
+              </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>2.1k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>5 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="HBASE"><a href="#HBASE" class="headerlink" title="HBASE"></a>HBASE</h1><p>1、面向列存储的分布式存储系统。<br>2、概念有row key和cloumn family。<br>3、仅能通过行键(row key)和行键序列来检索数据，仅支持单行事务。  </p>
+<span id="more"></span>  
+
+<blockquote>
+<p>下图为hbase的整体架构图  </p>
+</blockquote>
+<p><img src="/2019/07/03/2019-07-03-hbase/HBASE%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86.png" alt="hbase工作原理">   </p>
+<blockquote>
+<p>zk存储了所有Region server节点的信息 </p>
+</blockquote>
+<p>HBase中的每一张表就是所谓的BigTable。BigTable会存储一系列的行记录，行记录有三个基本类型的定义：</p>
+<p>1.RowKey</p>
+<p>是行在BigTable中的唯一标识。</p>
+<p>2.TimeStamp：</p>
+<p>是每一次数据操作对应关联的时间戳，可以看作SVN的版本。</p>
+<p>3.Column：</p>
+<p>定义为<family>:<label>，通过这两部分可以指定唯一的数据的存储列，family的定义和修改需要对HBase进行类似于DB的DDL操作，</label></family></p>
+<p>而label，不需要定义直接可以使用，这也为动态定制列提供了一种手段。family另一个作用体现在物理存储优化读写操作上，同family</p>
+<p>的数据物理上保存的会比较接近，因此在业务设计的过程中可以利用这个特性。</p>
+<p><strong>逻辑存储</strong><br><img src="/2019/07/03/2019-07-03-hbase/HBASE%E5%AD%98%E5%82%A8.png" alt="hbase工作原理"> </p>
+<h2 id="一、hbase-master"><a href="#一、hbase-master" class="headerlink" title="一、hbase master"></a>一、hbase master</h2><p>1、协调各个regsion server的负载均衡。<br>2、负责给region分配region server。<br>3、通过zk可以实现master的集群部署，但是同时只有一个master提供服务。  </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">**************************</span><br><span class="line">**** HBase Meta Table ****</span><br><span class="line">**************************</span><br><span class="line">Meta table存储所有region的列表</span><br><span class="line">Meta table的结构如下:</span><br><span class="line">- Key: region的开始row key, region id</span><br><span class="line">- Values: Region server</span><br></pre></td></tr></table></figure>
+
+<h2 id="二、Regsion-Server"><a href="#二、Regsion-Server" class="headerlink" title="二、Regsion Server"></a>二、Regsion Server</h2><p>1、client直接与Regsion server进行连接。   </p>
+<p><img src="/2019/07/03/2019-07-03-hbase/hregion.png" alt="hbase工作原理">  </p>
+<ul>
+<li>1、Region  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">1、根据Row Key的区域分成多个Region（按照rowkey分成region，若一个region存储不下则开辟新的region）</span><br><span class="line">2、每个HRegion对应Table中一个Region，HRegion由多个HStore组成；</span><br><span class="line">3、每个HStore对应Table中一个Column Family的存储；</span><br><span class="line">4、flush的最小单位是region。</span><br><span class="line">5、每个region最大1GB(默认)。</span><br><span class="line">```    </span><br><span class="line">* 2、MemStore</span><br></pre></td></tr></table></figure>
+1、每一个cloumn family对应一个memstore，<br>2、采用LSM数据结构存储，并在内存中排序，提高写入速度。<br>3、若rowkey的cf过多，则会导致memstore过多，导致region的flush。<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">* 3、Store File</span><br></pre></td></tr></table></figure>
+HFile的轻量封装。<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">* 4、HFile</span><br></pre></td></tr></table></figure>
+1、HFile中存储有序的Key-Value对. 当Memstore满了之后, Memstore中的所有数据写入HDFS中,形成一个新的HFile<br>2、HFile文件主要分为4个部分：Scanned block部分、Non-scanned block部分、Load-on-open部分和Trailer。<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">* 5、HLog</span><br></pre></td></tr></table></figure>
+一旦HRegionServer意外退出，MemStore中的内存数据就会丢失，引入HLog就是防止这种情况<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">参考  </span><br><span class="line">[深度分析HBASE架构](https://zhuanlan.zhihu.com/p/30414252)    </span><br><span class="line">[hbase存储结构介绍及hbase各种概念](https://www.cnblogs.com/yangjiming/p/9429169.html)  </span><br><span class="line">    </span><br><span class="line">    </span><br><span class="line"># HBASE应用</span><br><span class="line">## 一、现状</span><br><span class="line">* 统一登录系统容量为26G左右  </span><br><span class="line">![uum总容量](2019-07-03-hbase/uumsize.jpg)   </span><br><span class="line"> </span><br><span class="line">* 业务日志容量为200G左右  </span><br><span class="line">![业务日志容量](2019-07-03-hbase/businesslog.png)  </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+1、业务日志容量占总数据库的80%，每日新增数量多。<br>2、日志存储及重新，消耗机器过多的CPU和IO，会影响整个服务的性能。<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">## 二、优化</span><br><span class="line"></span><br><span class="line">### 1、现有使用方式调研</span><br></pre></td></tr></table></figure>
+1、业务ID+_+系统模块ID 两条件查询业务操作日志。<br>2、各业务系统可以查看各自处理的历史数据。</li>
+</ul>
+<pre><code>
+### 2、技术选型
+
+1、存储问题
+&gt; MySQL 与 HBase 是我们日常应用中常用的两个数据库，分别解决应用的在线事务问题和大数据场景的海量存储问题，HBASE侧重写，存储无碎片，数据导入能力强;
+
+2、数据分析处理
+&gt; MySQL 与 HBase 在大数据量下分析处理，显而易见，HBASE优势优于MYSQL ,完全分布式，易扩展, 底层使用HDFS, 存储与计算分离 ;
+
+3、结合业务场景
+&gt; 业务操作日志，数据量大，业务单一，且历史数据在MQSQL中已达200G,没有过多复杂的查询;
+
+4、性能
+&gt; HBase  在合理的设计存储 结构 合理的设计ROWKEY,查询效率很高，毫秒级
+
+### 3、功能设计
+* 1.可以使用rowkey精确查找.  
+* 2.可根据查询条件查询，可以查询分页查询的方工有：  
+    * 1.业务ID;  
+    * 2.业务ID，系统ID;  
+
+### 4、row key设计
+业务ID+_+系统ID+_+业务系统操作ID+_+生成的唯一ID(时间毫秒数+4位计数（0000-9999）);  rowkey最大长度为 17*4+3
+</code></pre>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/06/28/2019-06-28-hadoop/" rel="prev" title="hadoop">
+      <i class="fa fa-chevron-left"></i> hadoop
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/" rel="next" title="hbase梳理">
+      hbase梳理 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#HBASE"><span class="nav-text">HBASE</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81hbase-master"><span class="nav-text">一、hbase master</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Regsion-Server"><span class="nav-text">二、Regsion Server</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是“Redis”系列的第十篇文章，主要介绍的是Redis实现“分布式锁”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Redis》分布式锁">
+<meta property="og:url" content="http://yoursite.com/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“Redis”系列的第十篇文章，主要介绍的是Redis实现“分布式锁”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/lua_unlock.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/redlock_%E9%83%A8%E7%BD%B2.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/redlock_%E8%BF%9B%E7%A8%8B%E6%9A%82%E5%81%9C%E7%A4%BA%E4%BE%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/redlock_fencingtoken.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/redlock_%E8%BF%9B%E7%A8%8B%E6%9A%82%E5%81%9C%E7%A4%BA%E4%BE%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/zk_%E5%BF%83%E8%B7%B3.png">
+<meta property="article:published_time" content="2020-07-20T07:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.544Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/lua_unlock.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Redis》分布式锁 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Redis》分布式锁
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-20 15:19:31" itemprop="dateCreated datePublished" datetime="2020-07-20T15:19:31+08:00">2020-07-20</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" itemprop="url" rel="index"><span itemprop="name">分布式锁</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>15k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>37 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是“Redis”系列的第十篇文章，主要介绍的是Redis实现“分布式锁”。
+</code></pre>
+<h1 id="一、Redis"><a href="#一、Redis" class="headerlink" title="一、Redis"></a>一、Redis</h1><p><code>Redis（Remote Dictionary Server）</code>是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。</p>
+<span id="more"></span>
+
+<h1 id="二、Redis分布式锁"><a href="#二、Redis分布式锁" class="headerlink" title="二、Redis分布式锁"></a>二、Redis分布式锁</h1><p>在分布式系统中，Redis分布式锁用于协调多个进程或服务对共享资源的访问，确保同一时间只有一个客户端可以操作资源。Redis通过其原子性操作（如SETNX和set）实现分布式锁。</p>
+<h2 id="2-1、命令形式"><a href="#2-1、命令形式" class="headerlink" title="2.1、命令形式"></a>2.1、命令形式</h2><p>Redis 2.6.12 之后，Redis 扩展了 SET 命令的参数，用这一条命令就可以了：</p>
+<p><code>SET key value [NX] [XX] [EX <seconds>] [PX <milliseconds>]</milliseconds></seconds></code></p>
+<ul>
+<li><strong>NX</strong>：Only set the key if it does not already exist.只有值不存在时才设置</li>
+<li><strong>XX</strong>：Only set the key if it already exist.只有值存在时才设置</li>
+<li><strong>EX</strong>：过期时间，秒单位</li>
+<li><strong>PX</strong>：过期时间，毫秒单位</li>
+</ul>
+<p>SET 命令用于设置一个 key 对应的 value 值，如果 key 不存在则创建它，如果 key 已经存在则会覆盖它的值。而 SETNX（SET if Not eXists）命令则只有在 key 不存在时才会设置它的值，如果 key 已经存在则不做任何操作。</p>
+<h2 id="2-2、锁实现方式"><a href="#2-2、锁实现方式" class="headerlink" title="2.2、锁实现方式"></a>2.2、锁实现方式</h2><p>使用 SETNX 命令有以下好处：</p>
+<ul>
+<li>保证原子性：SETNX 命令是原子性的，即只有在 key 不存在时才会执行设置操作，确保了在多线程或多进程并发访问时不会出现竞争条件。</li>
+<li>避免误操作：SET 命令可能会覆盖已有的 key 值，而 SETNX 命令只在 key 不存在时才会执行设置操作，避免了误操作导致数据丢失的情况。</li>
+<li>高效性能：由于 SETNX 命令只在 key 不存在时才会执行设置操作，所以它的执行效率比 SET 命令要高。</li>
+</ul>
+<p>Redis 官方是不推荐基于 setnx 命令来实现分布式锁的，因为会存在很多问题，</p>
+<ul>
+<li>锁的高级用法，比如读写锁、可重入锁等等，setnx 都比较难实现</li>
+<li>需要想尽办法，保证 SETNX 和 EXPIRE 原子性执行，还要考虑各种异常情况如何处理。</li>
+</ul>
+<h3 id="2-2-1、方案1：setnx-delete"><a href="#2-2-1、方案1：setnx-delete" class="headerlink" title="2.2.1、方案1：setnx + delete"></a>2.2.1、方案1：setnx + delete</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">setnx lock_a random_value</span><br><span class="line">// do sth</span><br><span class="line">delete lock_a</span><br></pre></td></tr></table></figure>
+<p>问题</p>
+<blockquote>
+<p>一旦服务获取锁之后，因某种原因挂掉，则锁一直无法自动释放。从而导致死锁</p>
+</blockquote>
+<h3 id="2-2-2、方案2：setnx-setex-delete"><a href="#2-2-2、方案2：setnx-setex-delete" class="headerlink" title="2.2.2、方案2：setnx + setex + delete"></a>2.2.2、方案2：setnx + setex + delete</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">setnx lock_a random_value</span><br><span class="line">setex lock_a 10 random_value // 10s超时</span><br><span class="line">// do sth</span><br><span class="line">delete lock_a</span><br></pre></td></tr></table></figure>
+<p>问题</p>
+<blockquote>
+<p>按需设置超时时间。此方案解决了方案1死锁的问题，但同时引入了新的死锁问题：<br>如果setnx之后，setex 之前服务挂掉，会陷入死锁。<br>根本原因为 setnx&#x2F;setex 分为了两个步骤，非原子操作。</p>
+</blockquote>
+<h3 id="2-2-3、方案3：set-nx-px-delete"><a href="#2-2-3、方案3：set-nx-px-delete" class="headerlink" title="2.2.3、方案3：set nx px + delete"></a>2.2.3、方案3：set nx px + delete</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">SET lock_a random_value NX PX 10000 // 10s超时</span><br><span class="line">// do sth</span><br><span class="line">delete lock_a</span><br></pre></td></tr></table></figure>
+<p>此方案通过 set 的 NX&#x2F;PX 选项，将加锁、设置超时两个步骤合并为一个原子操作，从而解决方案1、2的问题。(PX与EX选项的语义相同，差异仅在单位。)<br>此方案目前大多数 sdk、redis 部署方案都支持，因此是推荐使用的方式。</p>
+<p>问题</p>
+<blockquote>
+<p>如果<font color="red">锁被错误的释放（如超时）</font>，或被错误的抢占，或因redis问题等导致锁丢失，无法很快的感知到<br>即线程1还在使用，但是超时了，线程2再次上锁，线程1执行完以后，会导致锁被删除释放</p>
+</blockquote>
+<h3 id="2-2-4、方案4：set-key-randomvalue-NX-PX-lua"><a href="#2-2-4、方案4：set-key-randomvalue-NX-PX-lua" class="headerlink" title="2.2.4、方案4：set key randomvalue NX PX + lua"></a>2.2.4、方案4：set key randomvalue NX PX + lua</h3><p>为了解决<font color="red">锁被错误的释放（如超时）</font>的问题，引入了 lua 脚本。</p>
+<ul>
+<li>解决办法是：客户端在加锁时，设置一个只有自己知道的「唯一标识」进去。<br>例如，可以是自己的线程 ID，也可以是一个 UUID（随机且唯一），这里我们以 UUID 举例：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">// 锁的VALUE设置为UUID</span><br><span class="line">127.0.0.1:6379&gt; SET lock $uuid EX 20 NX</span><br><span class="line">OK</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>加锁</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SET lock_a random_value NX PX 10000</span><br></pre></td></tr></table></figure>
+<p>解锁<br><img src="/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/lua_unlock.png" alt="lua_unlock"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">eval &quot;if redis.call(&#x27;get&#x27;,KEYS[1]) == ARGV[1] then return redis.call(&#x27;del&#x27;,KEYS[1]) else return 0 end&quot; 1 lock_a random_value</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>KEYS[1]</code>：KEYS[1]是 Lua 脚本中传入的参数，表示要操作的键。在这里，就是指锁对应的键</li>
+<li><code>ARGV[1]</code>：ARGV[1]也是 Lua 脚本中传入的参数，通常存储着客户端设置的一个唯一标识（例如，一个随机生成的字符串或客户端的 ID 等）。当客户端获取锁时，会将这个唯一标识作为值与锁的键一起存储在 Redis 中。</li>
+</ul>
+<p>即使因为某些异常导致锁被错误的抢占，也能部分保证锁的正确释放。并且在释放锁时能检测到锁是否被错误抢占、错误释放，从而进行特殊处理。</p>
+<h4 id="2-2-4-1、LUA脚本"><a href="#2-2-4-1、LUA脚本" class="headerlink" title="2.2.4.1、LUA脚本"></a>2.2.4.1、LUA脚本</h4><p>优点</p>
+<ul>
+<li>减少网络开销<br>可以将多个请求通过脚本的形式一次发送，减少网络时延和请求次数</li>
+<li>原子性的操作<br>Redis会将整个脚本作为一个整体执行，中间不会被其他命令插入。因此在编写脚本的过程中无需担心会出现竞态条件，无需使用事务</li>
+</ul>
+<p>语法</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ redis-cli --eval path/to/redis.lua KEYS[1] KEYS[2] , ARGV[1] ARGV[2] ...</span><br></pre></td></tr></table></figure>
+<ul>
+<li>–eval，告诉redis-cli读取并运行后面的lua脚本</li>
+<li>path&#x2F;to&#x2F;redis.lua，是lua脚本的位置</li>
+<li>KEYS[1] KEYS[2]，是要操作的键，可以指定多个，在lua脚本中通过KEYS[1], KEYS[2]获取</li>
+<li>ARGV[1] ARGV[2]，参数，在lua脚本中通过ARGV[1], ARGV[2]获取。</li>
+</ul>
+<p>示例：<br>Eval 命令的基本语法如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">redis 127.0.0.1:6379&gt; EVAL script numkeys key [key ...] arg [arg ...]</span><br><span class="line">redis 127.0.0.1:6379&gt; EVAL &quot;return &#123;KEYS[1],KEYS[2],ARGV[1],ARGV[2]&#125;&quot; 2 key1 key2 first second</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>2</code>：numkeys，代表2个key</li>
+<li><code>key1</code>：代表第一个key的名称</li>
+<li><code>key2</code>：代表第二个key的名称</li>
+<li><code>first</code>：第一个key的值</li>
+<li><code>second</code>：第二个key的值</li>
+</ul>
+<h1 id="三、锁的可重入"><a href="#三、锁的可重入" class="headerlink" title="三、锁的可重入"></a>三、锁的可重入</h1><p>SET是不支持重入锁的，但我们需要重入锁，怎么办呢？</p>
+<ul>
+<li>目前对于redis的重入锁业界还是有很多解决方案的，当前比较流行的就是采用Redisson。</li>
+<li>Redisson是Redis官方推荐的Java版的Redis客户端。</li>
+</ul>
+<h2 id="3-1、Redisson是如何实现的了？"><a href="#3-1、Redisson是如何实现的了？" class="headerlink" title="3.1、Redisson是如何实现的了？"></a>3.1、Redisson是如何实现的了？</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">&lt;T&gt; RFuture&lt;T&gt; <span class="title function_">tryLockInnerAsync</span><span class="params">(<span class="type">long</span> waitTime, <span class="type">long</span> leaseTime, TimeUnit unit, <span class="type">long</span> threadId, RedisStrictCommand&lt;T&gt; command)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> evalWriteAsync(getRawName(), LongCodec.INSTANCE, command,</span><br><span class="line">            <span class="string">&quot;if (redis.call(&#x27;exists&#x27;, KEYS[1]) == 0) then &quot;</span> +</span><br><span class="line">                    <span class="string">&quot;redis.call(&#x27;hincrby&#x27;, KEYS[1], ARGV[2], 1); &quot;</span> +</span><br><span class="line">                    <span class="string">&quot;redis.call(&#x27;pexpire&#x27;, KEYS[1], ARGV[1]); &quot;</span> +</span><br><span class="line">                    <span class="string">&quot;return nil; &quot;</span> +</span><br><span class="line">                    <span class="string">&quot;end; &quot;</span> +</span><br><span class="line">                    <span class="string">&quot;if (redis.call(&#x27;hexists&#x27;, KEYS[1], ARGV[2]) == 1) then &quot;</span> +</span><br><span class="line">                    <span class="string">&quot;redis.call(&#x27;hincrby&#x27;, KEYS[1], ARGV[2], 1); &quot;</span> +</span><br><span class="line">                    <span class="string">&quot;redis.call(&#x27;pexpire&#x27;, KEYS[1], ARGV[1]); &quot;</span> +</span><br><span class="line">                    <span class="string">&quot;return nil; &quot;</span> +</span><br><span class="line">                    <span class="string">&quot;end; &quot;</span> +</span><br><span class="line">                    <span class="string">&quot;return redis.call(&#x27;pttl&#x27;, KEYS[1]);&quot;</span>,</span><br><span class="line">            Collections.singletonList(getRawName()), unit.toMillis(leaseTime), getLockName(threadId));</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">protected</span> String <span class="title function_">getLockName</span><span class="params">(<span class="type">long</span> threadId)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> id + <span class="string">&quot;:&quot;</span> + threadId;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>exists 查询一个key是否存在<br>EXISTS key [key …]<br>返回值<br>1 如果key存在<br>0 如果key不存在</li>
+<li>hincrby ：将hash中指定域的值增加给定的数字<br>ARGV[2] &#x3D; 进程ID+系统ID 进行原子自增加1，说明重入次数加1了</li>
+<li>pexpire：设置key的有效时间以毫秒为单位<br>再对整个hash设置过期期间</li>
+<li>hexists：判断field是否存在于hash中</li>
+<li>pttl：获取key的有效毫秒数</li>
+</ul>
+<p>lua参数解析：</p>
+<ul>
+<li>KEYS[1] &#x3D; key的值</li>
+<li>ARGV[1]) &#x3D; 持有锁的时间</li>
+<li>ARGV[2] &#x3D; getLockName(threadId) 下面id就算系统在启动的时候会全局生成的uuid 来作为当前进程的id，加上线程id就是getLockName(threadId)了，可以理解为：进程ID+系统ID &#x3D; ARGV[2]</li>
+</ul>
+<h2 id="3-2、小结"><a href="#3-2、小结" class="headerlink" title="3.2、小结"></a>3.2、小结</h2><p>可以使用 Redis hash 结构实现，key 表示被锁的共享资源， hash 结构的 fieldKey 的 value 则保存加锁的次数。</p>
+<h1 id="四、锁的过期时间"><a href="#四、锁的过期时间" class="headerlink" title="四、锁的过期时间"></a>四、锁的过期时间</h1><p>前面我们提到，锁的过期时间如果评估不好，这个锁就会有「提前」过期的风险。</p>
+<p>当时给的妥协方案是，尽量「冗余」过期时间，降低锁提前过期的概率。</p>
+<p>这个方案其实也不能完美解决问题，那怎么办呢？</p>
+<p>是否可以设计这样的方案：<strong>加锁时，先设置一个过期时间，然后我们开启一个「守护线程」，定时去检测这个锁的失效时间，如果锁快要过期了，操作共享资源还未完成，那么就自动对锁进行「续期」，重新设置过期时间。</strong></p>
+<ul>
+<li>Redisson 是一个 Java 语言实现的 Redis SDK 客户端，在使用分布式锁时，它就采用了「自动续期」的方案来避免锁过期，这个守护线程我们一般也把它叫做「看门狗」线程。</li>
+</ul>
+<h2 id="4-1、watch-dog-看门狗"><a href="#4-1、watch-dog-看门狗" class="headerlink" title="4.1、watch dog 看门狗"></a>4.1、watch dog 看门狗</h2><p>Redisson看门狗机制， 只要客户端加锁成功，就会启动一个 Watch Dog。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> &lt;T&gt; RFuture&lt;Long&gt; <span class="title function_">tryAcquireAsync</span><span class="params">(<span class="type">long</span> leaseTime, TimeUnit unit, <span class="type">long</span> threadId)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (leaseTime != -<span class="number">1</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> tryLockInnerAsync(leaseTime, unit, threadId, RedisCommands.EVAL_LONG);</span><br><span class="line">    &#125;</span><br><span class="line">    RFuture&lt;Long&gt; ttlRemainingFuture = tryLockInnerAsync(commandExecutor.getConnectionManager().getCfg().getLockWatchdogTimeout(), TimeUnit.MILLISECONDS, threadId, RedisCommands.EVAL_LONG);</span><br><span class="line">    ttlRemainingFuture.onComplete((ttlRemaining, e) -&gt; &#123;</span><br><span class="line">        <span class="keyword">if</span> (e != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// lock acquired</span></span><br><span class="line">        <span class="keyword">if</span> (ttlRemaining == <span class="literal">null</span>) &#123;</span><br><span class="line">            scheduleExpirationRenewal(threadId);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    <span class="keyword">return</span> ttlRemainingFuture;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>leaseTime 必须是 -1 才会开启 Watch Dog 机制，如果需要开启 Watch Dog 机制就必须使用默认的加锁时间为 30s。</li>
+<li>如果你自己自定义时间，超过这个时间，锁就会自定释放，并不会自动续期。</li>
+</ul>
+<h3 id="4-1-1、续期原理"><a href="#4-1-1、续期原理" class="headerlink" title="4.1.1、续期原理"></a>4.1.1、续期原理</h3><p>续期原理其实就是用lua脚本，将锁的时间重置为30s</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">scheduleExpirationRenewal</span><span class="params">(<span class="type">long</span> threadId)</span> &#123;</span><br><span class="line">    <span class="type">ExpirationEntry</span> <span class="variable">entry</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ExpirationEntry</span>();</span><br><span class="line">    <span class="type">ExpirationEntry</span> <span class="variable">oldEntry</span> <span class="operator">=</span> EXPIRATION_RENEWAL_MAP.putIfAbsent(getEntryName(), entry);</span><br><span class="line">    <span class="keyword">if</span> (oldEntry != <span class="literal">null</span>) &#123;</span><br><span class="line">        oldEntry.addThreadId(threadId);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        entry.addThreadId(threadId);</span><br><span class="line">        renewExpiration();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">protected</span> RFuture&lt;Boolean&gt; <span class="title function_">renewExpirationAsync</span><span class="params">(<span class="type">long</span> threadId)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> commandExecutor.evalWriteAsync(getName(), LongCodec.INSTANCE, RedisCommands.EVAL_BOOLEAN,</span><br><span class="line">            <span class="string">&quot;if (redis.call(&#x27;hexists&#x27;, KEYS[1], ARGV[2]) == 1) then &quot;</span> +</span><br><span class="line">                <span class="string">&quot;redis.call(&#x27;pexpire&#x27;, KEYS[1], ARGV[1]); &quot;</span> +</span><br><span class="line">                <span class="string">&quot;return 1; &quot;</span> +</span><br><span class="line">            <span class="string">&quot;end; &quot;</span> +</span><br><span class="line">            <span class="string">&quot;return 0;&quot;</span>,</span><br><span class="line">        Collections.&lt;Object&gt;singletonList(getName()),</span><br><span class="line">        internalLockLeaseTime, getLockName(threadId));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Watch Dog 机制其实就是一个后台定时任务线程，获取锁成功之后，会将持有锁的线程放入到一个 <code>RedissonLock.EXPIRATION_RENEWAL_MAP</code>里面，然后每隔 10 秒 （internalLockLeaseTime &#x2F; 3） 检查一下，如果客户端 还持有锁 key（判断客户端是否还持有 key，其实就是遍历 <code>EXPIRATION_RENEWAL_MAP</code> 里面线程 id 然后根据线程 id 去 Redis 中查，如果存在就会延长 key 的时间），那么就会不断的延长锁 key 的生存时间。</p>
+<p>如果服务宕机了，Watch Dog 机制线程也就没有了，此时就不会延长 key 的过期时间，到了 30s 之后就会自动过期了，其他线程就可以获取到锁。</p>
+<h1 id="五、Redis分布式锁安全吗？"><a href="#五、Redis分布式锁安全吗？" class="headerlink" title="五、Redis分布式锁安全吗？"></a>五、Redis分布式锁安全吗？</h1><p>之前分析的场景都是，锁在「单个」Redis 实例中可能产生的问题，并没有涉及到 Redis 的部署架构细节。</p>
+<p>而我们在使用 Redis 时，一般会采用主从集群 + 哨兵的模式部署，这样做的好处在于，当主库异常宕机时，哨兵可以实现「故障自动切换」，把从库提升为主库，继续提供服务，以此保证可用性。</p>
+<p>那当「主从发生切换」时，这个分布锁会依旧安全吗？</p>
+<p>试想这样的场景：</p>
+<ul>
+<li>客户端 1 在主库上执行 SET 命令，加锁成功</li>
+<li>此时，主库异常宕机，SET 命令还未同步到从库上（主从复制是异步的）</li>
+<li>从库被哨兵提升为新主库，这个锁在新的主库上，丢失了！</li>
+</ul>
+<p>可见，当引入 Redis 副本后，分布锁还是可能会受到影响。</p>
+<p>怎么解决这个问题？</p>
+<p>为此，Redis 的作者提出一种解决方案，就是我们经常听到的 <font color="red"><strong>Redlock（红锁）</strong></font>。</p>
+<p>它真的可以解决上面这个问题吗？</p>
+<h2 id="5-1、Redlock-真的安全吗？"><a href="#5-1、Redlock-真的安全吗？" class="headerlink" title="5.1、Redlock 真的安全吗？"></a>5.1、Redlock 真的安全吗？</h2><p>现在我们来看，Redis 作者提出的 <code>Redlock</code> 方案，是如何解决主从切换后，锁失效问题的。</p>
+<p><code>Redlock</code> 的方案基于 2 个前提：</p>
+<ul>
+<li>不再需要部署<strong>从库</strong>和<strong>哨兵</strong>实例，只部署<strong>主库</strong></li>
+<li>但主库要部署多个，官方推荐至少 5 个实例</li>
+</ul>
+<p>也就是说，想用使用 Redlock，你至少要部署 5 个 Redis 实例，而且都是主库，它们之间没有任何关系，都是一个个孤立的实例。</p>
+<blockquote>
+<p><font color="green">注意：不是部署 Redis Cluster，就是部署 5 个简单的 Redis 实例。</font></p>
+</blockquote>
+<p><img src="/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/redlock_%E9%83%A8%E7%BD%B2.png" alt="redlock_部署"></p>
+<h2 id="5-2、Redlock-具体如何使用呢？"><a href="#5-2、Redlock-具体如何使用呢？" class="headerlink" title="5.2、Redlock 具体如何使用呢？"></a>5.2、Redlock 具体如何使用呢？</h2><p>整体的流程是这样的，一共分为 5 步：</p>
+<ol>
+<li>客户端先获取「当前时间戳T1」</li>
+<li>客户端依次向这 5 个 Redis 实例发起加锁请求（用前面讲到的 SET 命令），且每个请求会设置超时时间（毫秒级，要远小于锁的有效时间），如果某一个实例加锁失败（包括网络超时、锁被其它人持有等各种异常情况），就立即向下一个 Redis 实例申请加锁</li>
+<li>如果客户端从 &gt;&#x3D;3 个（大多数）以上 Redis 实例加锁成功，则再次获取「当前时间戳T2」，如果 T2 - T1 &lt; 锁的过期时间，此时，认为客户端加锁成功，否则认为加锁失败</li>
+<li>加锁成功，去操作共享资源（例如修改 MySQL 某一行，或发起一个 API 请求）</li>
+<li>加锁失败，向「全部节点」发起释放锁请求（前面讲到的 Lua 脚本释放锁）</li>
+</ol>
+<p>我简单帮你总结一下，有 4 个重点：</p>
+<ol>
+<li>客户端在多个 Redis 实例上申请加锁</li>
+<li>必须保证大多数节点加锁成功</li>
+<li>大多数节点加锁的总耗时，要小于锁设置的过期时间</li>
+<li>释放锁，要向全部节点发起释放锁请求</li>
+</ol>
+<h2 id="5-3、Redlock-为什么要这么做。"><a href="#5-3、Redlock-为什么要这么做。" class="headerlink" title="5.3、Redlock 为什么要这么做。"></a>5.3、Redlock 为什么要这么做。</h2><h3 id="5-3-1、为什么要在多个实例上加锁？"><a href="#5-3-1、为什么要在多个实例上加锁？" class="headerlink" title="5.3.1、为什么要在多个实例上加锁？"></a>5.3.1、为什么要在多个实例上加锁？</h3><p>本质上是为了「容错」，部分实例异常宕机，剩余的实例加锁成功，整个锁服务依旧可用。</p>
+<h3 id="5-3-2、为什么大多数加锁成功，才算成功？"><a href="#5-3-2、为什么大多数加锁成功，才算成功？" class="headerlink" title="5.3.2、为什么大多数加锁成功，才算成功？"></a>5.3.2、为什么大多数加锁成功，才算成功？</h3><p>多个 Redis 实例一起来用，其实就组成了一个「分布式系统」。</p>
+<p>在分布式系统中，总会出现「异常节点」，所以，在谈论分布式系统问题时，需要考虑异常节点达到多少个，也依旧不会影响整个系统的「正确性」。</p>
+<p>这是一个分布式系统「容错」问题，这个问题的结论是：如果只存在「故障」节点，只要大多数节点正常，那么整个系统依旧是可以提供正确服务的。</p>
+<h3 id="5-3-3、为什么步骤-3-加锁成功后，还要计算加锁的累计耗时？"><a href="#5-3-3、为什么步骤-3-加锁成功后，还要计算加锁的累计耗时？" class="headerlink" title="5.3.3、为什么步骤 3 加锁成功后，还要计算加锁的累计耗时？"></a>5.3.3、为什么步骤 3 加锁成功后，还要计算加锁的累计耗时？</h3><p>因为操作的是多个节点，所以耗时肯定会比操作单个实例耗时更久，而且，因为是网络请求，网络情况是复杂的，有可能存在延迟、丢包、超时等情况发生，网络请求越多，异常发生的概率就越大。</p>
+<p>所以，即使大多数节点加锁成功，但如果加锁的累计耗时已经「超过」了锁的过期时间，那此时有些实例上的锁可能已经失效了，这个锁就没有意义了。</p>
+<h3 id="5-3-4、为什么释放锁，要操作所有节点？"><a href="#5-3-4、为什么释放锁，要操作所有节点？" class="headerlink" title="5.3.4、为什么释放锁，要操作所有节点？"></a>5.3.4、为什么释放锁，要操作所有节点？</h3><p>在某一个 Redis 节点加锁时，可能因为「网络原因」导致加锁失败。</p>
+<p>例如，客户端在一个 Redis 实例上加锁成功，但在读取响应结果时，网络问题导致读取失败，那这把锁其实已经在 Redis 上加锁成功了。</p>
+<p>所以，释放锁时，不管之前有没有加锁成功，需要释放「所有节点」的锁，以保证清理节点上「残留」的锁。</p>
+<p>好了，明白了 Redlock 的流程和相关问题，看似 Redlock 确实解决了 Redis 节点异常宕机锁失效的问题，保证了锁的「安全性」。</p>
+<h1 id="六、Redlock-的争论谁对谁错？"><a href="#六、Redlock-的争论谁对谁错？" class="headerlink" title="六、Redlock 的争论谁对谁错？"></a>六、Redlock 的争论谁对谁错？</h1><p>Redis 作者把这个方案一经提出，就马上受到业界著名的分布式系统专家的质疑！</p>
+<p>这个专家叫 Martin，是英国剑桥大学的一名分布式系统研究员。在此之前他曾是软件工程师和企业家，从事大规模数据基础设施相关的工作。它还经常在大会做演讲，写博客，写书，也是开源贡献者。</p>
+<p>他马上写了篇文章，质疑这个 Redlock 的算法模型是有问题的，并对分布式锁的设计，提出了自己的看法。</p>
+<p>之后，Redis 作者 Antirez 面对质疑，不甘示弱，也写了一篇文章，反驳了对方的观点，并详细剖析了 Redlock 算法模型的更多设计细节。</p>
+<p>而且，关于这个问题的争论，在当时互联网上也引起了非常激烈的讨论。</p>
+<p>二人思路清晰，论据充分，这是一场高手过招，也是分布式系统领域非常好的一次思想的碰撞！双方都是分布式系统领域的专家，却对同一个问题提出很多相反的论断，究竟是怎么回事？</p>
+<h2 id="6-1、分布式专家-Martin-对于-Relock-的质疑"><a href="#6-1、分布式专家-Martin-对于-Relock-的质疑" class="headerlink" title="6.1、分布式专家 Martin 对于 Relock 的质疑"></a>6.1、分布式专家 Martin 对于 Relock 的质疑</h2><p>在他的文章中，主要阐述了 4 个论点：</p>
+<h3 id="6-1-1、分布式锁的目的是什么？"><a href="#6-1-1、分布式锁的目的是什么？" class="headerlink" title="6.1.1、分布式锁的目的是什么？"></a>6.1.1、分布式锁的目的是什么？</h3><p>Martin 表示，你必须先清楚你在使用分布式锁的目的是什么？</p>
+<p>他认为有两个目的。</p>
+<p>第一，效率。</p>
+<p>使用分布式锁的互斥能力，是避免不必要地做同样的两次工作（例如一些昂贵的计算任务）。如果锁失效，并不会带来「恶性」的后果，例如发了 2 次邮件等，无伤大雅。</p>
+<p>第二，正确性。</p>
+<p>使用锁用来防止并发进程互相干扰。如果锁失效，会造成多个进程同时操作同一条数据，产生的后果是数据严重错误、永久性不一致、数据丢失等恶性问题，就像给患者服用重复剂量的药物一样，后果严重。</p>
+<p>他认为，如果你是为了前者——效率，那么使用单机版 Redis 就可以了，即使偶尔发生锁失效（宕机、主从切换），都不会产生严重的后果。而使用 Redlock 太重了，没必要。</p>
+<p>而如果是为了正确性，Martin 认为 Redlock 根本达不到安全性的要求，也依旧存在锁失效的问题！</p>
+<h3 id="6-1-2、锁在分布式系统中会遇到的问题"><a href="#6-1-2、锁在分布式系统中会遇到的问题" class="headerlink" title="6.1.2、锁在分布式系统中会遇到的问题"></a>6.1.2、锁在分布式系统中会遇到的问题</h3><p>Martin 表示，一个分布式系统，更像一个复杂的「野兽」，存在着你想不到的各种异常情况。</p>
+<p>这些异常场景主要包括三大块，这也是分布式系统会遇到的三座大山：NPC。</p>
+<ul>
+<li>N：Network Delay，网络延迟</li>
+<li>P：Process Pause，进程暂停（GC）</li>
+<li>C：Clock Drift，时钟漂移</li>
+</ul>
+<p>Martin 用一个进程暂停（GC）的例子，指出了 Redlock 安全性问题：</p>
+<ol>
+<li>客户端 1 请求锁定节点 A、B、C、D、E</li>
+<li>客户端 1 的拿到锁后，进入 GC（时间比较久）</li>
+<li>所有 Redis 节点上的锁都过期了</li>
+<li>客户端 2 获取到了 A、B、C、D、E 上的锁</li>
+<li>客户端 1 GC 结束，认为成功获取锁</li>
+<li>客户端 2 也认为获取到了锁，发生「冲突」<br><img src="/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/redlock_%E8%BF%9B%E7%A8%8B%E6%9A%82%E5%81%9C%E7%A4%BA%E4%BE%8B.png" alt="redlock_进程暂停示例"><br>Martin 认为，GC 可能发生在程序的任意时刻，而且执行时间是不可控的。<blockquote>
+<p>注：当然，即使是使用没有 GC 的编程语言，在发生网络延迟、时钟漂移时，也都有可能导致 Redlock 出现问题，这里 Martin 只是拿 GC 举例。</p>
+</blockquote>
+</li>
+</ol>
+<h3 id="6-1-3、假设时钟正确的是不合理的"><a href="#6-1-3、假设时钟正确的是不合理的" class="headerlink" title="6.1.3、假设时钟正确的是不合理的"></a>6.1.3、假设时钟正确的是不合理的</h3><p>又或者，当多个 Redis 节点「时钟」发生问题时，也会导致 Redlock 锁失效。</p>
+<ol>
+<li>客户端 1 获取节点 A、B、C 上的锁，但由于网络问题，无法访问 D 和 E</li>
+<li>节点 C 上的时钟「向前跳跃」，导致锁到期</li>
+<li>客户端 2 获取节点 C、D、E 上的锁，由于网络问题，无法访问 A 和 B</li>
+<li>客户端 1 和 2 现在都相信它们持有了锁（冲突）</li>
+</ol>
+<p>Martin 觉得，Redlock 必须「强依赖」多个节点的时钟是保持同步的，一旦有节点时钟发生错误，那这个算法模型就失效了。</p>
+<blockquote>
+<p>即使 C 不是时钟跳跃，而是「崩溃后立即重启」，也会发生类似的问题。</p>
+</blockquote>
+<p>Martin 继续阐述，机器的时钟发生错误，是很有可能发生的：</p>
+<ul>
+<li>系统管理员「手动修改」了机器时钟</li>
+<li>机器时钟在同步 NTP 时间时，发生了大的「跳跃」</li>
+</ul>
+<p>总之，Martin 认为，Redlock 的算法是建立在「同步模型」基础上的，有大量资料研究表明，同步模型的假设，在分布式系统中是有问题的。</p>
+<p>在混乱的分布式系统的中，你不能假设系统时钟就是对的，所以，你必须非常小心你的假设。</p>
+<h3 id="6-1-4、提出-fencing-token-的方案，保证正确性"><a href="#6-1-4、提出-fencing-token-的方案，保证正确性" class="headerlink" title="6.1.4、提出 fencing token 的方案，保证正确性"></a>6.1.4、提出 fencing token 的方案，保证正确性</h3><p>相对应的，Martin 提出一种被叫作 fencing token 的方案，保证分布式锁的正确性。</p>
+<p>这个模型流程如下：</p>
+<ol>
+<li>客户端在获取锁时，锁服务可以提供一个「递增」的 token</li>
+<li>客户端拿着这个 token 去操作共享资源</li>
+<li>共享资源可以根据 token 拒绝「后来者」的请求<br><img src="/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/redlock_fencingtoken.png" alt="redlock_fencingtoken"></li>
+</ol>
+<p>这样一来，无论 NPC 哪种异常情况发生，都可以保证分布式锁的安全性，因为它是建立在「异步模型」上的。</p>
+<p>而 Redlock 无法提供类似 fencing token 的方案，所以它无法保证安全性。</p>
+<p>他还表示，<strong>一个好的分布式锁，无论 NPC 怎么发生，可以不在规定时间内给出结果，但并不会给出一个错误的结果。也就是只会影响到锁的「性能」（或称之为活性），而不会影响它的「正确性」。</strong></p>
+<p>Martin 的结论：</p>
+<ol>
+<li>Redlock 不伦不类：它对于效率来讲，Redlock 比较重，没必要这么做，而对于正确性来说，Redlock 是不够安全的。</li>
+<li>时钟假设不合理：该算法对系统时钟做出了危险的假设（假设多个节点机器时钟都是一致的），如果不满足这些假设，锁就会失效。</li>
+<li>无法保证正确性：Redlock 不能提供类似 fencing token 的方案，所以解决不了正确性的问题。为了正确性，请使用有「共识系统」的软件，例如 Zookeeper。</li>
+</ol>
+<p>好了，以上就是 Martin 反对使用 Redlock 的观点，看起来有理有据。</p>
+<p>下面我们来看 Redis 作者 Antirez 是如何反驳的。</p>
+<h2 id="6-2、Redis-作者-Antirez-的反驳"><a href="#6-2、Redis-作者-Antirez-的反驳" class="headerlink" title="6.2、Redis 作者 Antirez 的反驳"></a>6.2、Redis 作者 Antirez 的反驳</h2><p>在 Redis 作者的文章中，重点有 3 个：</p>
+<h3 id="6-2-1、解释时钟问题"><a href="#6-2-1、解释时钟问题" class="headerlink" title="6.2.1、解释时钟问题"></a>6.2.1、解释时钟问题</h3><p>首先，Redis 作者一眼就看穿了对方提出的最为核心的问题：时钟问题。</p>
+<p>Redis 作者表示，Redlock 并不需要完全一致的时钟，只需要大体一致就可以了，允许有「误差」。</p>
+<p>例如要计时 5s，但实际可能记了 4.5s，之后又记了 5.5s，有一定误差，但只要不超过「误差范围」锁失效时间即可，这种对于时钟的精度的要求并不是很高，而且这也符合现实环境。</p>
+<p>对于对方提到的「时钟修改」问题，Redis 作者反驳到：</p>
+<ol>
+<li>手动修改时钟：不要这么做就好了，否则你直接修改 Raft 日志，那 Raft 也会无法工作…</li>
+<li>时钟跳跃：通过「恰当的运维」，保证机器时钟不会大幅度跳跃（每次通过微小的调整来完成），实际上这是可以做到的</li>
+</ol>
+<blockquote>
+<p>为什么 Redis 作者优先解释时钟问题？因为在后面的反驳过程中，需要依赖这个基础做进一步解释。</p>
+</blockquote>
+<h3 id="6-2-2、解释网络延迟、GC-问题"><a href="#6-2-2、解释网络延迟、GC-问题" class="headerlink" title="6.2.2、解释网络延迟、GC 问题"></a>6.2.2、解释网络延迟、GC 问题</h3><p>之后，Redis 作者对于对方提出的，网络延迟wan、进程 GC 可能导致 Redlock 失效的问题，也做了反驳：</p>
+<p>我们重新回顾一下，Martin 提出的问题假设：</p>
+<ol>
+<li>客户端 1 请求锁定节点 A、B、C、D、E</li>
+<li>客户端 1 的拿到锁后，进入 GC</li>
+<li>所有 Redis 节点上的锁都过期了</li>
+<li>客户端 2 获取节点 A、B、C、D、E 上的锁</li>
+<li>客户端 1 GC 结束，认为成功获取锁</li>
+<li>客户端 2 也认为获取到锁，发生「冲突」<br><img src="/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/redlock_%E8%BF%9B%E7%A8%8B%E6%9A%82%E5%81%9C%E7%A4%BA%E4%BE%8B.png" alt="redlock_进程暂停示例"></li>
+</ol>
+<p>Redis 作者反驳到，这个假设其实是有问题的，Redlock 是可以保证锁安全的。</p>
+<p>这是怎么回事呢？</p>
+<p>还记得前面介绍 Redlock 流程的那 5 步吗？这里我再拿过来让你复习一下。</p>
+<ol>
+<li>客户端先获取「当前时间戳T1」</li>
+<li>客户端依次向这 5 个 Redis 实例发起加锁请求（用前面讲到的 SET 命令），且每个请求会设置超时时间（毫秒级，要远小于锁的有效时间），如果某一个实例加锁失败（包括网络超时、锁被其它人持有等各种异常情况），就立即向下一个 Redis 实例申请加锁</li>
+<li>如果客户端从 3 个（大多数）以上 Redis 实例加锁成功，则再次获取「当前时间戳T2」，如果 T2 - T1 &lt; 锁的过期时间，此时，认为客户端加锁成功，否则认为加锁失败</li>
+<li>加锁成功，去操作共享资源（例如修改 MySQL 某一行，或发起一个 API 请求）</li>
+<li>加锁失败，向「全部节点」发起释放锁请求（前面讲到的 Lua 脚本释放锁）</li>
+</ol>
+<blockquote>
+<p>注意，重点是 1-3，在步骤 3，加锁成功后为什么要重新获取「当前时间戳T2」？还用 T2 - T1 的时间，与锁的过期时间做比较？</p>
+</blockquote>
+<p>Redis 作者强调：如果在 1-3 发生了网络延迟、进程 GC 等耗时长的异常情况，那在第 3 步 T2 - T1，是可以检测出来的，如果超出了锁设置的过期时间，那这时就认为加锁会失败，之后释放所有节点的锁就好了！</p>
+<p>Redis 作者继续论述，如果对方认为，发生网络延迟、进程 GC 是在步骤 3 之后，也就是客户端确认拿到了锁，去操作共享资源的途中发生了问题，导致锁失效，那这不止是 Redlock 的问题，任何其它锁服务例如 Zookeeper，都有类似的问题，这不在讨论范畴内。</p>
+<p>这里我举个例子解释一下这个问题：</p>
+<ol>
+<li>客户端通过 Redlock 成功获取到锁（通过了大多数节点加锁成功、加锁耗时检查逻辑）</li>
+<li>客户端开始操作共享资源，此时发生网络延迟、进程 GC 等耗时很长的情况</li>
+<li>此时，锁过期自动释放</li>
+<li>客户端开始操作 MySQL（此时的锁可能会被别人拿到，锁失效）</li>
+</ol>
+<p>Redis 作者这里的结论就是：</p>
+<ul>
+<li>客户端在拿到锁之前，无论经历什么耗时长问题，Redlock 都能够在第 3 步检测出来</li>
+<li>客户端在拿到锁之后，发生 NPC，那 Redlock、Zookeeper 都无能为力<br>所以，Redis 作者认为 Redlock 在保证时钟正确的基础上，是可以保证正确性的。</li>
+</ul>
+<h3 id="6-2-3、质疑-fencing-token-机制"><a href="#6-2-3、质疑-fencing-token-机制" class="headerlink" title="6.2.3、质疑 fencing token 机制"></a>6.2.3、质疑 fencing token 机制</h3><p>Redis 作者对于对方提出的 fencing token 机制，也提出了质疑，主要分为 2 个问题，这里最不宜理解，请跟紧我的思路。</p>
+<p><strong>第一，这个方案必须要求要操作的「共享资源服务器」有拒绝「旧 token」的能力。</strong></p>
+<p>例如，要操作 MySQL，从锁服务拿到一个递增数字的 token，然后客户端要带着这个 token 去改 MySQL 的某一行，这就需要利用 MySQL 的「事物隔离性」来做。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">// 两个客户端必须利用事物和隔离性达到目的</span><br><span class="line">// 注意 token 的判断条件</span><br><span class="line">UPDATE table T SET val = $new_val, current_token = $token WHERE id = $id AND current_token &lt; $token</span><br></pre></td></tr></table></figure>
+<p>但如果操作的不是 MySQL 呢？例如向磁盘上写一个文件，或发起一个 HTTP 请求，那这个方案就无能为力了，这对要操作的资源服务器，提出了更高的要求。</p>
+<p>也就是说，大部分要操作的资源服务器，都是没有这种互斥能力的。</p>
+<p>再者，既然资源服务器都有了「互斥」能力，那还要分布式锁干什么？</p>
+<p>所以，Redis 作者认为这个方案是站不住脚的。</p>
+<p><strong>第二，退一步讲，即使 Redlock 没有提供 fencing token 的能力，但 Redlock 已经提供了随机值（就是前面讲的 UUID），利用这个随机值，也可以达到与 fencing token 同样的效果。</strong></p>
+<p>如何做呢？</p>
+<blockquote>
+<p>Redis 作者只是提到了可以完成 fencing token 类似的功能，但却没有展开相关细节，根据我查阅的资料，大概流程应该如下，如有错误，欢迎交流~​</p>
+</blockquote>
+<ol>
+<li>客户端使用 Redlock 拿到锁</li>
+<li>客户端在操作共享资源之前，先把这个锁的 VALUE，在要操作的共享资源上做标记</li>
+<li>客户端处理业务逻辑，最后，在修改共享资源时，判断这个标记是否与之前一样，一样才修改（类似 CAS 的思路）</li>
+</ol>
+<p>还是以 MySQL 为例，举个例子就是这样的：</p>
+<ol>
+<li>客户端使用 Redlock 拿到锁</li>
+<li>客户端要修改 MySQL 表中的某一行数据之前，先把锁的 VALUE 更新到这一行的某个字段中（这里假设为 current_token 字段)</li>
+<li>客户端处理业务逻辑</li>
+<li>客户端修改 MySQL 的这一行数据，把 VALUE 当做 WHERE 条件，再修改<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">UPDATE table T SET val = $new_val WHERE id = $id AND current_token = $redlock_value</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>可见，这种方案依赖 MySQL 的事物机制，也达到对方提到的 fencing token 一样的效果。</p>
+<p>但这里还有个小问题，是网友参与问题讨论时提出的：<strong>两个客户端通过这种方案，先「标记」再「检查+修改」共享资源，那这两个客户端的操作顺序无法保证啊？</strong></p>
+<p>而用 Martin 提到的 fencing token，因为这个 token 是单调递增的数字，资源服务器可以拒绝小的 token 请求，保证了操作的「顺序性」！</p>
+<p>Redis 作者对于这个问题做了不同的解释，我觉得很有道理，他解释道：<strong>分布式锁的本质，是为了「互斥」，只要能保证两个客户端在并发时，一个成功，一个失败就好了，不需要关心「顺序性」。</strong></p>
+<p>前面 Martin 的质疑中，一直很关心这个顺序性问题，但 Redis 的作者的看法却不同。</p>
+<p>综上，Redis 作者的结论：</p>
+<ol>
+<li>作者同意对方关于「时钟跳跃」对 Redlock 的影响，但认为时钟跳跃是可以避免的，取决于基础设施和运维。</li>
+<li>Redlock 在设计时，充分考虑了 NPC 问题，在 Redlock 步骤 3 之前出现 NPC，可以保证锁的正确性，但在步骤 3 之后发生 NPC，不止是 Redlock 有问题，其它分布式锁服务同样也有问题，所以不在讨论范畴内。</li>
+</ol>
+<p>讲完了双方对于 Redis 分布锁的争论，你可能也注意到了，Martin 在他的文章中，推荐使用 Zookeeper 实现分布式锁，认为它更安全，确实如此吗？</p>
+<h2 id="6-3、基于-Zookeeper-的锁安全吗？"><a href="#6-3、基于-Zookeeper-的锁安全吗？" class="headerlink" title="6.3、基于 Zookeeper 的锁安全吗？"></a>6.3、基于 Zookeeper 的锁安全吗？</h2><p>如果你有了解过 Zookeeper，基于它实现的分布式锁是这样的：</p>
+<ol>
+<li>客户端 1 和 2 都尝试创建「临时节点」，例如 &#x2F;lock</li>
+<li>假设客户端 1 先到达，则加锁成功，客户端 2 加锁失败</li>
+<li>客户端 1 操作共享资源</li>
+<li>客户端 1 删除 &#x2F;lock 节点，释放锁</li>
+</ol>
+<p>你应该也看到了，Zookeeper 不像 Redis 那样，需要考虑锁的过期时间问题，它是采用了「临时节点」，保证客户端 1 拿到锁后，只要连接不断，就可以一直持有锁。</p>
+<p>而且，如果客户端 1 异常崩溃了，那么这个临时节点会自动删除，保证了锁一定会被释放。</p>
+<p>不错，没有锁过期的烦恼，还能在异常时自动释放锁，是不是觉得很完美？</p>
+<p>其实不然。</p>
+<p>思考一下，客户端 1 创建临时节点后，Zookeeper 是如何保证让这个客户端一直持有锁呢？</p>
+<blockquote>
+<p>原因就在于，客户端 1 此时会与 Zookeeper 服务器维护一个 Session，这个 Session 会依赖客户端「定时心跳」来维持连接。</p>
+</blockquote>
+<p>如果 Zookeeper 长时间收不到客户端的心跳，就认为这个 Session 过期了，也会把这个临时节点删除。<br><img src="/2020/07/20/2020-07-20-redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/zk_%E5%BF%83%E8%B7%B3.png" alt="zk_心跳"><br>同样地，基于此问题，我们也讨论一下 GC 问题对 Zookeeper 的锁有何影响：</p>
+<ol>
+<li>客户端 1 创建临时节点 &#x2F;lock 成功，拿到了锁</li>
+<li>客户端 1 发生长时间 GC</li>
+<li>客户端 1 无法给 Zookeeper 发送心跳，Zookeeper 把临时节点「删除」</li>
+<li>客户端 2 创建临时节点 &#x2F;lock 成功，拿到了锁</li>
+<li>客户端 1 GC 结束，它仍然认为自己持有锁（冲突）</li>
+</ol>
+<p>可见，即使是使用 Zookeeper，也无法保证进程 GC、网络延迟异常场景下的安全性。</p>
+<p><strong>这就是前面 Redis 作者在反驳的文章中提到的：如果客户端已经拿到了锁，但客户端与锁服务器发生「失联」（例如 GC），那不止 Redlock 有问题，其它锁服务都有类似的问题，Zookeeper 也是一样！</strong>&#96;&#96;</p>
+<p>所以，这里我们就能得出结论了：<font color="green"><strong>一个分布式锁，在极端情况下，不一定是安全的。</strong></font></p>
+<p>如果你的业务数据非常敏感，在使用分布式锁时，一定要注意这个问题，不能假设分布式锁 100% 安全。</p>
+<p>好，现在我们来总结一下 Zookeeper 在使用分布式锁时优劣：</p>
+<p>Zookeeper 的优点：</p>
+<ol>
+<li>不需要考虑锁的过期时间</li>
+<li>watch 机制，加锁失败，可以 watch 等待锁释放，实现乐观锁</li>
+</ol>
+<p>但它的劣势是：</p>
+<ol>
+<li>性能不如 Redis</li>
+<li>部署和运维成本高</li>
+<li>客户端与 Zookeeper 的长时间失联，锁被释放问题</li>
+</ol>
+<h1 id="七、对分布式锁的理解"><a href="#七、对分布式锁的理解" class="headerlink" title="七、对分布式锁的理解"></a>七、对分布式锁的理解</h1><h2 id="7-1、到底要不要用-Redlock？"><a href="#7-1、到底要不要用-Redlock？" class="headerlink" title="7.1、到底要不要用 Redlock？"></a>7.1、到底要不要用 Redlock？</h2><p>前面也分析了，Redlock 只有建立在「时钟正确」的前提下，才能正常工作，如果你可以保证这个前提，那么可以拿来使用。</p>
+<p>但保证时钟正确，我认为并不是你想的那么简单就能做到的。</p>
+<ul>
+<li>第一，从硬件角度来说，时钟发生偏移是时有发生，无法避免的。<br>例如，CPU 温度、机器负载、芯片材料都是有可能导致时钟发生偏移。</li>
+<li>第二，从我的工作经历来说，曾经就遇到过时钟错误、运维暴力修改时钟的情况发生，进而影响了系统的正确性，所以，人为错误也是很难完全避免的。</li>
+</ul>
+<p>所以，我对 Redlock 的个人看法是，尽量不用它，而且它的性能不如单机版 Redis，部署成本也高，我还是会优先考虑使用 Redis「主从+哨兵」的模式，实现分布式锁。</p>
+<p>那正确性如何保证呢？第二点给你答案。</p>
+<h2 id="7-2、如何正确使用分布式锁？"><a href="#7-2、如何正确使用分布式锁？" class="headerlink" title="7.2、如何正确使用分布式锁？"></a>7.2、如何正确使用分布式锁？</h2><p>在分析 Martin 观点时，它提到了 fencing token 的方案，给我了很大的启发，虽然这种方案有很大的局限性，但对于保证「正确性」的场景，是一个非常好的思路。</p>
+<p>所以，我们可以把这两者结合起来用：</p>
+<ol>
+<li>使用分布式锁，在上层完成「互斥」目的，虽然极端情况下锁会失效，但它可以最大程度把并发请求阻挡在最上层，减轻操作资源层的压力。</li>
+<li>但对于要求数据绝对正确的业务，在资源层一定要做好「兜底」，设计思路可以借鉴 fencing token 的方案来做。</li>
+</ol>
+<p>两种思路结合，我认为对于大多数业务场景，已经可以满足要求了。</p>
+<p>参考文章：<br><a href="http://kaito-kidd.com/2021/06/08/is-redis-distributed-lock-really-safe/">深度剖析：Redis分布式锁到底安全吗？看完这篇文章彻底懂了！</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/17/2020-07-17-redis-%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6%E5%8F%8A%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/" rel="prev" title="《Redis》事件机制及线程模型">
+      <i class="fa fa-chevron-left"></i> 《Redis》事件机制及线程模型
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/22/2020-07-22-redis-%E4%BB%80%E4%B9%88%E6%98%AF%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9/" rel="next" title="《Redis》缓存问题，一致性、缓存雪崩、缓存穿透">
+      《Redis》缓存问题，一致性、缓存雪崩、缓存穿透 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Redis"><span class="nav-text">一、Redis</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Redis%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81"><span class="nav-text">二、Redis分布式锁</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E5%91%BD%E4%BB%A4%E5%BD%A2%E5%BC%8F"><span class="nav-text">2.1、命令形式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E9%94%81%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"><span class="nav-text">2.2、锁实现方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1%E3%80%81%E6%96%B9%E6%A1%881%EF%BC%9Asetnx-delete"><span class="nav-text">2.2.1、方案1：setnx + delete</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-2%E3%80%81%E6%96%B9%E6%A1%882%EF%BC%9Asetnx-setex-delete"><span class="nav-text">2.2.2、方案2：setnx + setex + delete</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-3%E3%80%81%E6%96%B9%E6%A1%883%EF%BC%9Aset-nx-px-delete"><span class="nav-text">2.2.3、方案3：set nx px + delete</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-4%E3%80%81%E6%96%B9%E6%A1%884%EF%BC%9Aset-key-randomvalue-NX-PX-lua"><span class="nav-text">2.2.4、方案4：set key randomvalue NX PX + lua</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-4-1%E3%80%81LUA%E8%84%9A%E6%9C%AC"><span class="nav-text">2.2.4.1、LUA脚本</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E9%94%81%E7%9A%84%E5%8F%AF%E9%87%8D%E5%85%A5"><span class="nav-text">三、锁的可重入</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81Redisson%E6%98%AF%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E7%9A%84%E4%BA%86%EF%BC%9F"><span class="nav-text">3.1、Redisson是如何实现的了？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E5%B0%8F%E7%BB%93"><span class="nav-text">3.2、小结</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E9%94%81%E7%9A%84%E8%BF%87%E6%9C%9F%E6%97%B6%E9%97%B4"><span class="nav-text">四、锁的过期时间</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81watch-dog-%E7%9C%8B%E9%97%A8%E7%8B%97"><span class="nav-text">4.1、watch dog 看门狗</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-1%E3%80%81%E7%BB%AD%E6%9C%9F%E5%8E%9F%E7%90%86"><span class="nav-text">4.1.1、续期原理</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81Redis%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E5%AE%89%E5%85%A8%E5%90%97%EF%BC%9F"><span class="nav-text">五、Redis分布式锁安全吗？</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1%E3%80%81Redlock-%E7%9C%9F%E7%9A%84%E5%AE%89%E5%85%A8%E5%90%97%EF%BC%9F"><span class="nav-text">5.1、Redlock 真的安全吗？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-2%E3%80%81Redlock-%E5%85%B7%E4%BD%93%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8%E5%91%A2%EF%BC%9F"><span class="nav-text">5.2、Redlock 具体如何使用呢？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-3%E3%80%81Redlock-%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E8%BF%99%E4%B9%88%E5%81%9A%E3%80%82"><span class="nav-text">5.3、Redlock 为什么要这么做。</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-1%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%9C%A8%E5%A4%9A%E4%B8%AA%E5%AE%9E%E4%BE%8B%E4%B8%8A%E5%8A%A0%E9%94%81%EF%BC%9F"><span class="nav-text">5.3.1、为什么要在多个实例上加锁？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-2%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E5%A4%A7%E5%A4%9A%E6%95%B0%E5%8A%A0%E9%94%81%E6%88%90%E5%8A%9F%EF%BC%8C%E6%89%8D%E7%AE%97%E6%88%90%E5%8A%9F%EF%BC%9F"><span class="nav-text">5.3.2、为什么大多数加锁成功，才算成功？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-3%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E6%AD%A5%E9%AA%A4-3-%E5%8A%A0%E9%94%81%E6%88%90%E5%8A%9F%E5%90%8E%EF%BC%8C%E8%BF%98%E8%A6%81%E8%AE%A1%E7%AE%97%E5%8A%A0%E9%94%81%E7%9A%84%E7%B4%AF%E8%AE%A1%E8%80%97%E6%97%B6%EF%BC%9F"><span class="nav-text">5.3.3、为什么步骤 3 加锁成功后，还要计算加锁的累计耗时？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-4%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E9%87%8A%E6%94%BE%E9%94%81%EF%BC%8C%E8%A6%81%E6%93%8D%E4%BD%9C%E6%89%80%E6%9C%89%E8%8A%82%E7%82%B9%EF%BC%9F"><span class="nav-text">5.3.4、为什么释放锁，要操作所有节点？</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%AD%E3%80%81Redlock-%E7%9A%84%E4%BA%89%E8%AE%BA%E8%B0%81%E5%AF%B9%E8%B0%81%E9%94%99%EF%BC%9F"><span class="nav-text">六、Redlock 的争论谁对谁错？</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#6-1%E3%80%81%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%93%E5%AE%B6-Martin-%E5%AF%B9%E4%BA%8E-Relock-%E7%9A%84%E8%B4%A8%E7%96%91"><span class="nav-text">6.1、分布式专家 Martin 对于 Relock 的质疑</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-1%E3%80%81%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="nav-text">6.1.1、分布式锁的目的是什么？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-2%E3%80%81%E9%94%81%E5%9C%A8%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F%E4%B8%AD%E4%BC%9A%E9%81%87%E5%88%B0%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-text">6.1.2、锁在分布式系统中会遇到的问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-3%E3%80%81%E5%81%87%E8%AE%BE%E6%97%B6%E9%92%9F%E6%AD%A3%E7%A1%AE%E7%9A%84%E6%98%AF%E4%B8%8D%E5%90%88%E7%90%86%E7%9A%84"><span class="nav-text">6.1.3、假设时钟正确的是不合理的</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-4%E3%80%81%E6%8F%90%E5%87%BA-fencing-token-%E7%9A%84%E6%96%B9%E6%A1%88%EF%BC%8C%E4%BF%9D%E8%AF%81%E6%AD%A3%E7%A1%AE%E6%80%A7"><span class="nav-text">6.1.4、提出 fencing token 的方案，保证正确性</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-2%E3%80%81Redis-%E4%BD%9C%E8%80%85-Antirez-%E7%9A%84%E5%8F%8D%E9%A9%B3"><span class="nav-text">6.2、Redis 作者 Antirez 的反驳</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2-1%E3%80%81%E8%A7%A3%E9%87%8A%E6%97%B6%E9%92%9F%E9%97%AE%E9%A2%98"><span class="nav-text">6.2.1、解释时钟问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2-2%E3%80%81%E8%A7%A3%E9%87%8A%E7%BD%91%E7%BB%9C%E5%BB%B6%E8%BF%9F%E3%80%81GC-%E9%97%AE%E9%A2%98"><span class="nav-text">6.2.2、解释网络延迟、GC 问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2-3%E3%80%81%E8%B4%A8%E7%96%91-fencing-token-%E6%9C%BA%E5%88%B6"><span class="nav-text">6.2.3、质疑 fencing token 机制</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-3%E3%80%81%E5%9F%BA%E4%BA%8E-Zookeeper-%E7%9A%84%E9%94%81%E5%AE%89%E5%85%A8%E5%90%97%EF%BC%9F"><span class="nav-text">6.3、基于 Zookeeper 的锁安全吗？</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E5%AF%B9%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%9A%84%E7%90%86%E8%A7%A3"><span class="nav-text">七、对分布式锁的理解</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#7-1%E3%80%81%E5%88%B0%E5%BA%95%E8%A6%81%E4%B8%8D%E8%A6%81%E7%94%A8-Redlock%EF%BC%9F"><span class="nav-text">7.1、到底要不要用 Redlock？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-2%E3%80%81%E5%A6%82%E4%BD%95%E6%AD%A3%E7%A1%AE%E4%BD%BF%E7%94%A8%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%EF%BC%9F"><span class="nav-text">7.2、如何正确使用分布式锁？</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

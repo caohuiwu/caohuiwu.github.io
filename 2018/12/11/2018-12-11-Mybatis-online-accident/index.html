@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、问题场景：统一登录平台出现无法登录和菜单异常问题。二、问题原因：1、mybatis二级缓存组件使用不当：在高并发情况下，mybatis二级缓存组件实现方式会在数据更新，修改和删除时，     频繁调用redis中的keysByScan去获取当前库中全局匹配到的key，当key数量足够多时，执行时间会十分漫长，     导致整个redis服务并夯住，出于不可用状态 2、redis超时时间设置过长">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Mybatis线上事故解析(一、二级缓存)">
+<meta property="og:url" content="http://yoursite.com/2018/12/11/2018-12-11-Mybatis-online-accident/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、问题场景：统一登录平台出现无法登录和菜单异常问题。二、问题原因：1、mybatis二级缓存组件使用不当：在高并发情况下，mybatis二级缓存组件实现方式会在数据更新，修改和删除时，     频繁调用redis中的keysByScan去获取当前库中全局匹配到的key，当key数量足够多时，执行时间会十分漫长，     导致整个redis服务并夯住，出于不可用状态 2、redis超时时间设置过长">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2018/12/11/2018-12-11-Mybatis-online-accident/redis-cache.jpg">
+<meta property="og:image" content="http://yoursite.com/2018/12/11/2018-12-11-Mybatis-online-accident/redis-connect.jpg">
+<meta property="og:image" content="http://yoursite.com/2018/12/11/2018-12-11-Mybatis-online-accident/redis-io.jpg">
+<meta property="og:image" content="http://yoursite.com/2018/12/11/2018-12-11-Mybatis-online-accident/sqlsession-class-relation.jpg">
+<meta property="article:published_time" content="2018-12-11T15:00:42.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:54.914Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="Mybatis">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2018/12/11/2018-12-11-Mybatis-online-accident/redis-cache.jpg">
+
+<link rel="canonical" href="http://yoursite.com/2018/12/11/2018-12-11-Mybatis-online-accident/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Mybatis线上事故解析(一、二级缓存) | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/11/2018-12-11-Mybatis-online-accident/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Mybatis线上事故解析(一、二级缓存)
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-12-11 23:00:42" itemprop="dateCreated datePublished" datetime="2018-12-11T23:00:42+08:00">2018-12-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:54" itemprop="dateModified" datetime="2025-03-04T15:37:54+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mybatis/" itemprop="url" rel="index"><span itemprop="name">mybatis</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mybatis/%E7%BA%BF%E4%B8%8A%E9%97%AE%E9%A2%98/" itemprop="url" rel="index"><span itemprop="name">线上问题</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>4.4k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>11 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、问题场景：统一登录平台出现无法登录和菜单异常问题。"><a href="#一、问题场景：统一登录平台出现无法登录和菜单异常问题。" class="headerlink" title="一、问题场景：统一登录平台出现无法登录和菜单异常问题。"></a>一、问题场景：统一登录平台出现无法登录和菜单异常问题。</h1><h1 id="二、问题原因："><a href="#二、问题原因：" class="headerlink" title="二、问题原因："></a>二、问题原因：</h1><pre><code>1、mybatis二级缓存组件使用不当：在高并发情况下，mybatis二级缓存组件实现方式会在数据更新，修改和删除时，
+    频繁调用redis中的keysByScan去获取当前库中全局匹配到的key，当key数量足够多时，执行时间会十分漫长，
+    导致整个redis服务并夯住，出于不可用状态
+2、redis超时时间设置过长，redis超时后，不能将请求漏给mysql数据库做兜底支撑
+3、线索系统，每5分钟，全量刷新一次所有用户权限数据，一天调用量达到2000w以上，占整个权限服务的调用量的75%以上 
+</code></pre>
+<p>反思总结：</p>
+<pre><code>1、并发场景下掉所有的mybatis二级缓存组件，在服务层做精准缓存，而不是dao层做数据缓存
+2、负责同学对系统中引入的组件具体实现和参数配置不了解
+3、负责同学对系统日志配置不了解，日志配置不当导致引入的组件的日志未能打印出来，影响问题的排期方向和时间
+4、配置文件不要打入jar包，而是以文件方式统一放在服务的config目录中，方便修改 
+</code></pre>
+<span id="more"></span>    
+<p><img src="/2018/12/11/2018-12-11-Mybatis-online-accident/redis-cache.jpg" alt="redis-cache"><br><img src="/2018/12/11/2018-12-11-Mybatis-online-accident/redis-connect.jpg" alt="redis-connect"><br><img src="/2018/12/11/2018-12-11-Mybatis-online-accident/redis-io.jpg" alt="redis-io"></p>
+<h1 id="三、Mybatis一、二级缓存原理解析"><a href="#三、Mybatis一、二级缓存原理解析" class="headerlink" title="三、Mybatis一、二级缓存原理解析"></a>三、Mybatis一、二级缓存原理解析</h1><p>mybaits 一共有两级缓存：一级缓存的配置 key 是 localCacheScope，而二级缓存的配置 key 是 cacheEnabled，从名字上可以得出以下信息：<br>一级缓存是本地或者说局部缓存，它不能被关闭，只能配置缓存范围。SESSION 或者 STATEMENT。<br>二级缓存才是 mybatis 的正统，功能会更强大些。</p>
+<h4 id="3-1、一级缓存"><a href="#3-1、一级缓存" class="headerlink" title="3.1、一级缓存"></a>3.1、一级缓存</h4><p>配置：<br>开发者只需在MyBatis的配置文件中，添加如下语句，就可以使用一级缓存。共有两个选项，SESSION或者STATEMENT，默认是SESSION级别，即在一个MyBatis会话中执行的所有语句，都会共享这一个缓存。一种是STATEMENT级别，可以理解为缓存只对当前执行的这一个Statement有效。</p>
+<pre><code>&lt;setting name=&quot;localCacheScope&quot; value=&quot;SESSION&quot;/&gt;
+</code></pre>
+<h4 id="3-2、二级缓存"><a href="#3-2、二级缓存" class="headerlink" title="3.2、二级缓存"></a>3.2、二级缓存</h4><p>配置：</p>
+<p>1.在MyBatis的配置文件中开启二级缓存。</p>
+<pre><code>&lt;setting name=&quot;cacheEnabled&quot; value=&quot;true&quot;/&gt;
+</code></pre>
+<p>2.在MyBatis的映射XML中配置cache或者 cache-ref 。<br>cache标签用于声明这个namespace使用二级缓存，并且可以自定义配置。</p>
+<pre><code>&lt;mapper namespace=&quot;com..mapper.RoleMapper&quot;&gt;
+    &lt;cache type=&quot;com.mybatis.RedisCache&quot;&gt;
+        &lt;property name=&quot;expireSeconds&quot; value=&quot;14400&quot;/&gt;
+    &lt;/cache&gt;
+&lt;/mapper&gt;   
+
+type：cache使用的类型，默认是PerpetualCache，这在一级缓存中提到过。
+eviction： 定义回收的策略，常见的有FIFO，LRU。
+flushInterval： 配置一定时间自动刷新缓存，单位是毫秒。
+size： 最多缓存对象的个数。
+readOnly： 是否只读，若配置可读写，则需要对应的实体类能够序列化。
+blocking： 若缓存中找不到对应的key，是否会一直blocking，直到有对应的数据进入缓存。
+cache-ref代表引用别的命名空间的Cache配置，两个命名空间的操作使用的是同一个Cache。
+
+&lt;cache-ref namespace=&quot;mapper.StudentMapper&quot;/&gt;
+</code></pre>
+<p>spring+mybatis的执行过程：</p>
+<pre><code>&lt;!--mybatis设置--&gt;
+&lt;bean id=&quot;sqlSessionFactory&quot; class=&quot;org.mybatis.spring.SqlSessionFactoryBean&quot;&gt;
+    &lt;property name=&quot;configLocation&quot; value=&quot;classpath:mybatis-config.xml&quot; /&gt;
+    &lt;property name=&quot;dataSource&quot; ref=&quot;mysqlDataSource&quot; /&gt; &lt;!--必须有--&gt;
+    &lt;property name=&quot;mapperLocations&quot; value=&quot;classpath:mapper/**/*.xml&quot; /&gt;
+    &lt;property name=&quot;typeAliasesPackage&quot; value=&quot;contract.model&quot; /&gt;
+    &lt;property name=&quot;resultTypesPackage&quot; value=&quot;contract&quot; /&gt;
+&lt;/bean&gt;
+</code></pre>
+<p>Spring对SqlSessionFactroyBean的初始化过程</p>
+<pre><code>首先SqlSessionFactoryBean 实现了了Spring 的FacatoryBean，顾名思义就是Spring的对象创建工厂，Spring在创建对象的时候会调用对象工厂的getObject()方法。
+
+public SqlSessionFactory getObject() throws Exception &#123;
+    if (this.sqlSessionFactory == null) &#123;
+        this.afterPropertiesSet();
+    &#125;
+    return this.sqlSessionFactory;
+&#125;
+
+public void afterPropertiesSet() throws Exception &#123;
+    Assert.notNull(this.dataSource, &quot;Property &#39;dataSource&#39; is required&quot;);
+    Assert.notNull(this.sqlSessionFactoryBuilder, &quot;Property &#39;sqlSessionFactoryBuilder&#39; is required&quot;);
+    Assert.state(this.configuration == null &amp;&amp; this.configLocation == null || this.configuration == null || this.configLocation == null, &quot;Property &#39;configuration&#39; and &#39;configLocation&#39; can not specified with together&quot;);
+    this.sqlSessionFactory = this.buildSqlSessionFactory();
+&#125;
+
+protected SqlSessionFactory buildSqlSessionFactory() throws IOException &#123;
+    //配置文件读取
+    ....
+    return this.sqlSessionFactoryBuilder.build(configuration);
+&#125;
+
+public SqlSessionFactory build(Configuration config) &#123;
+    return new DefaultSqlSessionFactory(config);
+&#125;
+</code></pre>
+<p>在初始化SqlSesion时，会使用Configuration类创建一个全新的Executor，作为DefaultSqlSession构造函数的参数，创建Executor代码如下所示：</p>
+<pre><code>public Executor newExecutor(Transaction transaction, ExecutorType executorType) &#123;
+    executorType = executorType == null ? defaultExecutorType : executorType;
+    executorType = executorType == null ? ExecutorType.SIMPLE : executorType;
+    Executor executor;
+    if (ExecutorType.BATCH == executorType) &#123;
+      executor = new BatchExecutor(this, transaction);
+    &#125; else if (ExecutorType.REUSE == executorType) &#123;
+      executor = new ReuseExecutor(this, transaction);
+    &#125; else &#123;
+      executor = new SimpleExecutor(this, transaction);
+    &#125;
+    // 尤其可以注意这里，如果二级缓存开关开启的话，是使用CahingExecutor装饰BaseExecutor的子类
+    if (cacheEnabled) &#123;
+      executor = new CachingExecutor(executor);                      
+    &#125;
+    executor = (Executor) interceptorChain.pluginAll(executor);
+    return executor;
+&#125;
+</code></pre>
+<h1 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h1><pre><code>1.MyBatis一级缓存的生命周期和SqlSession一致。
+2.MyBatis一级缓存内部设计简单，只是一个没有容量限定的HashMap，在缓存的功能性上有所欠缺。
+3.MyBatis的一级缓存最大范围是SqlSession内部，有多个SqlSession或者分布式的环境下，数据库写操作会引起脏数据，建议设定缓存级别为Statement。    
+</code></pre>
+<h4 id="4-1、类关系图："><a href="#4-1、类关系图：" class="headerlink" title="4.1、类关系图："></a>4.1、类关系图：</h4><p><img src="/2018/12/11/2018-12-11-Mybatis-online-accident/sqlsession-class-relation.jpg" alt="sqlsession-class-relation">    </p>
+<p>每个SqlSession中持有了Executor，每个Executor中有一个LocalCache。当用户发起查询时，MyBatis根据当前执行的语句生成MappedStatement，在Local Cache进行查询，如果缓存命中的话，直接返回结果给用户，如果缓存没有命中的话，查询数据库，结果写入Local Cache，最后返回结果给用户。    </p>
+<p>参考博客：<br><a href="https://juejin.im/post/5cacaf2df265da03a97acd25">SpringBoot 下 Mybatis 的缓存</a><br><a href="https://tech.meituan.com/2018/01/19/mybatis-cache.html">聊聊MyBatis缓存机制</a><br><a href="https://www.cnblogs.com/nuccch/p/7693801.html">深入浅出mybatis之与spring集成</a>
+    </p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Mybatis/" rel="tag"># Mybatis</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/12/11/2018-12-11-%E7%BB%9F%E4%B8%80%E7%99%BB%E5%BD%95%E7%BA%BF%E4%B8%8A%E4%BA%8B%E6%95%85%E6%8E%92%E6%9F%A5%E8%BF%87%E7%A8%8B/" rel="prev" title="统一登录线上事故排查过程">
+      <i class="fa fa-chevron-left"></i> 统一登录线上事故排查过程
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/01/10/2019-01-10-%E8%AE%B0%E4%B8%80%E6%AC%A1MYSQL%E6%9C%8D%E5%8A%A1%E5%99%A8CPU%E7%88%86%E4%BA%86%E9%97%AE%E9%A2%98/" rel="next" title="记一次MYSQL服务器CPU爆了问题">
+      记一次MYSQL服务器CPU爆了问题 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E9%97%AE%E9%A2%98%E5%9C%BA%E6%99%AF%EF%BC%9A%E7%BB%9F%E4%B8%80%E7%99%BB%E5%BD%95%E5%B9%B3%E5%8F%B0%E5%87%BA%E7%8E%B0%E6%97%A0%E6%B3%95%E7%99%BB%E5%BD%95%E5%92%8C%E8%8F%9C%E5%8D%95%E5%BC%82%E5%B8%B8%E9%97%AE%E9%A2%98%E3%80%82"><span class="nav-text">一、问题场景：统一登录平台出现无法登录和菜单异常问题。</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E9%97%AE%E9%A2%98%E5%8E%9F%E5%9B%A0%EF%BC%9A"><span class="nav-text">二、问题原因：</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81Mybatis%E4%B8%80%E3%80%81%E4%BA%8C%E7%BA%A7%E7%BC%93%E5%AD%98%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90"><span class="nav-text">三、Mybatis一、二级缓存原理解析</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1%E3%80%81%E4%B8%80%E7%BA%A7%E7%BC%93%E5%AD%98"><span class="nav-text">3.1、一级缓存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2%E3%80%81%E4%BA%8C%E7%BA%A7%E7%BC%93%E5%AD%98"><span class="nav-text">3.2、二级缓存</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">四、总结</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1%E3%80%81%E7%B1%BB%E5%85%B3%E7%B3%BB%E5%9B%BE%EF%BC%9A"><span class="nav-text">4.1、类关系图：</span></a></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

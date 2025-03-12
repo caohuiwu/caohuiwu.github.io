@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、RPC需要解决的问题1、服务发现（寻址）2、数据传输（序列化）3、底层通讯（TCP）   1.1、服务发现&amp;注册（寻址）A、整体流程涉及两个动作：服务端的服务注册、客户端的服务发现。 B、实现1、客户端与注册中心：客户端启动主动拉一次配置（获得服务的节点、端口信息）、拉收集项；启动完成后，收集项由注册中心每隔一个小时推送一次，另外在客户端有一个10分钟一次的定时任务会拉取最新的配置信息">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RPC">
+<meta property="og:url" content="http://yoursite.com/2019/08/19/2019-08-19-RPC/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、RPC需要解决的问题1、服务发现（寻址）2、数据传输（序列化）3、底层通讯（TCP）   1.1、服务发现&amp;注册（寻址）A、整体流程涉及两个动作：服务端的服务注册、客户端的服务发现。 B、实现1、客户端与注册中心：客户端启动主动拉一次配置（获得服务的节点、端口信息）、拉收集项；启动完成后，收集项由注册中心每隔一个小时推送一次，另外在客户端有一个10分钟一次的定时任务会拉取最新的配置信息">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2019/08/19/2019-08-19-RPC/RPC.png">
+<meta property="og:image" content="http://yoursite.com/2019/08/19/2019-08-19-RPC/%E5%BA%8F%E5%88%97%E5%8C%96.png">
+<meta property="og:image" content="http://yoursite.com/2019/08/19/2019-08-19-RPC/%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%9E%B6%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2019/08/19/2019-08-19-RPC/%E6%96%B9%E6%B3%95%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2019/08/19/2019-08-19-RPC/server%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B.png">
+<meta property="og:image" content="http://yoursite.com/2019/08/19/2019-08-19-RPC/server%E6%96%B9%E6%B3%95%E8%BF%87%E7%A8%8B.png">
+<meta property="article:published_time" content="2019-08-19T13:38:38.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.042Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="rpc">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2019/08/19/2019-08-19-RPC/RPC.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/08/19/2019-08-19-RPC/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>RPC | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/08/19/2019-08-19-RPC/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          RPC
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-08-19 21:38:38" itemprop="dateCreated datePublished" datetime="2019-08-19T21:38:38+08:00">2019-08-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/RPC/" itemprop="url" rel="index"><span itemprop="name">RPC</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>2.3k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>6 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、RPC需要解决的问题"><a href="#一、RPC需要解决的问题" class="headerlink" title="一、RPC需要解决的问题"></a>一、RPC需要解决的问题</h1><p>1、服务发现（寻址）<br>2、数据传输（序列化）<br>3、底层通讯（TCP）  </p>
+<h2 id="1-1、服务发现-注册（寻址）"><a href="#1-1、服务发现-注册（寻址）" class="headerlink" title="1.1、服务发现&amp;注册（寻址）"></a>1.1、服务发现&amp;注册（寻址）</h2><h3 id="A、整体流程"><a href="#A、整体流程" class="headerlink" title="A、整体流程"></a>A、整体流程</h3><p><em><strong>涉及两个动作：服务端的服务注册、客户端的服务发现。</strong></em><br><img src="/2019/08/19/2019-08-19-RPC/RPC.png" alt="RPC"></p>
+<h3 id="B、实现"><a href="#B、实现" class="headerlink" title="B、实现"></a>B、实现</h3><p><strong>1</strong>、客户端与注册中心：客户端启动主动拉一次配置（获得服务的节点、端口信息）、拉收集项；启动完成后，收集项由注册中心每隔一个小时推送一次，另外在客户端有一个10分钟一次的定时任务会拉取最新的配置信息<br><strong>2</strong>、服务端与注册中心：服务端会启动一个定时任务，定时发送心跳（上报节点信息）、拉收集项、发送白名单（注册中心接收到白名单消息，并没有做任何处理，暂时无用）；注册中心每隔一小时推送一次最新的收集项，另外推送黑名单给服务端（黑名单用于拦截请求，保护服务）</p>
+<span id="more"></span>  
+
+<h2 id="1-2、序列化"><a href="#1-2、序列化" class="headerlink" title="1.2、序列化"></a>1.2、序列化</h2><p><img src="/2019/08/19/2019-08-19-RPC/%E5%BA%8F%E5%88%97%E5%8C%96.png" alt="RPC"></p>
+<ul>
+<li><p>四元组(TT[L]V)</p>
+<p>  Tag + Type + Length + Value<br>  属性标签、属性类型、属性值字节长度、属性值</p>
+</li>
+</ul>
+<h2 id="1-3、数据传输"><a href="#1-3、数据传输" class="headerlink" title="1.3、数据传输"></a>1.3、数据传输</h2><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>协议头</th>
+<th>版本号</th>
+<th>总长度</th>
+<th>SessionId</th>
+<th>服务编号</th>
+<th>协议类型</th>
+<th>压缩类型</th>
+<th>序列化类型</th>
+<th>平台</th>
+<th>调用链数据长度</th>
+<th>调用链数据</th>
+<th>服务治理key长度</th>
+<th>服务治理key</th>
+<th>业务数据</th>
+<th>协议尾</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>长度(byte)</td>
+<td>5</td>
+<td>1</td>
+<td>4</td>
+<td>4</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+<td>2</td>
+<td>xxoo</td>
+<td>2</td>
+<td>xxoo</td>
+<td>xxoo</td>
+<td>5</td>
+</tr>
+<tr>
+<td>含义</td>
+<td>验证使用</td>
+<td>扩展使用</td>
+<td>不包含头和位</td>
+<td>异步机制使用</td>
+<td>暂无实现</td>
+<td>啊</td>
+<td>暂未实现</td>
+<td>asf、asf_ext</td>
+<td>java</td>
+<td>调用链使用</td>
+<td>调用链使用</td>
+<td>服务治理使用</td>
+<td>服务治理使用</td>
+<td>自定义java对象序列化后的byte数组</td>
+<td>断包使用</td>
+</tr>
+</tbody></table>
+<ul>
+<li>支持多种序列化方式：Hessian、SCF、json</li>
+<li>解析字节流，截取到业务数据</li>
+<li>根据序列化方式，对字节数组解析反序列化。</li>
+</ul>
+<h2 id="1-4、底层通讯（TCP）"><a href="#1-4、底层通讯（TCP）" class="headerlink" title="1.4、底层通讯（TCP）"></a>1.4、底层通讯（TCP）</h2><p>底层通讯，使用了netty框架。</p>
+<h1 id="二、客户端"><a href="#二、客户端" class="headerlink" title="二、客户端"></a>二、客户端</h1><h2 id="2-1、架构"><a href="#2-1、架构" class="headerlink" title="2.1、架构"></a>2.1、架构</h2><p><img src="/2019/08/19/2019-08-19-RPC/%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%9E%B6%E6%9E%84.png" alt="RPC"></p>
+<ul>
+<li>接口代理层：采用Java的动态代理，创建接口代理并缓存，代理类中实现具体的序列化、节点路由、网络连接及数据传输等。</li>
+<li>服务代理层：缓存服务，访问控制（同步、异步、服务故障（重启、宕机、超时）等转移）。</li>
+<li>节点路由层：服务节点路由及服务负载均衡。</li>
+<li>连接管理层：缓存客户端与服务端的TCP连接，并提供连接池功能。</li>
+<li>数据传输层：数据的发送与接收。</li>
+</ul>
+<h2 id="2-2、一次方法调用过程"><a href="#2-2、一次方法调用过程" class="headerlink" title="2.2、一次方法调用过程"></a>2.2、一次方法调用过程</h2><p><img src="/2019/08/19/2019-08-19-RPC/%E6%96%B9%E6%B3%95%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B.png" alt="RPC"></p>
+<pre><code>1.每个Service在客户端，都对应一个ProxyStandard，它代理执行该Service的执行，初始化一次进行缓存  
+2.MethodCaller中是服务执行方法的地方，会调用ServiceProxy获取Server节点，获取方式是通过负载均衡策略  
+3.ServiceProxy持有自己的所有对象的Map,根据serviceName可以找到一个服务的节点池  
+4.Dispatcher是个负载均衡器，他负责选择服务的节点，并且持有一个服务的所有节点  
+5.一个节点对应一个Server对象，Server是一个服务提供者，它会和服务提供者直接会建立连接池queue  
+</code></pre>
+<h2 id="2-3、重试机制"><a href="#2-3、重试机制" class="headerlink" title="2.3、重试机制"></a>2.3、重试机制</h2><p>server将请求发送至queue中后，会同步等待返回结果，当接收信息时超时抛出异常，异常被serviceProxy捕获，进行超时的重试。</p>
+<ul>
+<li>重试次数：默认3次</li>
+<li>超时时间：默认3s</li>
+</ul>
+<h2 id="2-4、负载均衡"><a href="#2-4、负载均衡" class="headerlink" title="2.4、负载均衡"></a>2.4、负载均衡</h2><p>权重随机策略，默认采用轮询</p>
+<h2 id="2-5、服务降级唤醒"><a href="#2-5、服务降级唤醒" class="headerlink" title="2.5、服务降级唤醒"></a>2.5、服务降级唤醒</h2><p>定时任务，获取断开连接的服务进行连接。</p>
+<h2 id="2-6、客户端容错汇总"><a href="#2-6、客户端容错汇总" class="headerlink" title="2.6、客户端容错汇总"></a>2.6、客户端容错汇总</h2><p>1、超时连接：服务节点变为Dead，死亡节点异步线程进行探测激活</p>
+<h2 id="2-7、心跳机制"><a href="#2-7、心跳机制" class="headerlink" title="2.7、心跳机制"></a>2.7、心跳机制</h2><p>1、每个Socket创建连接之后，都会启动一个定期执行的心跳线程发送心跳。<br>2、服务节点状态变为Deaed，异步探测线程5秒执行一次，会进行心跳探测，探测成功更新节点死亡时间，成功恢复节点</p>
+<h1 id="三、服务端"><a href="#三、服务端" class="headerlink" title="三、服务端"></a>三、服务端</h1><h2 id="3-1、线程模型"><a href="#3-1、线程模型" class="headerlink" title="3.1、线程模型"></a>3.1、线程模型</h2><p><img src="/2019/08/19/2019-08-19-RPC/server%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B.png" alt="RPC"><br>1、socketHandler接到请求，根据负载均衡，将完整包放入异步处理队列。<br>2、异步处理线程模型，可以有多个线程组，一个线程组默认8个线程，这个8个线程一起维护一个队列。</p>
+<h2 id="3-2、一次方法的调用过程"><a href="#3-2、一次方法的调用过程" class="headerlink" title="3.2、一次方法的调用过程"></a>3.2、一次方法的调用过程</h2><p><img src="/2019/08/19/2019-08-19-RPC/server%E6%96%B9%E6%B3%95%E8%BF%87%E7%A8%8B.png" alt="RPC"></p>
+<pre><code>1.请求数据首先通过固定结尾DelimiterBasedFrameDecoder解码
+2.SocketHandler判断数据类型，心跳直接返回
+3.前置业务过滤器ProtocolParseFilter反序列化请求
+4.根据请求lookup从服务代理工厂获取代理服务
+5.返回结果码流
+</code></pre>
+<h2 id="3-3、启动过程"><a href="#3-3、启动过程" class="headerlink" title="3.3、启动过程"></a>3.3、启动过程</h2><pre><code>2、生成服务代理
+  1.1 加载所有的jar 容器lib+服务目录
+  1.2 加载系统目录下所有class
+  1.3 class中扫描ServiceContract注解的接口，扫描OperationContract注解的方法，去重
+  1.4 class中扫描ServiceBehavior注解的实现，只扫描protected和public的方法，去重，相同的lookup报错
+  1.5 扫描的jar中加载class，扫描jar中的ServiceContract和ServiceBehavior注解类
+  1.6 接口和实现类对应关系绑定
+  1.7 为csf服务实现类，利用java-assist生成代理类，有Spring增加上下文获取Bean逻辑
+  1.8 生成代理对象工厂类
+  1.9 初始化代理对象
+  1.10 初始化代理工厂对象，将代理对象传入工厂
+    
+3.加载并调用init接口的实现类
+4.加载Filter
+5.注册新号
+6.添加Hooks
+7.启动server
+8.注册Server的ShutDownHook 
+</code></pre>
+<h1 id="4、异步调用"><a href="#4、异步调用" class="headerlink" title="4、异步调用"></a>4、异步调用</h1><h2 id="1、ConcurrentHashMap-WaitWindows"><a href="#1、ConcurrentHashMap-WaitWindows" class="headerlink" title="1、ConcurrentHashMap&lt;Integer, WindowData&gt; WaitWindows"></a>1、ConcurrentHashMap&lt;Integer, WindowData&gt; WaitWindows</h2><p>&lt;key, value&gt; &#x3D; &lt;sessionId, WinData&gt;，</p>
+<ul>
+<li>sendInvoke(wd); &#x2F;&#x2F;发送线程职责：将请求流发送给服务端</li>
+<li>timeOutInvoke(wd); &#x2F;&#x2F;接收线程职责：超时判断 + 回调函数调用</li>
+</ul>
+<p>按sessionId，进行解析</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/rpc/" rel="tag"># rpc</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/08/01/2019-08-01-MQ%E5%AF%B9%E6%AF%94/" rel="prev" title="MQ对比">
+      <i class="fa fa-chevron-left"></i> MQ对比
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/21/2019-08-21-%E7%86%94%E6%96%AD%E9%99%8D%E7%BA%A7/" rel="next" title="熔断降级">
+      熔断降级 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81RPC%E9%9C%80%E8%A6%81%E8%A7%A3%E5%86%B3%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-text">一、RPC需要解决的问题</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-1%E3%80%81%E6%9C%8D%E5%8A%A1%E5%8F%91%E7%8E%B0-%E6%B3%A8%E5%86%8C%EF%BC%88%E5%AF%BB%E5%9D%80%EF%BC%89"><span class="nav-text">1.1、服务发现&amp;注册（寻址）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#A%E3%80%81%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B"><span class="nav-text">A、整体流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#B%E3%80%81%E5%AE%9E%E7%8E%B0"><span class="nav-text">B、实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-2%E3%80%81%E5%BA%8F%E5%88%97%E5%8C%96"><span class="nav-text">1.2、序列化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-3%E3%80%81%E6%95%B0%E6%8D%AE%E4%BC%A0%E8%BE%93"><span class="nav-text">1.3、数据传输</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-4%E3%80%81%E5%BA%95%E5%B1%82%E9%80%9A%E8%AE%AF%EF%BC%88TCP%EF%BC%89"><span class="nav-text">1.4、底层通讯（TCP）</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%AE%A2%E6%88%B7%E7%AB%AF"><span class="nav-text">二、客户端</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E6%9E%B6%E6%9E%84"><span class="nav-text">2.1、架构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E4%B8%80%E6%AC%A1%E6%96%B9%E6%B3%95%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B"><span class="nav-text">2.2、一次方法调用过程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81%E9%87%8D%E8%AF%95%E6%9C%BA%E5%88%B6"><span class="nav-text">2.3、重试机制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4%E3%80%81%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1"><span class="nav-text">2.4、负载均衡</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-5%E3%80%81%E6%9C%8D%E5%8A%A1%E9%99%8D%E7%BA%A7%E5%94%A4%E9%86%92"><span class="nav-text">2.5、服务降级唤醒</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-6%E3%80%81%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%AE%B9%E9%94%99%E6%B1%87%E6%80%BB"><span class="nav-text">2.6、客户端容错汇总</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-7%E3%80%81%E5%BF%83%E8%B7%B3%E6%9C%BA%E5%88%B6"><span class="nav-text">2.7、心跳机制</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%9C%8D%E5%8A%A1%E7%AB%AF"><span class="nav-text">三、服务端</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B"><span class="nav-text">3.1、线程模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E4%B8%80%E6%AC%A1%E6%96%B9%E6%B3%95%E7%9A%84%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B"><span class="nav-text">3.2、一次方法的调用过程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B"><span class="nav-text">3.3、启动过程</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#4%E3%80%81%E5%BC%82%E6%AD%A5%E8%B0%83%E7%94%A8"><span class="nav-text">4、异步调用</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1%E3%80%81ConcurrentHashMap-WaitWindows"><span class="nav-text">1、ConcurrentHashMap&lt;Integer, WindowData&gt; WaitWindows</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

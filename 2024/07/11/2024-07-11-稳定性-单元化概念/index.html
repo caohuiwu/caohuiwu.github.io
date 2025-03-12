@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是稳定性系列的第六篇文章，主要介绍的是单元化概念。  一、什么是单元化？单元化简单点我们直接就可以认为是一个机房，在这个单元内能够完成业务的闭环。比如说用户进入APP，浏览商品，选择商品确认订单，下单，支付，查看订单信息，这整个流程都在一个单元中能够完成，并且数据也是存储在这个单元里面。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《稳定性》单元化概念">
+<meta property="og:url" content="http://yoursite.com/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是稳定性系列的第六篇文章，主要介绍的是单元化概念。  一、什么是单元化？单元化简单点我们直接就可以认为是一个机房，在这个单元内能够完成业务的闭环。比如说用户进入APP，浏览商品，选择商品确认订单，下单，支付，查看订单信息，这整个流程都在一个单元中能够完成，并且数据也是存储在这个单元里面。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/%E4%BB%80%E4%B9%88%E6%98%AF%E5%8D%95%E5%85%83%E5%8C%96.png">
+<meta property="og:image" content="http://yoursite.com/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/%E5%8D%95%E5%85%83%E5%8C%96%E4%BA%A7%E5%93%81%E7%BB%84%E6%88%90.png">
+<meta property="og:image" content="http://yoursite.com/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/%E4%B8%AD%E9%97%B4%E4%BB%B6%E6%94%B9%E9%80%A0.png">
+<meta property="og:image" content="http://yoursite.com/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/%E5%BA%95%E5%B1%82%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5.png">
+<meta property="article:published_time" content="2024-07-11T02:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.850Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="阿里">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/%E4%BB%80%E4%B9%88%E6%98%AF%E5%8D%95%E5%85%83%E5%8C%96.png">
+
+<link rel="canonical" href="http://yoursite.com/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《稳定性》单元化概念 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《稳定性》单元化概念
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-07-11 10:00:00" itemprop="dateCreated datePublished" datetime="2024-07-11T10:00:00+08:00">2024-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%A8%B3%E5%AE%9A%E6%80%A7/" itemprop="url" rel="index"><span itemprop="name">稳定性</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E9%98%BF%E9%87%8C/" itemprop="url" rel="index"><span itemprop="name">阿里</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%A8%B3%E5%AE%9A%E6%80%A7/%E9%AB%98%E5%8F%AF%E7%94%A8%E3%80%81%E5%8D%95%E5%85%83%E5%8C%96/" itemprop="url" rel="index"><span itemprop="name">高可用、单元化</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>2.3k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>6 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是稳定性系列的第六篇文章，主要介绍的是单元化概念。
+</code></pre>
+<h3 id="一、什么是单元化？"><a href="#一、什么是单元化？" class="headerlink" title="一、什么是单元化？"></a>一、什么是单元化？</h3><p>单元化简单点我们直接就可以认为是一个机房，在这个单元内能够完成业务的闭环。比如说用户进入APP，浏览商品，选择商品确认订单，下单，支付，查看订单信息，这整个流程都在一个单元中能够完成，并且数据也是存储在这个单元里面。</p>
+<span id="more"></span>
+<p><img src="/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/%E4%BB%80%E4%B9%88%E6%98%AF%E5%8D%95%E5%85%83%E5%8C%96.png" alt="什么是单元化"></p>
+<h4 id="1-2-单元化基础术语"><a href="#1-2-单元化基础术语" class="headerlink" title="1.2 单元化基础术语"></a>1.2 单元化基础术语</h4><style>
+table th:first-of-type {
+    width: 10%;
+}
+table th:nth-of-type(2) {
+    width: 70%;
+}
+</style>
+
+
+<table>
+<thead>
+<tr>
+<th>术语</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>gzone</td>
+<td>Global Zone，全局区域。部署了不可拆分的数据和服务，这些数据或服务可能会被RZone 依赖。GZone 在全局只有一组，数据仅有一份。</td>
+</tr>
+<tr>
+<td>rzone</td>
+<td>Region Zone，最符合理论上单元定义的 Zone，每个 RZone 都是自包含的，拥有自己的数据，能完成所有业务。</td>
+</tr>
+<tr>
+<td>ezone</td>
+<td>eleme zone，饿了么每个机房为一个 ezone，一个 ezone 包含了饿了么需要的各种服务。一笔业务能够内聚在一个 ezone 中</td>
+</tr>
+</tbody></table>
+<h3 id="二、单元化的目的"><a href="#二、单元化的目的" class="headerlink" title="二、单元化的目的"></a>二、单元化的目的</h3><h4 id="⭐️-高可用容灾："><a href="#⭐️-高可用容灾：" class="headerlink" title="⭐️ 高可用容灾："></a>⭐️ 高可用容灾：</h4><ul>
+<li>1、一个IDC机房挂掉了，能把流量直接切到另一个IDC机房（同一个城市），异地容灾是最终解决方案。</li>
+</ul>
+<h4 id="⭐️高并发容量问题："><a href="#⭐️高并发容量问题：" class="headerlink" title="⭐️高并发容量问题："></a>⭐️高并发容量问题：</h4><ul>
+<li>1、提高并发能力，加机器是最直接的答案，但是随之而来的瓶颈是数据库连接瓶颈，机房网卡瓶颈等。</li>
+<li>2、水平扩展能力，意味着可以按照一定维度来进行分片。</li>
+<li>3、单元化在做的事情，就是把数据流量，按照一定维度进行拆分。使得一个单元IDC能够闭环提供完整的服务能力。但是这个服务能力面对的是拆分后的部分数据流量，且只服务这部分流量。</li>
+</ul>
+<h3 id="三、单元化产品组成"><a href="#三、单元化产品组成" class="headerlink" title="三、单元化产品组成"></a>三、单元化产品组成</h3><p><img src="/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/%E5%8D%95%E5%85%83%E5%8C%96%E4%BA%A7%E5%93%81%E7%BB%84%E6%88%90.png" alt="单元化产品组成"><br>单元化产品包含以下三大部分：</p>
+<ul>
+<li>运行时：单元化流量路由能力，包含统一接入网关、应用层组件和数据层组件。</li>
+<li>运维时：跨集群资源管理、发布运维和单元化管控能力，包含单元化应用服务（LHC）。 单元化监控分析能力，包含实时监控组件和分布式链路跟踪组件。</li>
+<li>容灾时：巡检诊断、容灾演练和切换能力，包含高可用容灾平台。</li>
+</ul>
+<h4 id="3-1、运行时"><a href="#3-1、运行时" class="headerlink" title="3.1、运行时"></a>3.1、运行时</h4><h5 id="1、统一接入网关："><a href="#1、统一接入网关：" class="headerlink" title="1、统一接入网关："></a>1、统一接入网关：</h5><blockquote>
+<p>统一接入网关，是将访问流量根据转发规则分发到多台后端服务器的流量分发控制服务。</p>
+<p>在单元化场景下，按单元化路由规则（如用户 ID 到单元的映射关系以及单元间权重占比），将用户的 http 请求路由至目标机房和单元，实现流量动态调拨。</p>
+<p>统一接入网关的作用如下：</p>
+<ul>
+<li>拦截请求，识别目标应用的单元类型（如是 RZone 应用，还是 GZone 应用） 根据目标类型，进行路由转发，支持跨机房异地转发，实现单元化流量调拨。</li>
+<li>GZone 路由：根据路由规则（单元权重占比），将用户 http 请求转发至目标单元的应用服务器中。</li>
+<li>RZone 路由：从 cookie 中读取分片字段（如 uid），根据路由规则（用户 ID 到单元的映射关系），将用户 http 请求转发至目标机房的应用服务器中。</li>
+</ul>
+</blockquote>
+<h5 id="2、中间件"><a href="#2、中间件" class="headerlink" title="2、中间件"></a>2、中间件</h5><p>在单元化架构下，中间件从应用层到数据层均提供了单元化流量路由能力。<br><img src="/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/%E4%B8%AD%E9%97%B4%E4%BB%B6%E6%94%B9%E9%80%A0.png" alt="中间件改造"></p>
+<p>APIRouter ： 路由分发服务</p>
+<blockquote>
+<p>API Router是一个HTTP反向代理和负载均衡器，部署在公有云中作为HTTP API流量的入口，它能识别出流量的归属 shard ，并根据 shard 将流量转发到对应的 ezone。API Router 支持多种路由键，可以是地理位置，也可以是商户ID，订单ID等等，最终由 API Router 映射为统一的 Sharding ID。</p>
+</blockquote>
+<p>服务通信层：RPC</p>
+<blockquote>
+<p>需要支持基于单元化规则的服务路由。需要做到单元的应用可以调用本单元的服务，中心的应用调用中心的服务，从而保证单元的封闭性，减少跨单元的服务（跨单元调用，通常会增加30ms的耗时）。</p>
+</blockquote>
+<p>消息通信层（Notify MQ层）</p>
+<blockquote>
+<p>实现原则，尽量保持单元内部消息在内部投递和消费，同时所有消息会路由到中心，保证没有做单元化部署的业务也能接受到消息</p>
+</blockquote>
+<p>数据库层</p>
+<blockquote>
+<p>用户在各自映射的单元写对应的数据，数据会和中心做双向同步；如买家数据订单</p>
+<ul>
+<li>单元化保护：确保不同单元之间的数据隔离，防止数据泄露和误操作。</li>
+</ul>
+<p><img src="/2024/07/11/2024-07-11-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%A6%82%E5%BF%B5/%E5%BA%95%E5%B1%82%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5.png" alt="底层数据同步"></p>
+</blockquote>
+<h3 id="三、怎么做单元化？"><a href="#三、怎么做单元化？" class="headerlink" title="三、怎么做单元化？"></a>三、怎么做单元化？</h3><h4 id="3-1、面临的问题"><a href="#3-1、面临的问题" class="headerlink" title="3.1、面临的问题"></a>3.1、面临的问题</h4><h5 id="1-流量调配"><a href="#1-流量调配" class="headerlink" title="1. 流量调配"></a>1. 流量调配</h5><p>如何进行流量的分配呢？常见的有按buyerId、地理位置。通常会分成交易单元化和导购单元化。</p>
+<h6 id="交易单元化"><a href="#交易单元化" class="headerlink" title="交易单元化"></a>交易单元化</h6><p>交易单元化是将交易过程划分成多个独立的单元，每个单元负责特定的交易环节或功能。通过这种方式，可以提高交易系统的可扩展性、可靠性和性能。</p>
+<h6 id="导购单元化"><a href="#导购单元化" class="headerlink" title="导购单元化"></a>导购单元化</h6><p>导购单元化是将导购功能划分成多个独立的单元，每个单元负责特定的导购场景或用户需求。通过这种方式，可以提高导购系统的精准性、个性化和用户体验。可以按照用户行为进行单元划分，例如搜索导购单元、推荐导购单元、品类导购单元等。每个单元根据用户的不同行为和需求，提供相应的导购服务。</p>
+<h5 id="2-数据拆分"><a href="#2-数据拆分" class="headerlink" title="2. 数据拆分"></a>2. 数据拆分</h5><ul>
+<li>数据的一致性问题<ul>
+<li>当数据分布在多个单元中时，确保不同单元之间的数据一致性是一个挑战。例如，在交易单元化中，如果一个用户在多个单元中进行交易，如何保证其账户余额、订单状态等数据的一致性。</li>
+</ul>
+</li>
+<li>数据分区和路由<ul>
+<li>单元化通常需要对数据进行分区，并根据特定的规则将数据路由到不同的单元。如果数据分区不合理或路由规则不清晰，可能会导致数据分布不均衡，影响系统性能。</li>
+</ul>
+</li>
+</ul>
+<h5 id="3-响应延迟"><a href="#3-响应延迟" class="headerlink" title="3. 响应延迟"></a>3. 响应延迟</h5><p>面临最大的问题就是异地跨机房调用。索引单元化比较核心的点是，一个单元可以提供完整的服务能力，部署完整的应用服务。单元化后，完整的请求链路要求在同一机房内完成。所以单元化也要求整个数据链路层面进行适配，包括rpc请求，MQ消息链路，DAL数据访问层面。</p>
+<p>参考文章：<br><a href="https://juejin.cn/post/7338422591517310991">阿里技术架构演进及过程中遇到的问题</a><br><a href="https://pic.huodongjia.com/ganhuodocs/2017-08-09/1502263496.67.pdf">饿了么异地多活的数据实施-DRC</a><br><a href="https://tech.dewu.com/article?id=9">看完这篇异地多活的改造，我决定和架构师battle一下</a><br><a href="https://docs-aliyun.cn-hangzhou.oss.aliyun-inc.com/assets/attach/160617/AntCloud_zh/1585895792638/%E8%9A%82%E8%9A%81%E5%8D%95%E5%85%83%E5%8C%96%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88%E7%99%BD%E7%9A%AE%E4%B9%A6.pdf">蚂蚁单元化解决方案白皮书</a>    </p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E9%98%BF%E9%87%8C/" rel="tag"># 阿里</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2024/06/29/2024-06-29-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8F%98%E6%9B%B4%E4%B8%89%E6%9D%BF%E6%96%A7/" rel="prev" title="《稳定性》变更三板斧">
+      <i class="fa fa-chevron-left"></i> 《稳定性》变更三板斧
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2024/07/18/2024-07-18-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E5%8D%95%E5%85%83%E5%8C%96%E6%94%B9%E9%80%A0%E7%A4%BA%E4%BE%8B/" rel="next" title="《稳定性》单元化改造示例">
+      《稳定性》单元化改造示例 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AF%E5%8D%95%E5%85%83%E5%8C%96%EF%BC%9F"><span class="nav-text">一、什么是单元化？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-2-%E5%8D%95%E5%85%83%E5%8C%96%E5%9F%BA%E7%A1%80%E6%9C%AF%E8%AF%AD"><span class="nav-text">1.2 单元化基础术语</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%8D%95%E5%85%83%E5%8C%96%E7%9A%84%E7%9B%AE%E7%9A%84"><span class="nav-text">二、单元化的目的</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E2%AD%90%EF%B8%8F-%E9%AB%98%E5%8F%AF%E7%94%A8%E5%AE%B9%E7%81%BE%EF%BC%9A"><span class="nav-text">⭐️ 高可用容灾：</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E2%AD%90%EF%B8%8F%E9%AB%98%E5%B9%B6%E5%8F%91%E5%AE%B9%E9%87%8F%E9%97%AE%E9%A2%98%EF%BC%9A"><span class="nav-text">⭐️高并发容量问题：</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%8D%95%E5%85%83%E5%8C%96%E4%BA%A7%E5%93%81%E7%BB%84%E6%88%90"><span class="nav-text">三、单元化产品组成</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1%E3%80%81%E8%BF%90%E8%A1%8C%E6%97%B6"><span class="nav-text">3.1、运行时</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1%E3%80%81%E7%BB%9F%E4%B8%80%E6%8E%A5%E5%85%A5%E7%BD%91%E5%85%B3%EF%BC%9A"><span class="nav-text">1、统一接入网关：</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2%E3%80%81%E4%B8%AD%E9%97%B4%E4%BB%B6"><span class="nav-text">2、中间件</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%80%8E%E4%B9%88%E5%81%9A%E5%8D%95%E5%85%83%E5%8C%96%EF%BC%9F"><span class="nav-text">三、怎么做单元化？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1%E3%80%81%E9%9D%A2%E4%B8%B4%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-text">3.1、面临的问题</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E6%B5%81%E9%87%8F%E8%B0%83%E9%85%8D"><span class="nav-text">1. 流量调配</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#%E4%BA%A4%E6%98%93%E5%8D%95%E5%85%83%E5%8C%96"><span class="nav-text">交易单元化</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#%E5%AF%BC%E8%B4%AD%E5%8D%95%E5%85%83%E5%8C%96"><span class="nav-text">导购单元化</span></a></li></ol></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-%E6%95%B0%E6%8D%AE%E6%8B%86%E5%88%86"><span class="nav-text">2. 数据拆分</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-%E5%93%8D%E5%BA%94%E5%BB%B6%E8%BF%9F"><span class="nav-text">3. 响应延迟</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

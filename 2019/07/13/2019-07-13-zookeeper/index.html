@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、什么是zk分布式服务的协调服务：1、配置管理。2、分布式锁。3、集群选举。4、消息订阅。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="zookeeper">
+<meta property="og:url" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、什么是zk分布式服务的协调服务：1、配置管理。2、分布式锁。3、集群选举。4、消息订阅。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/zk.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/datastruct.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/zknode.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/zknode-example.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/%E9%80%89%E4%B8%BE1.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/%E9%80%89%E4%B8%BE2.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/watch.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/%E6%B3%A8%E5%86%8C%E8%BF%87%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/%E5%AE%9E%E7%8E%B0%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E6%B5%81%E7%A8%8B.png">
+<meta property="article:published_time" content="2019-07-13T12:46:40.000Z">
+<meta property="article:modified_time" content="2025-03-04T08:19:41.289Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/zk.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>zookeeper | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/07/13/2019-07-13-zookeeper/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          zookeeper
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-07-13 20:46:40" itemprop="dateCreated datePublished" datetime="2019-07-13T20:46:40+08:00">2019-07-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 16:19:41" itemprop="dateModified" datetime="2025-03-04T16:19:41+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/zookeeper/" itemprop="url" rel="index"><span itemprop="name">zookeeper</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>4.6k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>12 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、什么是zk"><a href="#一、什么是zk" class="headerlink" title="一、什么是zk"></a>一、什么是zk</h1><p>分布式服务的协调服务：<br>1、配置管理。<br>2、分布式锁。<br>3、集群选举。<br>4、消息订阅。  </p>
+<span id="more"></span>  
+
+<h1 id="二、基本架构"><a href="#二、基本架构" class="headerlink" title="二、基本架构"></a>二、基本架构</h1><p><img src="/2019/07/13/2019-07-13-zookeeper/zk.png" alt="zk"></p>
+<ul>
+<li>一主多从，主服务支持读写，从服务只支持读，客户端写都需要经过主服务。</li>
+</ul>
+<h1 id="三、数据结构"><a href="#三、数据结构" class="headerlink" title="三、数据结构"></a>三、数据结构</h1><ul>
+<li>整体结构<br><img src="/2019/07/13/2019-07-13-zookeeper/datastruct.png" alt="zk"></li>
+</ul>
+<blockquote>
+<p>结构类似于树，每个节点对应的数据结构是znode，每个node的数据最大不能超过1M</p>
+</blockquote>
+<ul>
+<li>znode<br><img src="/2019/07/13/2019-07-13-zookeeper/zknode.png" alt="zk"></li>
+</ul>
+<blockquote>
+<p>data：存储的是数据信息<br>ACL：记录了znode的访问权限<br>stat：znode的元数据，例如事务ID、版本号、时间戳、大小等<br>child：子节点引用，可以有多个子节点<br>节点：节点的数据大小不超过1M，适用于读多写少的情况</p>
+</blockquote>
+<ul>
+<li><p>示例<br><img src="/2019/07/13/2019-07-13-zookeeper/zknode-example.png" alt="zk"></p>
+</li>
+<li><p>znode类型：  </p>
+<ul>
+<li>PERSISTENT：持久化节点  </li>
+<li>PERSISTENT_SEQUENTIAL：持久化排序节点  </li>
+<li>EPHEMERAL：临时节点（一种特殊的znode，只要创建znode的会话处于活跃状态，就会存在；当session结束时，就会删除。在实现分布式锁时非常有用）</li>
+<li>EPHEMERAL_SEQUENTIAL：临时排序节点</li>
+</ul>
+</li>
+<li><p>节点基本操作</p>
+<ul>
+<li>create</li>
+<li>delete</li>
+<li>setData</li>
+<li>exists：读操作</li>
+<li>getData：读操作</li>
+<li>getChildren：读操作</li>
+<li>读操作，可以选择设置watch</li>
+<li>写操作，会触发相应节点注册的watch</li>
+</ul>
+</li>
+<li><p>应用</p>
+<ul>
+<li>分组管理：path结构</li>
+<li>统一命名：sequential</li>
+<li>同步：临时节点</li>
+</ul>
+</li>
+</ul>
+<h1 id="四、数据一致性和高可用"><a href="#四、数据一致性和高可用" class="headerlink" title="四、数据一致性和高可用"></a>四、数据一致性和高可用</h1><p>采用了ZAB协议（zookeeper atomic broadcast：原子广播协议），这种协议非常类似于一致性协议paxos和raft。<br>首先了解三种状态：</p>
+<ul>
+<li>1、looking：选举状态</li>
+<li>2、following：follwer（从节点）的状态</li>
+<li>3、leading：leader（主节点）的状态</li>
+</ul>
+<p>最大ZXID的概念：就是当前节点的最新事务编号  </p>
+<ul>
+<li>1、ZXID&#x3D;epoch+计数，由这两部分组成.高32位是epoch，低32位是epoch内的自增id</li>
+<li>2、epoch：纪元的意思，选举阶段会发送自己的epoch并与接收的epoch对比，若自身的小则重新发送并携带已知最大的epoch。</li>
+</ul>
+<h2 id="4-1、集群故障恢复："><a href="#4-1、集群故障恢复：" class="headerlink" title="4.1、集群故障恢复："></a>4.1、集群故障恢复：</h2><p><em><strong>两种情况：</strong></em><br>1、Leader节点运行后会周期性地向Follower发送心跳信息（称之为ping），如果一个Follower未收到Leader节点的心跳信息，Follower节点的状态会从FOLLOWING转变为LOOKING，此时该follower会发起重新选主。<br>2、leader会检测follower返回的节点状态，若多数节点状态未响应，此时需要重新发起选主。</p>
+<h3 id="一、选举阶段"><a href="#一、选举阶段" class="headerlink" title="一、选举阶段"></a>一、选举阶段</h3><p><strong>步骤一：</strong><br><img src="/2019/07/13/2019-07-13-zookeeper/%E9%80%89%E4%B8%BE1.png" alt="zk"></p>
+<blockquote>
+<p>1、每个server发出一个投票，格式：（myid, zxid）&#x3D; （机器编号，ZXID）<br>2、节点1比对节点2和节点3的投票都小于自身，此时不做处理。<br>3、节点2判断发现节点1比自己大、节点3比自己小，将重新投票<br>4、节点3判断发现节点1比自己大、节点2比自己大，将重新投票，给最大的投票 </p>
+</blockquote>
+<p><strong>步骤二：</strong><br><img src="/2019/07/13/2019-07-13-zookeeper/%E9%80%89%E4%B8%BE2.png" alt="zk"></p>
+<blockquote>
+<p>1、节点2、节点3重新投票，投票给1<br>2、开始统计投票，节点1收到半数的投票，此时为leader，其他的变更为follower  </p>
+</blockquote>
+<h3 id="二、发现阶段"><a href="#二、发现阶段" class="headerlink" title="二、发现阶段"></a>二、发现阶段</h3><p>发现阶段，用于在从节点中发现最新的ZXID和事务日志。或许有人会问：既然Leader被选为主节点，已经是集群里数据最新的了，为什么还要从节点中寻找最新事务呢？<br>这是为了防止某些意外情况，比如因网络原因在上一阶段产生多个Leader的情况。</p>
+<p>所以这一阶段，Leader集思广益，接收所有Follower发来各自的最新epoch值。Leader从中选出最大的epoch，基于此值加1，生成新的epoch分发给各个Follower。</p>
+<p>各个Follower收到全新的epoch后，返回ACK给Leader，带上各自最大的ZXID和历史事务日志。Leader选出最大的ZXID，并更新自身历史日志。</p>
+<h3 id="三、同步阶段"><a href="#三、同步阶段" class="headerlink" title="三、同步阶段"></a>三、同步阶段</h3><p>同步阶段，把Leader刚才收集得到的最新历史事务日志，同步给集群中所有的Follower。只有当半数Follower同步成功，这个准Leader才能成为正式的Leader。</p>
+<p><em><strong>自此，故障恢复正式完成。</strong></em></p>
+<h2 id="4-2、数据一致性"><a href="#4-2、数据一致性" class="headerlink" title="4.2、数据一致性"></a>4.2、数据一致性</h2><p>当更新节点，zk是如果保证所有节点的数据一致？</p>
+<blockquote>
+<p>写入数据，就涉及到了ZAB协议的Broadcast广播阶段。</p>
+</blockquote>
+<p>Broadcast过程如下：</p>
+<pre><code>1、客户端发出写入数据请求给任意Follower。
+2、Follower把写入数据请求转发给Leader。
+3、Leader采用二阶段提交方式，先发送Propose广播给Follower。
+4、Follower接到Propose消息，写入日志成功后，返回ACK消息给Leader。
+5、Leader接到半数以上ACK消息，返回成功给客户端，并且广播Commit请求给Follower。
+</code></pre>
+<h1 id="五、watch机制"><a href="#五、watch机制" class="headerlink" title="五、watch机制"></a>五、watch机制</h1><p><img src="/2019/07/13/2019-07-13-zookeeper/watch.png" alt="zk"></p>
+<p><em><strong>watch类型：</strong></em><br>zk状态的watch 事件:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">KeeperState:</span><br><span class="line">    Unknown (-1),</span><br><span class="line">    Disconnected (0),</span><br><span class="line">    SyncConnected (3),</span><br><span class="line">    AuthFailed (4),</span><br><span class="line">    ConnectedReadOnly (5),</span><br><span class="line">    SaslAuthenticated(6),</span><br><span class="line">    Expired (-112);</span><br></pre></td></tr></table></figure>
+<p>zk节点的watch 事件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">EventType</span><br><span class="line">    None (-1),</span><br><span class="line">    NodeCreated (1),</span><br><span class="line">    NodeDeleted (2),</span><br><span class="line">    NodeDataChanged (3),</span><br><span class="line">    NodeChildrenChanged (4);</span><br></pre></td></tr></table></figure>
+
+<p><em><strong>整体流程：</strong></em><br>客户端将watch注册到服务器，并将该watch保存至当前客户端的watchManager中。当服务器发现数据节点发生变更，则通知客户端，此时客户端接收消息后会调用watchManager中的相应watch进行相应逻辑处理。</p>
+<blockquote>
+<p>客户端watch管理器（ZKWatchManager），数据结构：</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">//ZKWatchManager维护了三个map，key代表数据节点的绝对路径，value代表注册在当前节点上的watcher集合</span><br><span class="line">//代表节点上内容数据、状态信息变更相关监听</span><br><span class="line">private final Map&lt;String, Set&lt;Watcher&gt;&gt; dataWatches =</span><br><span class="line">    new HashMap&lt;String, Set&lt;Watcher&gt;&gt;();</span><br><span class="line">//代表节点变更相关监听</span><br><span class="line">private final Map&lt;String, Set&lt;Watcher&gt;&gt; existWatches =</span><br><span class="line">    new HashMap&lt;String, Set&lt;Watcher&gt;&gt;();</span><br><span class="line">//代表节点子列表变更相关监听</span><br><span class="line">private final Map&lt;String, Set&lt;Watcher&gt;&gt; childWatches =</span><br><span class="line">    new HashMap&lt;String, Set&lt;Watcher&gt;&gt;();</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>服务端watch管理器（WatchManager），数据结构：</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">//WatchManager维护了两个map</span><br><span class="line">//说明：WatchManager中的Watcher对象不是客户端用户定义的Watcher，</span><br><span class="line">//     而是服务端中实现了Watcher接口的ServerCnxn抽象类，</span><br><span class="line">//     该抽象类代表了一个客户端与服务端的连接</span><br><span class="line"></span><br><span class="line">//key代表数据节点路径，value代表客户端连接的集合，该map作用为：</span><br><span class="line">//通过一个指定znode路径可找到其映射的所有客户端，当znode发生变更时</span><br><span class="line">//可快速通知所有注册了当前Watcher的客户端</span><br><span class="line">private final HashMap&lt;String, HashSet&lt;Watcher&gt;&gt; watchTable =</span><br><span class="line">    new HashMap&lt;String, HashSet&lt;Watcher&gt;&gt;();</span><br><span class="line"></span><br><span class="line">//key代表一个客户端与服务端的连接，value代表当前客户端监听的所有数据节点路径</span><br><span class="line">//该map作用为：当一个连接彻底断开时，可快速找到当前连接对应的所有</span><br><span class="line">//注册了监听的节点，以便移除当前客户端对节点的Watcher</span><br><span class="line">private final HashMap&lt;Watcher, HashSet&lt;String&gt;&gt; watch2Paths =</span><br><span class="line">    new HashMap&lt;Watcher, HashSet&lt;String&gt;&gt;();</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>注册过程</p>
+</blockquote>
+<p><img src="/2019/07/13/2019-07-13-zookeeper/%E6%B3%A8%E5%86%8C%E8%BF%87%E7%A8%8B.png" alt="zk"></p>
+<h1 id="六、分布式锁"><a href="#六、分布式锁" class="headerlink" title="六、分布式锁"></a>六、分布式锁</h1><h2 id="6-1-使用”临时”实现"><a href="#6-1-使用”临时”实现" class="headerlink" title="6.1 使用”临时”实现"></a>6.1 使用”临时”实现</h2><p>利用同级节点唯一性，多个进程去zk创建相同名称的节点，只有一个能够成功，创建失败的通过zk的watch机制监听节点的状态，一但监听到节点删除事件，会再次触发所有进程的写锁，这里会有惊群效应，会影响到性能。</p>
+<h2 id="6-2-使用”临时有序节点”实现"><a href="#6-2-使用”临时有序节点”实现" class="headerlink" title="6.2 使用”临时有序节点”实现"></a>6.2 使用”临时有序节点”实现</h2><p><em><strong>思想图：</strong></em><br><img src="/2019/07/13/2019-07-13-zookeeper/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81.png" alt="zk"></p>
+<pre><code>总体思想：
+1、每个客户端都去创建临时节点，等待创建callBack
+2、创建成功callBack，此时去获取锁目录下的节点数量，等待获取数据的callBack
+3、数据返回callBack，对数据进行排序，判断当前节点大小
+4、若当前节点是第一个，则代表获得了锁；否则，监听前一个节点，添加watch（解决惊群问题）
+5、监听到watch事件，则继续循环获取节点列表。
+</code></pre>
+<p><em><strong>实现图：</strong></em><br><img src="/2019/07/13/2019-07-13-zookeeper/%E5%AE%9E%E7%8E%B0%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E6%B5%81%E7%A8%8B.png" alt="zk"></p>
+<pre><code>1、zk.create，等待callBack ---&gt; 
+2、然后获得所有节点，等待callBack; callBack返回后，去节点排序---&gt;
+3、然后判断当前节点的大小，若是第一个，则获取到了锁，执行业务代码；否则监听前一个节点 ---&gt;
+4、然后循环去判断当前节点所处的位置。
+</code></pre>
+<p><em><strong>代码实现：</strong></em></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">//Children2Callback</span><br><span class="line">@Override</span><br><span class="line">public void processResult(int rc, String path, Object ctx, List&lt;String&gt; children, Stat stat) &#123;</span><br><span class="line">    //获得所目录的所有有序节点，然后排序，然后取自己在有序list中的index</span><br><span class="line">    if (children == null) &#123;</span><br><span class="line">        System.out.println(ctx.toString() + &quot;list null&quot;);</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">        try &#123;</span><br><span class="line">            Collections.sort(children);</span><br><span class="line">            int i = children.indexOf(lockName);</span><br><span class="line">            if (i &lt; 1) &#123;</span><br><span class="line">                System.out.println(threadName + &quot; i am first...&quot;);</span><br><span class="line">                zk.setData(&quot;/&quot;, threadName.getBytes(), -1);</span><br><span class="line">                cc.countDown();</span><br><span class="line">            &#125; else &#123;</span><br><span class="line">                System.out.println(threadName + &quot; watch &quot; + children.get(i - 1));</span><br><span class="line">                //监听前一个节点，关注前一个的删除事件</span><br><span class="line">                zk.exists(&quot;/&quot; + children.get(i - 1), this);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; catch (Exception e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/07/07/2019-07-07-hbase%E6%A2%B3%E7%90%86/" rel="prev" title="hbase梳理">
+      <i class="fa fa-chevron-left"></i> hbase梳理
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/07/20/2019-07-20-HIVE/" rel="next" title="HIVE">
+      HIVE <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AFzk"><span class="nav-text">一、什么是zk</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%9F%BA%E6%9C%AC%E6%9E%B6%E6%9E%84"><span class="nav-text">二、基本架构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-text">三、数据结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8"><span class="nav-text">四、数据一致性和高可用</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E9%9B%86%E7%BE%A4%E6%95%85%E9%9A%9C%E6%81%A2%E5%A4%8D%EF%BC%9A"><span class="nav-text">4.1、集群故障恢复：</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E9%80%89%E4%B8%BE%E9%98%B6%E6%AE%B5"><span class="nav-text">一、选举阶段</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%8F%91%E7%8E%B0%E9%98%B6%E6%AE%B5"><span class="nav-text">二、发现阶段</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%90%8C%E6%AD%A5%E9%98%B6%E6%AE%B5"><span class="nav-text">三、同步阶段</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7"><span class="nav-text">4.2、数据一致性</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81watch%E6%9C%BA%E5%88%B6"><span class="nav-text">五、watch机制</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81"><span class="nav-text">六、分布式锁</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#6-1-%E4%BD%BF%E7%94%A8%E2%80%9D%E4%B8%B4%E6%97%B6%E2%80%9D%E5%AE%9E%E7%8E%B0"><span class="nav-text">6.1 使用”临时”实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-2-%E4%BD%BF%E7%94%A8%E2%80%9D%E4%B8%B4%E6%97%B6%E6%9C%89%E5%BA%8F%E8%8A%82%E7%82%B9%E2%80%9D%E5%AE%9E%E7%8E%B0"><span class="nav-text">6.2 使用”临时有序节点”实现</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

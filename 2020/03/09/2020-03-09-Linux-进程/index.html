@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、什么是进程，进程和线程的区别 进程：是操作系统进行资源分配的基本单位 线程：是操作系统进行任务执行调度的基本单位 纤程（协程）：运行在用户空间，不与内核进行交互。（不会创建内核进程）  区别： 进程和线程在操作系统中都是一个进程，线程共享进程的内存空间，没有独立的内存空间。 进程空间天然独立，不会互相篡改数据，但是对共享数据的操作时，还是需要进行加锁处理；">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Linux》进程">
+<meta property="og:url" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、什么是进程，进程和线程的区别 进程：是操作系统进行资源分配的基本单位 线程：是操作系统进行任务执行调度的基本单位 纤程（协程）：运行在用户空间，不与内核进行交互。（不会创建内核进程）  区别： 进程和线程在操作系统中都是一个进程，线程共享进程的内存空间，没有独立的内存空间。 进程空间天然独立，不会互相篡改数据，但是对共享数据的操作时，还是需要进行加锁处理；">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/task_struct.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/piepline.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/slab.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/thread-info.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/stack.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/vm.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/vm-%E5%AE%9E%E7%8E%B0.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/internal.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/%E7%BC%BA%E9%A1%B5.png">
+<meta property="article:published_time" content="2020-03-09T10:19:15.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.111Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Linux》进程 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Linux》进程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-03-09 18:19:15" itemprop="dateCreated datePublished" datetime="2020-03-09T18:19:15+08:00">2020-03-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/linux/" itemprop="url" rel="index"><span itemprop="name">linux</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>6.3k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>16 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、什么是进程，进程和线程的区别"><a href="#一、什么是进程，进程和线程的区别" class="headerlink" title="一、什么是进程，进程和线程的区别"></a>一、什么是进程，进程和线程的区别</h1><ul>
+<li>进程：是操作系统进行资源分配的基本单位</li>
+<li>线程：是操作系统进行任务执行调度的基本单位</li>
+<li>纤程（协程）：运行在用户空间，不与内核进行交互。（不会创建内核进程）</li>
+</ul>
+<p><strong>区别：</strong> 进程和线程在操作系统中都是一个进程，线程共享进程的内存空间，没有独立的内存空间。</p>
+<p>进程空间天然独立，不会互相篡改数据，但是对共享数据的操作时，还是需要进行加锁处理；</p>
+<span id="more"></span>  
+
+<h1 id="二、进程实现"><a href="#二、进程实现" class="headerlink" title="二、进程实现"></a>二、进程实现</h1><p>进程结构、进程创建、thread_info、task_list、虚拟内存、Linux内核架构等内容进行描述</p>
+<h2 id="1、进程结构"><a href="#1、进程结构" class="headerlink" title="1、进程结构"></a>1、进程结构</h2><p>进程描述符（PCB&#x3D;process control block），task_struct是PCB的具体实现。进程的执行，对于CPU来说，也是代码段。</p>
+<p>Linux内核通过一个被称为<strong>进程描述符的<code>task_struct</code></strong> 结构体来管理进程，这个结构体包含了一个进程所需的所有信息。mm_struct中的pgd为页表，就是前面讲的一级页表。task_struct中有一个结构体被称为**内存描述符的<code>mm_struct</code>**，描述了一个进程的整个虚拟地址空间。每个进程正是因为都有自己的mm_struct，才使得每个进程都有自己独立的虚拟的地址空间<br><img src="/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86.png" alt="进程内存管理"></p>
+<ul>
+<li>**<code>task_struct</code>**：进程描述符</li>
+<li><strong><code>mm_struct</code><strong>： Linux 内核中用于表示进程内存管理信息的一个关键数据结构。描述了</strong>一个进程的整个虚拟地址空间</strong>。每个进程正是因为都有自己的mm_struct，才使得每个进程都有自己独立的虚拟的地址空间<ul>
+<li>**<code>pgd</code>**：Page Global Directory，在 x86 架构的 Linux 系统中，采用多级页表结构，pgd是顶级页目录。</li>
+<li><em>*<code>mmap</code><strong>：</strong>链表头（通常是struct vm_area_struct <em>mmap）</em>* 用于将所有通过mmap系统调用创建的内存区域（vm_area_struct）链接在一起。同时，为了更高效地查找和管理这些区域，还可能使用</em>*红黑树（例如struct rb_root mm_rb）**。在插入新的vm_area_struct时，内核会根据内存区域的起始地址等信息将其插入到链表和红黑树中。这样，当需要查找一个特定的内存区域（比如根据虚拟地址查找对应的区域）时，可以通过遍历链表或者在红黑树中查找来定位。</li>
+</ul>
+</li>
+<li>**<code>vm_area_struct</code>**：表示进程地址空间中的一个连续的虚拟内存区域。一个进程的地址空间通常由多个这样的区域组成，每个区域有不同的属性和用途。<ul>
+<li>**<code>vm_start</code>**：指向这个区域的起始处。</li>
+<li>**<code>vm_end</code>**：指向这个区域的结束处。</li>
+<li>**<code>vm_prot</code>**：描述这个区域内包含的所有页的读写许可权限。</li>
+<li>**<code>vm_flags</code>**：描述这个区域内的页面是与其他进程共享的，还是这个进程私有的（还描述了其他一些信息）。</li>
+<li>**<code>vm_next</code>**：指向链表中下—区域结构。</li>
+</ul>
+</li>
+</ul>
+<p>task_struct具体结构：<br><img src="/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/task_struct.png" alt="task_struct"></p>
+<p>task_struct代码实现：  </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">sched.sh文件 </span><br><span class="line">struct task_struct &#123; </span><br><span class="line">    long state; // 进程状态 </span><br><span class="line">    struct mm_struct *mm; // 虚拟内存结构体 </span><br><span class="line">    pid_t pid; // 进程号 </span><br><span class="line">    struct task_struct *parent; // 指向父进程的指针</span><br><span class="line">    struct list_head children; // 子进程列表 </span><br><span class="line">    struct fs_struct *fs; // 存放文件系统信息的指针 </span><br><span class="line">    struct files_struct *files;// 一个数组，包含该进程打开的文件指针 </span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><strong>files：</strong> 每个进程创建时，都会默认填充前三个值：   </p>
+<ul>
+<li>files[0]：代表标准输入流</li>
+<li>files[1]：代表标准输出流</li>
+<li>files[2]：代表标准错误输出流</li>
+</ul>
+<p><strong>理解管道：</strong> 一个进程的输出是另外一个进程的输入<br><img src="/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/piepline.png" alt="task_struct"></p>
+<h2 id="2、进程创建"><a href="#2、进程创建" class="headerlink" title="2、进程创建"></a>2、进程创建</h2><h3 id="2-1、内核创建方式"><a href="#2-1、内核创建方式" class="headerlink" title="2.1、内核创建方式"></a>2.1、内核创建方式</h3><p>task_struct的创建，Linux2.6之后，通过slab分配器动态生成task_struct。<br><img src="/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/slab.png" alt="task_struct"></p>
+<p>1、高速缓存会被划分为slab。<br>2、task_struct的创建，会先从未满的slab中申请，直到满了才会去空的slab中申请创建。</p>
+<h3 id="2-2、对外暴露接口创建方式"><a href="#2-2、对外暴露接口创建方式" class="headerlink" title="2.2、对外暴露接口创建方式"></a>2.2、对外暴露接口创建方式</h3><p>fork()、exec()等函数进行创建</p>
+<h4 id="fork"><a href="#fork" class="headerlink" title="fork()"></a>fork()</h4><p>创建示例如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">main&#123;  </span><br><span class="line">    pid_t pid;  </span><br><span class="line">    printf(&quot;fork!&quot;);</span><br><span class="line">    pid=fork(); </span><br><span class="line">    if (pid &lt; 0)  </span><br><span class="line">        printf(&quot;error in fork!&quot;);  </span><br><span class="line">    else if (pid == 0)  </span><br><span class="line">        printf(&quot;i am the child process, my process id is %d\n&quot;,getpid());  </span><br><span class="line">    else  </span><br><span class="line">        printf(&quot;i am the parent process, my process id is %\/n&quot;,getpid());  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>fork()：一个父进程会创建一个子进程，子进程共享父进程的内存空间及指针记录。</p>
+<p>执行流程：</p>
+<ul>
+<li>由于在复制时复制了父进程的堆栈段，所以两个进程都停留在fork函数中，等待返回。</li>
+<li>因此fork函数会返回两次，一次是在父进程中返回，另一次是在子进程中返回，这两次的返回值是不一样的。</li>
+</ul>
+<p>fork函数返回的值为什么在父子进程中不同。</p>
+<ul>
+<li>“ 其实就相当于链表，进程形成了链表，父进程的fork函数返回的值指向子进程的进程id, 因为子进程没有子进程，所以其fork函数返回的值为0 .</li>
+</ul>
+<h4 id="execl"><a href="#execl" class="headerlink" title="execl()"></a>execl()</h4><p>创建示例如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">int main()&#123;</span><br><span class="line">    execl(&quot;/bin/ls&quot;, &quot;ls&quot;, &quot;-l&quot;, NULL);</span><br><span class="line">    perror(&quot;execl&quot;);</span><br><span class="line">    exit(1);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>A进程中调用exec函数族函数，将A进程的代码段替换成了ls程序的代码段，则A进程下的代码则不会执行，也不会返回结果。</p>
+<h2 id="3、thread-info"><a href="#3、thread-info" class="headerlink" title="3、thread_info"></a>3、thread_info</h2><p>快速获取task_struct：  </p>
+<ul>
+<li>1、有的硬件系统，有专门的寄存器来存储。</li>
+<li>2、寄存器不富余的体系，只能在栈的尾端创建thread_info结构。<br><img src="/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/thread-info.png" alt="task_struct"></li>
+</ul>
+<p><img src="/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/stack.png" alt="task_struct"><br>操作系统，将所有的进程都放入一个双向链表结构的任务列表中（task_list）</p>
+<h2 id="4、虚拟内存"><a href="#4、虚拟内存" class="headerlink" title="4、虚拟内存"></a>4、虚拟内存</h2><p>task_struct中的mm_struct结构代表着虚拟内存。<br><img src="/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/vm.png" alt="task_struct"></p>
+<p><strong>为什么需要虚拟内存：</strong>  </p>
+<ol>
+<li>多线程环境下，内存空间小，易不足，若想不影响其他进程，则只能将其他进程的内容拷贝至磁盘中持久化，但是会导致耗时增加。</li>
+<li>多线程环境下，若直接使用物理内存，则进程的数据可能被其他进程修改，导致进程运行的不准确。</li>
+</ol>
+<p><strong>为了解决上述问题</strong>，将进程进行隔离，使用了虚拟内存，各进程之间不受影响，使每个进程都能拥有所有的物理内存空间。</p>
+<h3 id="4-1、虚拟内存实现"><a href="#4-1、虚拟内存实现" class="headerlink" title="4.1、虚拟内存实现"></a>4.1、虚拟内存实现</h3><p><img src="/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/vm-%E5%AE%9E%E7%8E%B0.png" alt="task_struct"></p>
+<p>Linux为每个进程维护了一个单独的虚拟地址空间，分成内核空间和用户空间。（进程之间空间是天然独立的，互不影响；子进程共享父进程的空间，则会导致子进程数据的相互篡改）</p>
+<ul>
+<li>内核空间：高地址空间的1GB，用于运行内核代码和数据和保存进程的相关信息。俗称内核态。</li>
+<li>用户空间：低地址空间的3GB，运行用户进程的代码和数据。俗称用户态。</li>
+<li>每次内核调用，都会进行空间切换，数据拷贝，这个操作是耗时的。</li>
+<li>虚拟内存到物理内存的映射，通过mmu（内存管理单元）操作。</li>
+</ul>
+<p><strong>写时复制：Copy On Write技术实现原理：</strong>   </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">1. fork()之后，复制出来的子进程有自己的task_struct结构和pid,  </span><br><span class="line">2. kernel把父进程中所有的内存页的权限都设为read-only，  </span><br><span class="line">3. 然后子进程的地址空间指向父进程。当父子进程都只读内存时，相安无事。   </span><br><span class="line">4. 当其中某个进程写内存时，CPU硬件检测到内存页是read-only的，   </span><br><span class="line">5. 于是触发页异常中断（page-fault），陷入kernel的一个中断例程。   </span><br><span class="line">6. 中断例程中，kernel就会把触发的异常的页复制一份，于是父子进程各自持有独立的一份，  </span><br><span class="line">7. 父进程会对原有的物理空间进行修改，而子进程会使用拷贝后的新物理空间。</span><br></pre></td></tr></table></figure>
+<p>在<strong>fork</strong>函数调用时，父进程和子进程会被内核分配不同的虚拟内存空间，所以从进程的角度看它们访问的是不同的内存：</p>
+<ul>
+<li>在虚拟内存空间进行读操作时，内核会将虚拟内存映射到物理内存上，父子进程共享了物理上的内存空间；</li>
+<li>当父进程对共享的内存进行修改时，共享的内存会以页为单位进行拷贝，父进程会对原有的物理空间进行修改，而子进程会使用拷贝后的新物理空间；</li>
+<li>当子进程对共享的内存进行修改时，子进程会在拷贝后的新物理空间上进行修改，而不会改动原有的物理空间，避免影响父进程的内存空间；</li>
+</ul>
+<h2 id="5、僵尸进程"><a href="#5、僵尸进程" class="headerlink" title="5、僵尸进程"></a>5、僵尸进程</h2><h3 id="5-1、产生过程"><a href="#5-1、产生过程" class="headerlink" title="5.1、产生过程"></a>5.1、产生过程</h3><h4 id="1、子进程结束"><a href="#1、子进程结束" class="headerlink" title="1、子进程结束"></a>1、子进程结束</h4><p>当一个子进程完成它的任务并终止时，它会向父进程发送一个终止信号，告知自己已经结束。此时，子进程的大部分资源（如内存、文件描述符等）已经被释放。</p>
+<h4 id="2、父进程未及时处理"><a href="#2、父进程未及时处理" class="headerlink" title="2、父进程未及时处理"></a>2、父进程未及时处理</h4><p>如果父进程没有及时调用相应的系统调用来获取子进程的终止状态（通常使用wait或waitpid系统调用），那么子进程虽然已经终止，但它的进程控制块（PCB）等一些信息仍然会保留在系统中，这个子进程就成为了僵尸进程。</p>
+<h3 id="5-2、僵尸进程的危害"><a href="#5-2、僵尸进程的危害" class="headerlink" title="5.2、僵尸进程的危害"></a>5.2、僵尸进程的危害</h3><h4 id="资源浪费"><a href="#资源浪费" class="headerlink" title="资源浪费"></a>资源浪费</h4><ul>
+<li><strong>进程表项占用：</strong> 在操作系统中，每个进程都在进程表（也称为进程控制块 PCB，在 Linux 中是task_struct结构）中有一个对应的表项。僵尸进程虽然已经终止了其主要执行任务，但它的进程表项仍然存在。这些表项包含了进程的相关信息，如进程 ID、退出状态、父进程 ID 等。僵尸进程会一直占用这些表项，导致进程表资源的浪费。如果系统中存在大量的僵尸进程，随着时间的推移，可能会耗尽进程表的可用空间，使得新进程无法正常创建。</li>
+<li><strong>内核资源占用：</strong> 僵尸进程还会占用一些内核资源。例如，与进程相关的内核数据结构（如内存管理结构、文件描述符等）可能不会立即被释放。在 Linux 系统中，每个进程都有自己的文件描述符表，僵尸进程可能会保留一些打开的文件描述符，阻止这些文件描述符被重新分配给其他进程。这会造成内核资源的低效利用，影响系统的整体性能。</li>
+</ul>
+<h4 id="对父进程的影响"><a href="#对父进程的影响" class="headerlink" title="对父进程的影响"></a>对父进程的影响</h4><ul>
+<li><strong>父进程等待状态异常：</strong> 僵尸进程的存在可能会导致父进程处于异常的等待状态。正常情况下，父进程应该使用wait或waitpid系统调用去回收子进程的资源，包括获取子进程的退出状态等信息。如果父进程没有正确地回收僵尸进程，它可能会一直等待子进程结束，从而阻塞自身的正常执行。例如，在一个多进程的服务器程序中，如果父进程负责创建和管理子进程，当子进程变成僵尸进程后，父进程可能会因为等待子进程而无法响应新的客户端请求，影响服务器的服务质量。</li>
+<li><strong>信号处理问题：</strong> 僵尸进程可能会影响父进程的信号处理机制。在一些操作系统中，当子进程结束时会向父进程发送SIGCHLD信号，通知父进程去回收子进程。如果父进程没有正确处理这个信号，或者没有及时回收僵尸进程，可能会导致信号队列的堆积。当信号队列满时，后续的信号可能会丢失，这可能会使父进程错过一些重要的事件通知，进一步影响系统的正常运行。</li>
+</ul>
+<h4 id="系统性能和稳定性下降"><a href="#系统性能和稳定性下降" class="headerlink" title="系统性能和稳定性下降"></a>系统性能和稳定性下降</h4><ul>
+<li><strong>系统资源耗尽风险：</strong> 如前面提到的，大量僵尸进程会逐渐消耗系统的进程表资源和其他内核资源。当系统资源被耗尽时，整个系统可能会出现故障。例如，新的关键进程可能无法创建，导致系统无法提供某些基本服务。在极端情况下，系统可能会因为无法分配必要的资源而崩溃。</li>
+<li><strong>系统负载增加：</strong> 僵尸进程会使系统的负载看起来比实际情况更高。系统负载是衡量系统繁忙程度的一个指标，它通常考虑了运行中的进程数量等因素。由于僵尸进程会占据进程表项，系统在统计进程数量时会将它们计算在内，这可能会误导系统管理员认为系统处于高负载状态，而实际上系统的有效工作进程可能并没有那么多。这种错误的判断可能会导致管理员采取不必要的措施来优化系统，浪费时间和精力。</li>
+</ul>
+<h3 id="5-3、避免僵尸进程"><a href="#5-3、避免僵尸进程" class="headerlink" title="5.3、避免僵尸进程"></a>5.3、避免僵尸进程</h3><ol>
+<li>父进程使用wait()或者waitpid()之类的函数等待子进程退出</li>
+<li>使用信号函数sigaction为SIGCHLD设置wait处理函数</li>
+<li>fork两次用孙子进程去完成子进程的任务</li>
+</ol>
+<h2 id="6、孤儿进程"><a href="#6、孤儿进程" class="headerlink" title="6、孤儿进程"></a>6、孤儿进程</h2><p>孤儿进程是指在父进程已经结束（正常退出或者异常终止），而子进程还在运行的进程。</p>
+<h3 id="6-1、产生过程"><a href="#6-1、产生过程" class="headerlink" title="6.1、产生过程"></a>6.1、产生过程</h3><p>当一个父进程由于某种原因退出时，它的子进程会收到一个信号（在 Linux 中通常是SIGHUP信号，用于通知进程其控制终端已经关闭）。此时，子进程的父进程 ID 会被操作系统修改为init进程的进程 ID（1），这样这个子进程就成为了孤儿进程，由init进程来 “照顾”。例如，在一个简单的脚本程序中，父进程创建一个子进程后，父进程提前退出，那么子进程就会变成孤儿进程。</p>
+<h3 id="6-2、影响"><a href="#6-2、影响" class="headerlink" title="6.2、影响"></a>6.2、影响</h3><ul>
+<li><strong>资源回收责任转移：</strong> 孤儿进程的主要影响是其资源回收责任从原来的父进程转移到了init进程。这是一种保护机制，确保子进程结束后能够被正确地回收资源。由于init进程会定期调用wait或waitpid系统调用检查并回收它所收养的孤儿进程，所以孤儿进程不会像僵尸进程那样导致系统资源的长期占用。例如，孤儿进程所占用的内存、文件描述符等资源，在孤儿进程结束后会由init进程负责回收，不会造成资源浪费。</li>
+<li><strong>对系统稳定性的积极影响：</strong> 相比僵尸进程可能导致的系统资源耗尽和性能下降，孤儿进程在一定程度上对系统稳定性是有积极作用的。因为它们不会一直占用进程表项而不被回收，只要init进程正常工作，孤儿进程结束后就能够释放资源，使得系统能够持续有效地运行。不过，如果init进程出现问题，例如由于软件故障或者系统错误而无法正常回收孤儿进程，那么孤儿进程也可能会对系统造成负面影响，如导致系统资源的浪费。</li>
+<li><strong>对程序逻辑的潜在影响：</strong> 在程序设计方面，孤儿进程的出现可能会改变程序原本的逻辑。如果程序依赖于父进程来进行某些操作，如传递数据、同步信号等，当子进程变成孤儿进程后，这些操作可能无法按照预期进行。例如，一个子进程原本需要将计算结果返回给父进程，但父进程提前退出，子进程变成孤儿进程后，就需要考虑新的结果传递方式，或者直接放弃这种传递方式，这可能需要对程序进行重新设计或者调整。</li>
+</ul>
+<h1 id="三、Linux内核架构"><a href="#三、Linux内核架构" class="headerlink" title="三、Linux内核架构"></a>三、Linux内核架构</h1><p><img src="/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/internal.png" alt="internal"><br>进程调度器：process scheduler，持有了task_list，然后管理这些进程链表。维护了一个current指针，指向当前正在执行的进程。<br><strong>抢占式和非抢占式。</strong></p>
+<h1 id="四、进程状态"><a href="#四、进程状态" class="headerlink" title="四、进程状态"></a>四、进程状态</h1><ul>
+<li>task_running：正在运行或就绪</li>
+<li>task_intermptible：可中断的休眠，等待资源、信号，一旦满足，由中断变为就绪</li>
+<li>task_unintermptible：不可中断的休眠，信号无法唤醒，只有当资源满足时可唤醒。</li>
+<li>task_stoped：进程被停止执行</li>
+<li>task_traced：表示进程被debugger等进程监视</li>
+</ul>
+<h1 id="五、中断"><a href="#五、中断" class="headerlink" title="五、中断"></a>五、中断</h1><p>CPU暂停当前线程执行，执行中断请求。<br><strong>中断类型：</strong> </p>
+<ul>
+<li>同步中断（软中断）：由CPU控制单元产生，之所以称为同步，因为只有当一条指令执行完成后，才会执行中断指令。</li>
+<li>异步中断（硬中断）：由硬件设备产生的中断信号，随机产生。</li>
+</ul>
+<h1 id="六、缺页"><a href="#六、缺页" class="headerlink" title="六、缺页"></a>六、缺页</h1><p><img src="/2020/03/09/2020-03-09-Linux-%E8%BF%9B%E7%A8%8B/%E7%BC%BA%E9%A1%B5.png" alt="缺页"></p>
+<ol>
+<li>含义：PTE有晓位&#x3D;0，虚拟内存中的虚拟页没有被缓存在物理内存中，称为缺页。</li>
+<li>具体表现：malloc()和mmap()函数调用，在分配时只建立的虚拟内存空间（在进程堆中分配），并没有分配虚拟内存对应的物理内存。当进程服务这些虚拟内存时，mmu（内存管理单元）无法解析，将报出page fault错误，缺页中断，然后进程进行空间切换，由用户态切换至内核态，然后由内核处理。</li>
+<li>处理方式：根据缺页类型，CPU判断物理内存中是否有当前所需页帧，如果存在，进行映射；如果不存在，则去磁盘读取保存至内存，再建立映射。</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/03/04/2020-03-04-Linux-cpu/" rel="prev" title="《Linux》cpu">
+      <i class="fa fa-chevron-left"></i> 《Linux》cpu
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/03/10/2020-03-10-Linux-pagecache/" rel="next" title="《Linux》pagecache">
+      《Linux》pagecache <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AF%E8%BF%9B%E7%A8%8B%EF%BC%8C%E8%BF%9B%E7%A8%8B%E5%92%8C%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="nav-text">一、什么是进程，进程和线程的区别</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E8%BF%9B%E7%A8%8B%E5%AE%9E%E7%8E%B0"><span class="nav-text">二、进程实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1%E3%80%81%E8%BF%9B%E7%A8%8B%E7%BB%93%E6%9E%84"><span class="nav-text">1、进程结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2%E3%80%81%E8%BF%9B%E7%A8%8B%E5%88%9B%E5%BB%BA"><span class="nav-text">2、进程创建</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1%E3%80%81%E5%86%85%E6%A0%B8%E5%88%9B%E5%BB%BA%E6%96%B9%E5%BC%8F"><span class="nav-text">2.1、内核创建方式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2%E3%80%81%E5%AF%B9%E5%A4%96%E6%9A%B4%E9%9C%B2%E6%8E%A5%E5%8F%A3%E5%88%9B%E5%BB%BA%E6%96%B9%E5%BC%8F"><span class="nav-text">2.2、对外暴露接口创建方式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#fork"><span class="nav-text">fork()</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#execl"><span class="nav-text">execl()</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3%E3%80%81thread-info"><span class="nav-text">3、thread_info</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4%E3%80%81%E8%99%9A%E6%8B%9F%E5%86%85%E5%AD%98"><span class="nav-text">4、虚拟内存</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1%E3%80%81%E8%99%9A%E6%8B%9F%E5%86%85%E5%AD%98%E5%AE%9E%E7%8E%B0"><span class="nav-text">4.1、虚拟内存实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5%E3%80%81%E5%83%B5%E5%B0%B8%E8%BF%9B%E7%A8%8B"><span class="nav-text">5、僵尸进程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1%E3%80%81%E4%BA%A7%E7%94%9F%E8%BF%87%E7%A8%8B"><span class="nav-text">5.1、产生过程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1%E3%80%81%E5%AD%90%E8%BF%9B%E7%A8%8B%E7%BB%93%E6%9D%9F"><span class="nav-text">1、子进程结束</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2%E3%80%81%E7%88%B6%E8%BF%9B%E7%A8%8B%E6%9C%AA%E5%8F%8A%E6%97%B6%E5%A4%84%E7%90%86"><span class="nav-text">2、父进程未及时处理</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2%E3%80%81%E5%83%B5%E5%B0%B8%E8%BF%9B%E7%A8%8B%E7%9A%84%E5%8D%B1%E5%AE%B3"><span class="nav-text">5.2、僵尸进程的危害</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%B5%84%E6%BA%90%E6%B5%AA%E8%B4%B9"><span class="nav-text">资源浪费</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AF%B9%E7%88%B6%E8%BF%9B%E7%A8%8B%E7%9A%84%E5%BD%B1%E5%93%8D"><span class="nav-text">对父进程的影响</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD%E5%92%8C%E7%A8%B3%E5%AE%9A%E6%80%A7%E4%B8%8B%E9%99%8D"><span class="nav-text">系统性能和稳定性下降</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3%E3%80%81%E9%81%BF%E5%85%8D%E5%83%B5%E5%B0%B8%E8%BF%9B%E7%A8%8B"><span class="nav-text">5.3、避免僵尸进程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6%E3%80%81%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B"><span class="nav-text">6、孤儿进程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1%E3%80%81%E4%BA%A7%E7%94%9F%E8%BF%87%E7%A8%8B"><span class="nav-text">6.1、产生过程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2%E3%80%81%E5%BD%B1%E5%93%8D"><span class="nav-text">6.2、影响</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81Linux%E5%86%85%E6%A0%B8%E6%9E%B6%E6%9E%84"><span class="nav-text">三、Linux内核架构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E8%BF%9B%E7%A8%8B%E7%8A%B6%E6%80%81"><span class="nav-text">四、进程状态</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E4%B8%AD%E6%96%AD"><span class="nav-text">五、中断</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E7%BC%BA%E9%A1%B5"><span class="nav-text">六、缺页</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

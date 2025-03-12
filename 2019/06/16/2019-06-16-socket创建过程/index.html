@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、socket创建过程1、建立socket, sock的关系创建完sock变量之后，便是初始化sock结构体，并建立sock与socket之间的引用关系；调用链如下： net&#x2F;Socket.c:sys_socket()     -&gt;sock_create()     -&gt;__sock_create()     -&gt;net &#x2F;ipv4&#x2F;Af_inet.c:inet_create(">
+<meta property="og:type" content="article">
+<meta property="og:title" content="socket创建过程">
+<meta property="og:url" content="http://yoursite.com/2019/06/16/2019-06-16-socket%E5%88%9B%E5%BB%BA%E8%BF%87%E7%A8%8B/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、socket创建过程1、建立socket, sock的关系创建完sock变量之后，便是初始化sock结构体，并建立sock与socket之间的引用关系；调用链如下： net&#x2F;Socket.c:sys_socket()     -&gt;sock_create()     -&gt;__sock_create()     -&gt;net &#x2F;ipv4&#x2F;Af_inet.c:inet_create(">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-06-16T13:38:37.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:54.961Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="tcp socket">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2019/06/16/2019-06-16-socket%E5%88%9B%E5%BB%BA%E8%BF%87%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>socket创建过程 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/06/16/2019-06-16-socket%E5%88%9B%E5%BB%BA%E8%BF%87%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          socket创建过程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-06-16 21:38:37" itemprop="dateCreated datePublished" datetime="2019-06-16T21:38:37+08:00">2019-06-16</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:54" itemprop="dateModified" datetime="2025-03-04T15:37:54+08:00">2025-03-04</time>
+              </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>3.1k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>8 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、socket创建过程"><a href="#一、socket创建过程" class="headerlink" title="一、socket创建过程"></a>一、socket创建过程</h1><h2 id="1、建立socket-sock的关系"><a href="#1、建立socket-sock的关系" class="headerlink" title="1、建立socket, sock的关系"></a>1、建立socket, sock的关系</h2><p>创建完sock变量之后，便是初始化sock结构体，并建立sock与socket之间的引用关系；调<br>用链如下：</p>
+<pre><code>net/Socket.c:sys_socket()
+    -&gt;sock_create()
+    -&gt;__sock_create()
+    -&gt;net /ipv4/Af_inet.c:inet_create()
+    -&gt;net/core/Sock.c:sock_init_data()：
+</code></pre>
+<p>该函数主要工作是：</p>
+<pre><code>a. 初始化sock结构的缓冲区、队列等；
+b. 初始化sock结构的状态为TCP_CLOSE；
+c. 建立socket与sock结构的相互引用关系；
+</code></pre>
+<span id="more"></span>        
+
+<h2 id="2、使用tcp协议初始化sock："><a href="#2、使用tcp协议初始化sock：" class="headerlink" title="2、使用tcp协议初始化sock："></a>2、使用tcp协议初始化sock：</h2><p>inet_create()函数最后，通过相应的协议来初始化sock结构：这里调用的是tcp_prot的init钩子函数net&#x2F;ipv4&#x2F;Tcp_ipv4.c:tcp_v4_init_sock()，它主要是对tcp_sock和inet_connection_sock进行一些初始化；</p>
+<h2 id="3、socket与文件系统关联："><a href="#3、socket与文件系统关联：" class="headerlink" title="3、socket与文件系统关联："></a>3、socket与文件系统关联：</h2><p>创建好与socket相关的结构后，需要与文件系统关联，详见sock_map_fd()函数：</p>
+<pre><code>1) 申请文件描述符，并分配file结构和目录项结构；
+2) 关联socket相关的文件操作函数表和目录项操作函数表；
+3) 将file-&gt;private_date指向socket；
+</code></pre>
+<blockquote>
+<p>fd代表这文件系统</p>
+</blockquote>
+<p>socket与文件系统关联后，以后便可以通过文件系统read&#x2F;write对socket进行操作了；</p>
+<h2 id="4、服务端socket启动过程：90端口"><a href="#4、服务端socket启动过程：90端口" class="headerlink" title="4、服务端socket启动过程：90端口"></a>4、服务端socket启动过程：90端口</h2><pre><code>a. 内核创建socket（socket有接收队列+发送队列）
+b. 然后会申请创建一个对应的TCP类型的fd，此fd处于监听状态
+c. 最后建立socket与文件系统的关联
+-------------------------------------------------
+1、netstat -natp
+    此时会创建90端口TCP进程，处于listen状态，内核分配资源：fd+接收队列+发送队列。
+2、lsof -p pid
+    该进程对应的fd，也处于listen状态
+3、其他
+    该listen进程会一直存在，用于接受其他连接
+</code></pre>
+<h2 id="5、客户端连接"><a href="#5、客户端连接" class="headerlink" title="5、客户端连接"></a>5、客户端连接</h2><pre><code>客户端创建socket，与服务端创建过程一致。（创建socket和fd）
+1、此时服务端未accept()
+    a. 三次握手后，服务端会创建一个新的socket（socket有缓存队列用于接收消息）
+    b. 未accept()，此时不会创建fd与该socket建立关联。
+    c. 若要读取缓存队列中的消息，需要创建新进程(fd)，与该socket建立映射
+
+    1、netstat -natp
+        经过三次握手后，服务端会新创建一个socket，但是未分配给进程使用；
+    2、客户端发送消息
+        此时服务端的socket对应的rec-q接收队列会受到客户端发送的内容。
+    ----此时服务端创建的socket未指定到具体的fd.
+2、服务端accept
+    创建fd，此时socket会指定到这个fd
+
+每个进程的进程控制块task_struct中都有一个files_struct结构体，它保存了进程所有打开的文件，以文件描述符fd为索引即可找到对应的file对象，file对象中也包含了文件当前位置的信息
+</code></pre>
+<blockquote>
+<p>serverSocket会创建一个监听的socket，监听客户端的连接。会为每一个client再创建一个socket，该socket用于和客户端进行数据通信。（如果不做处理，这些socket对应的fd会放入同一个selector）<br>基于一个selector，如果一个线程去遍历该selector会遇到性能问题，所以netty的主从多线程模式，会将为client创建的socket添加到另外一个新的selector，再起新线程去处理改selector，<br>从而解决netty单reactor中遇到洪峰连接的性能问题。（即selector内的socket不仅仅有连接请求，还有数据读写等请求）</p>
+</blockquote>
+<h1 id="二、其他"><a href="#二、其他" class="headerlink" title="二、其他"></a>二、其他</h1><pre><code>socket都需要fd去接收
+socket：是一个四元组（客户端IP   客户端port     服务端IP     服务端port），内核级，
+四元组唯一确定一个连接
+</code></pre>
+<h1 id="三、SocketChannel创建过程"><a href="#三、SocketChannel创建过程" class="headerlink" title="三、SocketChannel创建过程"></a>三、SocketChannel创建过程</h1><h2 id="3-1、SocketChannel和Socket的区别"><a href="#3-1、SocketChannel和Socket的区别" class="headerlink" title="3.1、SocketChannel和Socket的区别"></a>3.1、SocketChannel和Socket的区别</h2><p>SocketChannel是对传统Java Socket API的改进，主要是支持了非阻塞的读写。同时改进了传统的单向流API, Channel同时支持读写(其实就是加了个中间层Buffer)。</p>
+<h3 id="1、socketChannel原理"><a href="#1、socketChannel原理" class="headerlink" title="1、socketChannel原理"></a>1、socketChannel原理</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">// sun.nio.ch.SelectorProvider</span><br><span class="line">public SocketChannel openSocketChannel() throws IOException &#123;</span><br><span class="line">    // 调用SocketChannelImpl的构造器</span><br><span class="line">    return new SocketChannelImpl(this);</span><br><span class="line">&#125;</span><br><span class="line">// sun.nio.ch.SocketChannelImpl</span><br><span class="line">SocketChannelImpl(SelectorProvider sp) throws IOException &#123;</span><br><span class="line">    super(sp);</span><br><span class="line">    // 创建socket fd</span><br><span class="line">    this.fd = Net.socket(true);</span><br><span class="line">    // 获取socket fd的值</span><br><span class="line">    this.fdVal = IOUtil.fdVal(fd);</span><br><span class="line">    // 初始化SocketChannel状态, 状态不多，总共就6个</span><br><span class="line">    // 未初始化，未连接，正在连接，已连接，断开连接中，已断开</span><br><span class="line">    this.state = ST_UNCONNECTED;</span><br><span class="line">&#125;</span><br><span class="line">// sun.nio.ch.Net</span><br><span class="line">static FileDescriptor socket(ProtocolFamily family, boolean stream)</span><br><span class="line">    throws IOException &#123;</span><br><span class="line">    boolean preferIPv6 = isIPv6Available() &amp;&amp;</span><br><span class="line">        (family != StandardProtocolFamily.INET);</span><br><span class="line">    // 最后调用的是socket0</span><br><span class="line">    return IOUtil.newFD(socket0(preferIPv6, stream, false));</span><br><span class="line">&#125;</span><br><span class="line">// Due to oddities SO_REUSEADDR on windows reuse is ignored</span><br><span class="line">private static native int socket0(boolean preferIPv6, boolean stream, boolean reuse);</span><br></pre></td></tr></table></figure>
+
+<p>底层还是socket函数</p>
+<h3 id="2、如何支持非阻塞"><a href="#2、如何支持非阻塞" class="headerlink" title="2、如何支持非阻塞"></a>2、如何支持非阻塞</h3><p>正常在c里我们实现非阻塞是靠fcntl这个函数，这个函数全称就是file control<br>通过它可以管理fd的各种属性，比如设置fd的阻塞与否。</p>
+<p><strong>fcntl的函数签名为:</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;fcntl.h&gt;</span><br><span class="line">int fcntl(int fildes, int cmd, ...);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>第一个参数是传入的fd, 第二个参数是操作类型，后面是flag<br>要设置非阻塞，操作类型是F_SETFL和F_GETFL,flag是O_NONBLOCK</p>
+<p>那么JVM是怎么做的呢，在SocketChannel上有一个configureBlocking函数，这个函数是设置当前SocketChannel是否是阻塞的，和selector一起用的时候一定要设置成非阻塞才有意义, 阻塞的话就不需要IO多路复用的事件通知了。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/tcp-socket/" rel="tag"># tcp socket</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/06/14/2019-06-14-nio/" rel="prev" title="nio">
+      <i class="fa fa-chevron-left"></i> nio
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/06/18/2019-06-18-netty/" rel="next" title="netty">
+      netty <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81socket%E5%88%9B%E5%BB%BA%E8%BF%87%E7%A8%8B"><span class="nav-text">一、socket创建过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1%E3%80%81%E5%BB%BA%E7%AB%8Bsocket-sock%E7%9A%84%E5%85%B3%E7%B3%BB"><span class="nav-text">1、建立socket, sock的关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2%E3%80%81%E4%BD%BF%E7%94%A8tcp%E5%8D%8F%E8%AE%AE%E5%88%9D%E5%A7%8B%E5%8C%96sock%EF%BC%9A"><span class="nav-text">2、使用tcp协议初始化sock：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3%E3%80%81socket%E4%B8%8E%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E5%85%B3%E8%81%94%EF%BC%9A"><span class="nav-text">3、socket与文件系统关联：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4%E3%80%81%E6%9C%8D%E5%8A%A1%E7%AB%AFsocket%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%EF%BC%9A90%E7%AB%AF%E5%8F%A3"><span class="nav-text">4、服务端socket启动过程：90端口</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5%E3%80%81%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%BF%9E%E6%8E%A5"><span class="nav-text">5、客户端连接</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%85%B6%E4%BB%96"><span class="nav-text">二、其他</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81SocketChannel%E5%88%9B%E5%BB%BA%E8%BF%87%E7%A8%8B"><span class="nav-text">三、SocketChannel创建过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81SocketChannel%E5%92%8CSocket%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="nav-text">3.1、SocketChannel和Socket的区别</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81socketChannel%E5%8E%9F%E7%90%86"><span class="nav-text">1、socketChannel原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E5%A6%82%E4%BD%95%E6%94%AF%E6%8C%81%E9%9D%9E%E9%98%BB%E5%A1%9E"><span class="nav-text">2、如何支持非阻塞</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

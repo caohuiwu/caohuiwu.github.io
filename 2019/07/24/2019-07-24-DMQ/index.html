@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、注册中心注册中心，基于zookeeper来实现。  &#x2F;dmq&#x2F;topic下为主题号，主题号下为客户端。 &#x2F;dmq&#x2F;node下为server节点。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DMQ">
+<meta property="og:url" content="http://yoursite.com/2019/07/24/2019-07-24-DMQ/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、注册中心注册中心，基于zookeeper来实现。  &#x2F;dmq&#x2F;topic下为主题号，主题号下为客户端。 &#x2F;dmq&#x2F;node下为server节点。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2019/07/24/2019-07-24-DMQ/mq-center.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/24/2019-07-24-DMQ/mq-client-center.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/24/2019-07-24-DMQ/mq-client-server-3.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/24/2019-07-24-DMQ/mq-server-start.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/24/2019-07-24-DMQ/mq-server-sub.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/24/2019-07-24-DMQ/mq-server-send.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/24/2019-07-24-DMQ/mq-server-resend.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/24/2019-07-24-DMQ/mq-%E6%80%BB%E7%BB%93.png">
+<meta property="article:published_time" content="2019-07-24T14:29:49.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.025Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2019/07/24/2019-07-24-DMQ/mq-center.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/07/24/2019-07-24-DMQ/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>DMQ | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/07/24/2019-07-24-DMQ/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          DMQ
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-07-24 22:29:49" itemprop="dateCreated datePublished" datetime="2019-07-24T22:29:49+08:00">2019-07-24</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MQ/" itemprop="url" rel="index"><span itemprop="name">MQ</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>8k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>20 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、注册中心"><a href="#一、注册中心" class="headerlink" title="一、注册中心"></a>一、注册中心</h1><p>注册中心，基于zookeeper来实现。</p>
+<ul>
+<li>&#x2F;dmq&#x2F;topic下为主题号，主题号下为客户端。</li>
+<li>&#x2F;dmq&#x2F;node下为server节点。</li>
+</ul>
+<span id="more"></span>  
+
+<p><img src="/2019/07/24/2019-07-24-DMQ/mq-center.png" alt="dmq"></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">1、server心跳节点上报到注册中心，节点变化，由注册中心通知client，client每一小时拉取一次全量的配置信息</span><br><span class="line">2、client和一台注册中心保持长连接，定时查询server信息，如果该register server挂掉，消费者会自动连接下一个registerserver，直到有可用连接为止，并能自动重连；</span><br><span class="line">3、心跳保持30s的好处是，可以及时的检测server状态；</span><br></pre></td></tr></table></figure>
+<h1 id="二、生产者"><a href="#二、生产者" class="headerlink" title="二、生产者"></a>二、生产者</h1><h3 id="2-0-初始化启动过程"><a href="#2-0-初始化启动过程" class="headerlink" title="2.0 初始化启动过程"></a>2.0 初始化启动过程</h3><p><img src="/2019/07/24/2019-07-24-DMQ/mq-client-center.png" alt="dmq"></p>
+<blockquote>
+<ul>
+<li>1、初始化serverPoll</li>
+<li>2、解析URL服务器地址，生成相应serverConfig，并初始化连接。</li>
+</ul>
+</blockquote>
+<h3 id="2-1-生产过程："><a href="#2-1-生产过程：" class="headerlink" title="2.1 生产过程："></a>2.1 生产过程：</h3><p><img src="/2019/07/24/2019-07-24-DMQ/mq-client-server-3.png" alt="dmq"></p>
+<ul>
+<li>1、mqClient.send(msg)，客户端API发送消息。</li>
+<li>2、内部消息队列控制器（MsgQueueController）将消息存入发送消息队列（sendQueue）<ul>
+<li>2.1、sessionid&lt;0或者消息体超过64kb直接放入通知队列</li>
+<li>2.2、队列超长之后进行回调处理</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-2-消息处理过程："><a href="#2-2-消息处理过程：" class="headerlink" title="2.2 消息处理过程："></a>2.2 消息处理过程：</h3><p><em><strong>2.2.1 发送消息队列</strong></em></p>
+<ul>
+<li>1、sendRunner循环从sendQueue取数据。</li>
+<li>2、主题路由获取server，向server发送数据。<ul>
+<li>2.1、若发送出现异常，则将消息入接收消息队列（notifyQueue）。</li>
+</ul>
+</li>
+<li>3、判断消息类型（非ack &amp;&amp; 非resend）<ul>
+<li>3.1、将消息放入消息重发map（resendMap;&lt;Long, value&gt;&#x3D;&lt;sessionId, WinData）。</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">while (mqController.isOpen()) &#123;</span><br><span class="line">    MqBody mqBody = null;</span><br><span class="line">    try &#123;</span><br><span class="line">        WinData winData = mqController.getSendMsg();</span><br><span class="line">  		if (winData != null &amp;&amp; winData.getMqBody() != null) &#123;</span><br><span class="line">  		    mqBody = winData.getMqBody();</span><br><span class="line">  		    try &#123;</span><br><span class="line">  			    if (mqBody.getCommandType() == UP_SUBSCRIBE) &#123;</span><br><span class="line">  				    winData.getNioChannel().getServer().send(mqBody);</span><br><span class="line">  			    &#125; else &#123;</span><br><span class="line">  				    topicRoute.send(false, winData, mqController);</span><br><span class="line">  			    &#125;</span><br><span class="line">  			&#125; catch (Exception e) &#123;</span><br><span class="line">  			    winData.setStatus(SOCKET_ERROR);</span><br><span class="line">  			    mqController.offerNotifyMsg(winData);</span><br><span class="line">  			    continue;</span><br><span class="line">  			&#125;</span><br><span class="line">  			if (mqBody.getCommandType() != UP_CONSUMER_ACK &amp;&amp; mqBody.getCommandType() != UP_PRODUCER_RESEND) &#123;</span><br><span class="line">  			    mqController.offerResendMsg(winData);</span><br><span class="line">  			&#125;</span><br><span class="line">  		&#125;</span><br><span class="line">  	&#125; catch (Exception e) &#123;</span><br><span class="line">  	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p><em><strong>2.2.2 消息重发map</strong></em></p>
+<ul>
+<li>1、resendRunner循环从resendMap取数据。</li>
+<li>2、判断消息的重发次数小于3<ul>
+<li>2.1、若消息发送时间已经超过30s，则将消息发送至sendQueue</li>
+</ul>
+</li>
+<li>3、发送次数&gt;3<ul>
+<li>3.1、将消息从resendMap中删除。</li>
+<li>3.2、将消息发送至notifyQueue中。</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">while (mqController.isOpen()) &#123;</span><br><span class="line">    try &#123;</span><br><span class="line">        for (Map.Entry&lt;Long, WinData&gt; entry : mqController.getResendMap().entrySet()) &#123;</span><br><span class="line">            WinData winData = entry.getValue();</span><br><span class="line">            if (winData == null || winData.getMqBody() == null) &#123;</span><br><span class="line">                continue;</span><br><span class="line">            &#125;</span><br><span class="line">            //MqBody clone = winData.getMqBody().clone();</span><br><span class="line">            //防止订阅者重发时在获得channel时出现空指针，将windowdata直接clone放入重发队列</span><br><span class="line">            WinData clone = winData.clone();</span><br><span class="line">            long last = System.currentTimeMillis() - clone.getMqBody().getTimestamp();</span><br><span class="line">            if(winData.getCount() &gt; 0)&#123;</span><br><span class="line">            	if(last &gt; MQConst.OUT_TIME * (RESEND_TIME - winData.getCount() + 1))&#123;</span><br><span class="line">                    if(clone.getMqBody().getCommandType().getCode()!=UP_SUBSCRIBE.getCode())&#123;</span><br><span class="line">                        clone.getMqBody().setCommandType(UP_PRODUCER_RESEND);</span><br><span class="line">                    &#125;</span><br><span class="line">                    winData.setCount(winData.getCount() - 1);</span><br><span class="line">                    //mqController.offerSendMsg(clone, winData.getCount() - 1, winData.getISendCallback());</span><br><span class="line">                    //将clone出来的windowdata放入发送队列</span><br><span class="line">                    mqController.offerSendWin(clone);</span><br><span class="line">            	&#125;</span><br><span class="line">            &#125;else&#123;</span><br><span class="line">            	WinData remove = mqController.removeResendMsg(clone.getMqBody().getSessionId());</span><br><span class="line">                remove.setStatus(SendMsgStatusEnum.OUT_OF_RETRY);</span><br><span class="line">                mqController.offerNotifyMsg(remove);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        Thread.sleep(1000);</span><br><span class="line">    &#125; catch (Exception e) &#123;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>消息最多重发3次，每隔30s进行重发，超过以后不进行重发。  </p>
+<p><em><strong>2.2.3 接收消息队列</strong></em></p>
+<ul>
+<li>1、notifyMsgRunner循环从notifyQueue取数据。</li>
+<li>2、判断消息类型<ul>
+<li>2.1、消费者类型消息，调用相应handler进行相应处理。</li>
+<li>2.2、ack类型消息，调用callback进行相应处理。</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-3-接收server的ack"><a href="#2-3-接收server的ack" class="headerlink" title="2.3 接收server的ack"></a>2.3 接收server的ack</h3><ul>
+<li>1、通过NIOChannel进行通信，将结果回传。</li>
+<li>2、根据ack类型，进行相应处理<ul>
+<li>2.1、下发成功、主题号异常、服务异常：此时会将消息从重发Map中去除、并将消息放入notifyQueue中。</li>
+<li>2.2、机器重启：将该主题号下的重启服务去除。</li>
+<li>2.3、生产者消息：调用消费者的ReceiveHandler业务处理逻辑，进行相应处理。</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line">switch (mqBody.getCommandType()) &#123;</span><br><span class="line">    case SUBSCRIBE_ACK:</span><br><span class="line">    case SEND_SUCCESS_ACK:</span><br><span class="line">    case SEND_NO_TOPIC_ACK:</span><br><span class="line">    case SUBSCRIBE_NO_TOPIC_ACK:</span><br><span class="line">    case SUBSCRIBE_NO_CLIENT_ID_ACK:</span><br><span class="line">    case SEND_SERVER_ERROR:</span><br><span class="line">    case SUBSCRIBE_SERVER_ERROR:</span><br><span class="line">    case SEND_EXCEED_LIMIT_ACK:</span><br><span class="line">        winData = mqController.removeResendMsg(mqBody.getSessionId());</span><br><span class="line">        if (winData == null || winData.getMqBody() == null) &#123;</span><br><span class="line">            LOGGER.debug(&quot;get window data null from &#123;&#125;&quot;, mqBody);</span><br><span class="line">            break;</span><br><span class="line">        &#125;</span><br><span class="line">        winData.setStatus(SendMsgStatusEnum.getByCommand(mqBody.getCommandType()));</span><br><span class="line">        //将服务端返回的消息赋值给重发队列中的消息</span><br><span class="line">        MqBody mqBodyInClient = winData.getMqBody();</span><br><span class="line">        mqBodyInClient.setMessageId(mqBody.getMessageId());</span><br><span class="line">        mqBodyInClient.setCommandType(mqBody.getCommandType());</span><br><span class="line">        winData.setDmqBody(mqBodyInClient);</span><br><span class="line">        mqController.offerNotifyMsg(winData);</span><br><span class="line">        break;</span><br><span class="line">    case CONSUMER_PUSH:</span><br><span class="line">        winData = new WinData(mqBody, -1, null);</span><br><span class="line">        boolean isDistinct = mqController.offerDistinctMsg(mqBody.getSessionId(),mqBody.getClientID());</span><br><span class="line">        if (isDistinct) &#123;</span><br><span class="line">            winData.setNioChannel(this);</span><br><span class="line">            //将推送来的消息放入消息接收队列</span><br><span class="line">            mqController.offerReceiveMsg(winData);</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            LOGGER.debug(&quot;repeat msg &#123;&#125;&quot;, mqBody);</span><br><span class="line">        &#125;</span><br><span class="line">        break;</span><br><span class="line">    case SERVER_REBOOT:</span><br><span class="line">        LOGGER.debug(&quot;server is rebooting&quot;);</span><br><span class="line">        mqController.removeSubServer(server);</span><br><span class="line">        server.setState(RESTART);</span><br><span class="line">        break;</span><br><span class="line">    case SERVER_HEALTH:</span><br><span class="line">        LOGGER.debug(&quot;server is health&quot;);</span><br><span class="line">        server.setState(HEALTH);</span><br><span class="line">        server.setErrorTime(Long.MAX_VALUE);</span><br><span class="line">        break;</span><br><span class="line">    case SERVER__HEARTBEAT:</span><br><span class="line">        LOGGER.debug(&quot;receive server heartbeat &quot;);</span><br><span class="line">        break;</span><br><span class="line">    default:</span><br><span class="line">        throw new SerializeException(&quot;un know commandType &quot; + mqBody.getCommandType());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="2-4-生产者问题"><a href="#2-4-生产者问题" class="headerlink" title="2.4 生产者问题"></a>2.4 生产者问题</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1、消息存入队列中，若队列数据量大，此时机器挂机，会出现消息丢失，数据丢失时，依赖业务方日志由业务方自己重发消息，未提供持久化支持。可以采用QMQ方式，支持消息的持久化。    </span><br></pre></td></tr></table></figure>
+<h1 id="三、MQ-server"><a href="#三、MQ-server" class="headerlink" title="三、MQ server"></a>三、MQ server</h1><h3 id="3-1-启动过程"><a href="#3-1-启动过程" class="headerlink" title="3.1 启动过程"></a>3.1 启动过程</h3><p><img src="/2019/07/24/2019-07-24-DMQ/mq-server-start.png" alt="dmq"></p>
+<pre><code>a、zk注册，拉取主题号、client等信息，并启动定时任务去更新每3s一次。
+b、初始化DB。
+c、启动定时任务去发送离线消息。
+d、启动TcpServer，监听请求，并对请求进行相应的分发处理。
+e、启动telnetServer。
+</code></pre>
+<h3 id="3-2-订阅者注册"><a href="#3-2-订阅者注册" class="headerlink" title="3.2 订阅者注册"></a>3.2 订阅者注册</h3><ul>
+<li>tcpServer接收到订阅者注册消息，将消息分发给SubscribeHandler。然后通过线程池创建相应的线程去处理，将当前消费者的client设置到该主题号下。</li>
+</ul>
+<p><img src="/2019/07/24/2019-07-24-DMQ/mq-server-sub.png" alt="dmq"></p>
+<p>以下为代码：</p>
+<pre><code>subExecutor.submit(new Runnable() &#123;
+    public void run() &#123;
+        try &#123;
+            MqBody mqBody = mqContext.getMqBody();
+            // validate topic
+            List&lt;Client&gt; clientList = clientService.getClientList(mqBody.getTopic());
+            if (CollectionUtils.isEmpty(clientList)) &#123;
+                // ack consumer no topic
+                clientService.ackClient(mqBody, mqContext.getChannel(), SUBSCRIBE_NO_TOPIC_ACK, &quot;&quot;);
+                return;
+            &#125;
+            // add new channel for consumer
+            if (addChannel(clientList, mqBody.getClientID(), mqContext.getChannel())) &#123;
+                // ack consumer
+                clientService.ackClient(mqBody, mqContext.getChannel(), SUBSCRIBE_ACK, &quot;&quot;);
+            &#125; else &#123;
+                // ack consumer no client id
+                clientService.ackClient(mqBody, mqContext.getChannel(), SUBSCRIBE_NO_CLIENT_ID_ACK, &quot;&quot;);
+                return;
+            &#125;
+            offlineExecutor.schedule(getInstance(mqBody), OFFLINE_DELAY_TIME, TimeUnit.MILLISECONDS);
+        &#125; catch (Exception e) &#123;
+            clientService.ackClient(mqContext.getMqBody(), mqContext.getChannel(), SUBSCRIBE_SERVER_ERROR, Throwables.getStackTraceAsString(e));
+        &#125;
+    &#125;
+&#125;);   
+</code></pre>
+<h3 id="3-3-接收消息"><a href="#3-3-接收消息" class="headerlink" title="3.3 接收消息"></a>3.3 接收消息</h3><ul>
+<li>tcpServer接收到生产者发送消息，将消息分发给SendMsgHandler。然后通过线程池创建相应的线程去处理消息的存储、ack及推送。</li>
+</ul>
+<p><img src="/2019/07/24/2019-07-24-DMQ/mq-server-send.png" alt="dmq"></p>
+<pre><code>可靠消息：
+    1、先进行存储至DB
+    2、入DB成功后，恢复Client进行消息通知。
+    3、再进行数据的推送。
+延迟消息：
+    1、先进行存储至延迟DB
+    2、入DB成功后，恢复Client进行消息通知。
+</code></pre>
+<p>以下为代码：</p>
+<pre><code>public void run() &#123;
+    try &#123;
+        MqBody mqBody = mqContext.getMqBody();
+        mqBody.setMessageId(IdUtil.generateId());
+        // validate topic
+        List&lt;Client&gt; clientList = clientService.getClientList(mqBody.getTopic());
+        if (CollectionUtils.isEmpty(clientList)) &#123;
+            clientService.ackClient(mqBody, mqContext.getChannel(), SEND_NO_TOPIC_ACK, &quot;&quot;);
+            return;
+        &#125;
+        if (mqBody.getMsgTypeEnum() == MsgTypeEnum.RELIABLE) &#123;
+            // 可靠消息存储
+            if (messageService.saveMessage(mqBody, clientList)) &#123;
+                // 成功ack给生产者
+                clientService.ackClient(mqBody, mqContext.getChannel(), SEND_SUCCESS_ACK, &quot;&quot;);
+                // 推送给消费者
+                clientService.pushMsg(mqBody, clientList, false);
+            &#125; else &#123;
+                // 存储失败，通知生产者异常ack
+                clientService.ackClient(mqBody, mqContext.getChannel(), SEND_SERVER_ERROR, Util.getMqConfig().serverErrorDes());
+            &#125;
+        &#125; else if (mqBody.getMsgTypeEnum() == MsgTypeEnum.DELAY) &#123;
+            if(delayMsgService.insert(mqBody))&#123;//延迟消息入库
+                //成功ack
+                clientService.ackClient(mqBody, mqContext.getChannel(), SEND_SUCCESS_ACK, &quot;&quot;);
+            &#125;else&#123;
+                //失败ack
+                clientService.ackClient(mqBody, mqContext.getChannel(), SEND_SERVER_ERROR, Util.getMqConfig().serverErrorDes());
+            &#125;
+        &#125;
+    &#125; catch (Exception e) &#123;
+        //异常ack
+        clientService.ackClient(mqContext.getMqBody(), mqContext.getChannel(), SEND_SERVER_ERROR, Throwables.getStackTraceAsString(e));
+    &#125; finally &#123;
+    &#125;
+&#125;
+</code></pre>
+<h3 id="3-4-接收重复消息"><a href="#3-4-接收重复消息" class="headerlink" title="3.4 接收重复消息"></a>3.4 接收重复消息</h3><p><img src="/2019/07/24/2019-07-24-DMQ/mq-server-resend.png" alt="dmq"></p>
+<h3 id="3-5-死信消息"><a href="#3-5-死信消息" class="headerlink" title="3.5 死信消息"></a>3.5 死信消息</h3><p>消息入死信队列情况：</p>
+<pre><code>1、超过QPS限流。
+2、入DB异常。
+3、消息过期。
+</code></pre>
+<p>死信消息上报时，单独持久化至DB。由MQ管理平台控制，死信消息由人工处理，可以进行重发或者删除。</p>
+<h1 id="四、消费者"><a href="#四、消费者" class="headerlink" title="四、消费者"></a>四、消费者</h1><pre><code>1、查看文章图二，ReceiveQueue存放的是生产者发送的消息，该队列的消费线程poll队列消息，调用相应的ReceiveHandler进行相应的业务逻辑处理。
+2、此时消费者可以设置是否自动ack，回复ack，此时会将库中的持久化数据进行删除；若不ack，则会一直发送。
+</code></pre>
+<h1 id="延迟消息"><a href="#延迟消息" class="headerlink" title="延迟消息"></a>延迟消息</h1><ul>
+<li>接收到延迟消息后，写入fragment，存入Delay_DB。<ul>
+<li>mq.properties添加配置项：fragment</li>
+<li>fragment：</li>
+<li>例如：fragment为8，则每条延迟消息fragment字段的数值为1-8之间的随机数<br>  *DelayJOB的发送线程thread_count设定为2，则线程1处理fragment字段为1-4的延迟消息，线程2处理5-8。</li>
+</ul>
+</li>
+</ul>
+<h1 id="六、总结"><a href="#六、总结" class="headerlink" title="六、总结"></a>六、总结</h1><p><img src="/2019/07/24/2019-07-24-DMQ/mq-%E6%80%BB%E7%BB%93.png" alt="dmq"><br>1、问题一：Producer会将消息存放在本地的queue中，若producer宕机，会出现消息丢失问题。</p>
+<pre><code>解决方法一：实时发送至server。
+解决方法二：producer提供持久化方式，如入库、写文件。
+</code></pre>
+<p>2、问题二：server写DB时只写入os cache，此时DB挂机可能出现server消息丢失。</p>
+<pre><code>解决方法一：写DB强制写入磁盘，效率较低。
+解决方案二：customer返回ack时才通知producer发送成功ack。
+</code></pre>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/07/20/2019-07-20-HIVE/" rel="prev" title="HIVE">
+      <i class="fa fa-chevron-left"></i> HIVE
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/01/2019-08-01-MQ%E5%AF%B9%E6%AF%94/" rel="next" title="MQ对比">
+      MQ对比 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E6%B3%A8%E5%86%8C%E4%B8%AD%E5%BF%83"><span class="nav-text">一、注册中心</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E7%94%9F%E4%BA%A7%E8%80%85"><span class="nav-text">二、生产者</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-0-%E5%88%9D%E5%A7%8B%E5%8C%96%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B"><span class="nav-text">2.0 初始化启动过程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E7%94%9F%E4%BA%A7%E8%BF%87%E7%A8%8B%EF%BC%9A"><span class="nav-text">2.1 生产过程：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-%E6%B6%88%E6%81%AF%E5%A4%84%E7%90%86%E8%BF%87%E7%A8%8B%EF%BC%9A"><span class="nav-text">2.2 消息处理过程：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-%E6%8E%A5%E6%94%B6server%E7%9A%84ack"><span class="nav-text">2.3 接收server的ack</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-%E7%94%9F%E4%BA%A7%E8%80%85%E9%97%AE%E9%A2%98"><span class="nav-text">2.4 生产者问题</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81MQ-server"><span class="nav-text">三、MQ server</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B"><span class="nav-text">3.1 启动过程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E8%AE%A2%E9%98%85%E8%80%85%E6%B3%A8%E5%86%8C"><span class="nav-text">3.2 订阅者注册</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E6%8E%A5%E6%94%B6%E6%B6%88%E6%81%AF"><span class="nav-text">3.3 接收消息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-%E6%8E%A5%E6%94%B6%E9%87%8D%E5%A4%8D%E6%B6%88%E6%81%AF"><span class="nav-text">3.4 接收重复消息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-5-%E6%AD%BB%E4%BF%A1%E6%B6%88%E6%81%AF"><span class="nav-text">3.5 死信消息</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E6%B6%88%E8%B4%B9%E8%80%85"><span class="nav-text">四、消费者</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%BB%B6%E8%BF%9F%E6%B6%88%E6%81%AF"><span class="nav-text">延迟消息</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">六、总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

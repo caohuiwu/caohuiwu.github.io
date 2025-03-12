@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、背景 随着订单越来越多，基于MySQL关系型数据库的查询容易遇到瓶颈。 订单管理平台的复杂查询。  以上多种原因，有了订单数据存入ES的诉求。 二、数据同步方案：考虑订单数据迁入ES，需要考虑的因素。  最终选择了方案2">
+<meta property="og:type" content="article">
+<meta property="og:title" content="订单ES">
+<meta property="og:url" content="http://yoursite.com/2020/06/07/2020-06-07-%E8%AE%A2%E5%8D%95ES/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、背景 随着订单越来越多，基于MySQL关系型数据库的查询容易遇到瓶颈。 订单管理平台的复杂查询。  以上多种原因，有了订单数据存入ES的诉求。 二、数据同步方案：考虑订单数据迁入ES，需要考虑的因素。  最终选择了方案2">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/06/07/2020-06-07-%E8%AE%A2%E5%8D%95ES/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E5%8F%8A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88.png">
+<meta property="article:published_time" content="2020-06-07T13:46:54.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.427Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="es">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/06/07/2020-06-07-%E8%AE%A2%E5%8D%95ES/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E5%8F%8A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/06/07/2020-06-07-%E8%AE%A2%E5%8D%95ES/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>订单ES | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/06/07/2020-06-07-%E8%AE%A2%E5%8D%95ES/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          订单ES
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-06-07 21:46:54" itemprop="dateCreated datePublished" datetime="2020-06-07T21:46:54+08:00">2020-06-07</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/ES/" itemprop="url" rel="index"><span itemprop="name">ES</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>2.5k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>6 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、背景"><a href="#一、背景" class="headerlink" title="一、背景"></a>一、背景</h1><ol>
+<li>随着订单越来越多，基于MySQL关系型数据库的查询容易遇到瓶颈。</li>
+<li>订单管理平台的复杂查询。</li>
+</ol>
+<p>以上多种原因，有了订单数据存入ES的诉求。</p>
+<h1 id="二、数据同步方案："><a href="#二、数据同步方案：" class="headerlink" title="二、数据同步方案："></a>二、数据同步方案：</h1><p>考虑订单数据迁入ES，需要考虑的因素。</p>
+<ul>
+<li>最终选择了方案2</li>
+</ul>
+<span id="more"></span>  
+
+<h1 id="三、常见问题及解决方案"><a href="#三、常见问题及解决方案" class="headerlink" title="三、常见问题及解决方案"></a>三、常见问题及解决方案</h1><p><img src="/2020/06/07/2020-06-07-%E8%AE%A2%E5%8D%95ES/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E5%8F%8A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88.png" alt="常见问题及解决方案"></p>
+<h1 id="四、需要考虑的问题"><a href="#四、需要考虑的问题" class="headerlink" title="四、需要考虑的问题"></a>四、需要考虑的问题</h1><ol>
+<li>评估全量索引重建的时间范围<ul>
+<li>初次同步索引批量重建，以月为单位分段进行数据同步；另外支持按自定义时间段进行数据检查的补偿机制，用于修复一些业务遗漏造成的数据不一致，具体时间跨度可根据触发实际场景调节；</li>
+</ul>
+</li>
+<li>订单数据是否有删除或者淘汰机制，如果没有，分片逐渐增加，rebalance过程会逐渐增加。<ul>
+<li>随着数据越来越多，</li>
+</ul>
+</li>
+<li>订单整体数据量有多大，准备设置多少个分片，分片越大，添加或删除节点过程中数据rebalance的过程越长，这个过程中性能较差。</li>
+</ol>
+<h1 id="五、创建索引"><a href="#五、创建索引" class="headerlink" title="五、创建索引"></a>五、创建索引</h1><ol>
+<li>基于订单号查询</li>
+<li>基于商品查询</li>
+<li>基于订单时间查询</li>
+<li>基于城市查询</li>
+<li>基于用户查询</li>
+<li>以及其他场景，建立以下索引结构（部分）</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;tk_jz_mid_order-20200628&quot;: &#123;</span><br><span class="line">    &quot;mappings&quot;: &#123;</span><br><span class="line">      &quot;ty_mid_order&quot;: &#123;</span><br><span class="line">        &quot;properties&quot;: &#123;</span><br><span class="line">          &quot;create_time&quot;: &#123;</span><br><span class="line">            &quot;format&quot;: &quot;yyyy-MM-dd HH:mm:ss&quot;,</span><br><span class="line">            &quot;store&quot;: true,</span><br><span class="line">            &quot;type&quot;: &quot;date&quot;</span><br><span class="line">          &#125;,</span><br><span class="line">          &quot;parent_id&quot;: &#123;</span><br><span class="line">            &quot;store&quot;: true,</span><br><span class="line">            &quot;type&quot;: &quot;long&quot;</span><br><span class="line">          &#125;,</span><br><span class="line">          &quot;id&quot;: &#123;</span><br><span class="line">            &quot;store&quot;: true,</span><br><span class="line">            &quot;type&quot;: &quot;long&quot;</span><br><span class="line">          &#125;,</span><br><span class="line">          &quot;city_id&quot;: &#123;</span><br><span class="line">            &quot;store&quot;: true,</span><br><span class="line">            &quot;type&quot;: &quot;integer&quot;</span><br><span class="line">          &#125;,</span><br><span class="line">          &quot;order_date&quot;: &#123;</span><br><span class="line">            &quot;format&quot;: &quot;yyyy-MM-dd HH:mm:ss&quot;,</span><br><span class="line">            &quot;store&quot;: true,</span><br><span class="line">            &quot;type&quot;: &quot;date&quot;</span><br><span class="line">          &#125;,</span><br><span class="line">          &quot;uid&quot;: &#123;</span><br><span class="line">            &quot;store&quot;: true,</span><br><span class="line">            &quot;type&quot;: &quot;long&quot;</span><br><span class="line">          &#125;</span><br><span class="line">          &quot;order_properties&quot;: &#123;</span><br><span class="line">            &quot;type&quot;: &quot;nested&quot;,</span><br><span class="line">            &quot;properties&quot;: &#123;</span><br><span class="line">              &quot;create_time&quot;: &#123;</span><br><span class="line">                &quot;format&quot;: &quot;yyyy-MM-dd HH:mm:ss&quot;,</span><br><span class="line">                &quot;store&quot;: true,</span><br><span class="line">                &quot;type&quot;: &quot;date&quot;</span><br><span class="line">              &#125;,</span><br><span class="line">              &quot;property_key&quot;: &#123;</span><br><span class="line">                &quot;analyzer&quot;: &quot;ik_smart&quot;,</span><br><span class="line">                &quot;store&quot;: true,</span><br><span class="line">                &quot;type&quot;: &quot;text&quot;</span><br><span class="line">              &#125;,</span><br><span class="line">              &quot;property_value&quot;: &#123;</span><br><span class="line">                &quot;analyzer&quot;: &quot;ik_smart&quot;,</span><br><span class="line">                &quot;store&quot;: true,</span><br><span class="line">                &quot;type&quot;: &quot;text&quot;</span><br><span class="line">              &#125;,</span><br><span class="line">              &quot;property_name&quot;: &#123;</span><br><span class="line">                &quot;analyzer&quot;: &quot;ik_smart&quot;,</span><br><span class="line">                &quot;store&quot;: true,</span><br><span class="line">                &quot;type&quot;: &quot;text&quot;</span><br><span class="line">              &#125;</span><br><span class="line">            &#125;</span><br><span class="line">          &#125;,</span><br><span class="line">          &quot;order_purchases&quot;: &#123;</span><br><span class="line">            &quot;type&quot;: &quot;nested&quot;,</span><br><span class="line">            &quot;properties&quot;: &#123;</span><br><span class="line">              &quot;sku_bar_code&quot;: &#123;</span><br><span class="line">                &quot;store&quot;: true,</span><br><span class="line">                &quot;type&quot;: &quot;long&quot;</span><br><span class="line">              &#125;,</span><br><span class="line">              &quot;create_time&quot;: &#123;</span><br><span class="line">                &quot;format&quot;: &quot;yyyy-MM-dd HH:mm:ss&quot;,</span><br><span class="line">                &quot;store&quot;: true,</span><br><span class="line">                &quot;type&quot;: &quot;date&quot;</span><br><span class="line">              &#125;,</span><br><span class="line">              &quot;spu_name&quot;: &#123;</span><br><span class="line">                &quot;analyzer&quot;: &quot;ik_smart&quot;,</span><br><span class="line">                &quot;store&quot;: true,</span><br><span class="line">                &quot;type&quot;: &quot;text&quot;</span><br><span class="line">              &#125;</span><br><span class="line">            &#125;</span><br><span class="line">          &#125;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>es版本6.X</li>
+<li>对商品名称分词，对词项生成倒排索引。</li>
+<li>对订单属性分词，对词项生成倒排索引。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/es/" rel="tag"># es</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/06/01/2020-06-01-es/" rel="prev" title="es">
+      <i class="fa fa-chevron-left"></i> es
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/06/14/2020-06-14-%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%BB%E9%94%AEID/" rel="next" title="分布式主键ID">
+      分布式主键ID <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E8%83%8C%E6%99%AF"><span class="nav-text">一、背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5%E6%96%B9%E6%A1%88%EF%BC%9A"><span class="nav-text">二、数据同步方案：</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E5%8F%8A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88"><span class="nav-text">三、常见问题及解决方案</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E9%9C%80%E8%A6%81%E8%80%83%E8%99%91%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-text">四、需要考虑的问题</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%88%9B%E5%BB%BA%E7%B4%A2%E5%BC%95"><span class="nav-text">五、创建索引</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

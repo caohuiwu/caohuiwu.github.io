@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是Java虚拟机规范系列的第七篇文章，主要介绍的是虚拟机规范中的对象的hotspot实现。  一、对象的内存布局">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Java》对象的hotspot实现">
+<meta property="og:url" content="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是Java虚拟机规范系列的第七篇文章，主要介绍的是虚拟机规范中的对象的hotspot实现。  一、对象的内存布局">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E5%AF%B9%E8%B1%A1.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E5%AF%B9%E8%B1%A1%E5%88%9B%E5%BB%BA%E8%BF%87%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E5%AF%B9%E8%B1%A1%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E6%B5%81%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E6%A0%87%E9%87%8F%E6%9B%BF%E6%8D%A2.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E5%8F%A5%E6%9F%84%E8%AE%BF%E9%97%AE%E6%96%B9%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E7%9B%B4%E6%8E%A5%E6%8C%87%E9%92%88%E8%AE%BF%E9%97%AE%E6%96%B9%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E7%BB%A7%E6%89%BF%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80%E5%9B%BE.png">
+<meta property="article:published_time" content="2020-04-18T04:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.245Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E5%AF%B9%E8%B1%A1.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Java》对象的hotspot实现 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Java》对象的hotspot实现
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-18 12:19:31" itemprop="dateCreated datePublished" datetime="2020-04-18T12:19:31+08:00">2020-04-18</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/" itemprop="url" rel="index"><span itemprop="name">java</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/" itemprop="url" rel="index"><span itemprop="name">jvm</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/" itemprop="url" rel="index"><span itemprop="name">虚拟机规范</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/%E5%AF%B9%E8%B1%A1/" itemprop="url" rel="index"><span itemprop="name">对象</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/jvm/%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83/%E5%AF%B9%E8%B1%A1/hotspot%E5%AE%9E%E7%8E%B0/" itemprop="url" rel="index"><span itemprop="name">hotspot实现</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>6k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>15 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是Java虚拟机规范系列的第七篇文章，主要介绍的是虚拟机规范中的对象的hotspot实现。
+</code></pre>
+<h1 id="一、对象的内存布局"><a href="#一、对象的内存布局" class="headerlink" title="一、对象的内存布局"></a>一、对象的内存布局</h1><p><img src="/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E5%AF%B9%E8%B1%A1.png" alt="对象"></p>
+<span id="more"></span>
+
+<p>在Hotspot虚拟机里，对象在堆内存中的存储布局可以划分为3个部分：</p>
+<ul>
+<li>对象头（header）</li>
+<li>实例数据（instance Data）</li>
+<li>对齐填充（padding）</li>
+</ul>
+<p><strong>对象头</strong>包括两部分信息：</p>
+<ul>
+<li>第一部分用于存储对象自身的自身运行时数据（哈希码、GC 分代年龄、锁状态标志等等）。</li>
+<li>另一部分是类型指针，即对象指向它的类元数据的指针，虚拟机通过这个指针来确定这个对象是那个类的实例。</li>
+</ul>
+<p><strong>实例数据部分</strong>是对象真正存储的有效信息，也是在程序中所定义的各种类型的字段内容。</p>
+<p><strong>对齐填充部分</strong>不是必然存在的，也没有什么特别的含义，仅仅起占位作用。 因为 Hotspot 虚拟机的自动内存管理系统要求对象起始地址必须是 8 字节的整数倍，换句话说就是对象的大小必须是 8 字节的整数倍。而对象头部分正好是 8 字节的倍数（1 倍或 2 倍），因此，当对象实例数据部分没有对齐时，就需要通过对齐填充来补全。</p>
+<h1 id="二、对象的创建过程"><a href="#二、对象的创建过程" class="headerlink" title="二、对象的创建过程"></a>二、对象的创建过程</h1><p><img src="/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E5%AF%B9%E8%B1%A1%E5%88%9B%E5%BB%BA%E8%BF%87%E7%A8%8B.png" alt="对象创建过程"><br>创建对象的过程大致分为 5 步：</p>
+<ul>
+<li>Step1：类加载检查</li>
+<li>Step2：分配内存</li>
+<li>Step3：初始零值</li>
+<li>Step4：设置对象头</li>
+<li>Step5：执行 init</li>
+</ul>
+<h2 id="2-1、类加载检查"><a href="#2-1、类加载检查" class="headerlink" title="2.1、类加载检查"></a>2.1、类加载检查</h2><p>当我们在 Java 程序中 new 一个对象的时候，在底层其实会有大概以下几步：</p>
+<ul>
+<li>首先它会检查这个指令是否能在常量池中能否定位到一个类的符号引用</li>
+<li>接着会检查这个符号引用代表的类是否已经被加载、解析、初始化。如果没有会进行一个<strong>类加载</strong></li>
+</ul>
+<blockquote>
+<p>检查完类加载后就是分配内存了。（这里有人可能会问那该对象的具体内存是否确认呢？其实类加载完成后可以确认它所需要的内存了）</p>
+</blockquote>
+<h2 id="2-2、分配内存"><a href="#2-2、分配内存" class="headerlink" title="2.2、分配内存"></a>2.2、分配内存</h2><p>现在我们已经知道了对象所占的内存，那么虚拟机是如何给对象在 Java 堆中分配内存的呢？主要有两种分配方式：</p>
+<ul>
+<li>指针碰撞</li>
+<li>空闲列表</li>
+</ul>
+<p>接下来我们详细说说这两种分配内存的方式：</p>
+<h3 id="2-2-1-指针碰撞"><a href="#2-2-1-指针碰撞" class="headerlink" title="2.2.1. 指针碰撞"></a>2.2.1. 指针碰撞</h3><p>其实这种方式理解起来比较简单的，假设 Java 堆中的内存是绝对完整的，它会把使用过的内存和未使用过的内存划分开来。此时一边就是使用过的内存，一边就是未使用过的内存；那么他如何去给一个新的对象去划分空闲内存中的某块区域呢？其实很简单，就是借助一个指针（这里是不是呼应上了所谓的指针碰撞）；当我们分配内存的时候就是把指针在空闲的内存区域中移动一个与要被创建对象大小相等的距离。这就是指针碰撞的方式。</p>
+<blockquote>
+<p>适用场景：内存规整，不碎片化</p>
+</blockquote>
+<h3 id="2-2-2-空闲列表"><a href="#2-2-2-空闲列表" class="headerlink" title="2.2.2. 空闲列表"></a>2.2.2. 空闲列表</h3><p>这个其实理解起来更为简单。它无非就是指在 Java 堆中的内存并非是规整的（使用的内存和未使用过的内存没有划分开来），比较杂乱无章，此时虚拟机就得需要列表记录内存中哪些是已经使用的哪些是没有使用的，然后在给对象分配内存空间的时候在该列表中找一个足够的内存分给对象实例；并更新维护的列表。这种就叫做空闲列表（Free List）。</p>
+<blockquote>
+<p>适用场景：堆内存碎片化</p>
+</blockquote>
+<p><strong>Tips:</strong> 说到分配内存的两种方式，就顺便提一句，</p>
+<ul>
+<li>当使用的是Serial&#96;&#96;ParNew等压缩整理过程的收集器的时候，系统采用的是指针碰撞的方式。</li>
+<li>而当使用的是CMS这种基于清除的算法收集器，理论上就只能采用空闲列表。</li>
+</ul>
+<h3 id="2-2-3-分配内存如何保证线程安全的"><a href="#2-2-3-分配内存如何保证线程安全的" class="headerlink" title="2.2.3. 分配内存如何保证线程安全的"></a>2.2.3. 分配内存如何保证线程安全的</h3><p>上面我们将给新的对象分配内存的方式以及分配内存前的逻辑大致理完了。你是不是觉得很简单。其实就是这么简单。但是其实我们忽略了一个很重要的问题。我们回想起本篇文中第一段话：Java 程序在运行过程中无时无刻不在创建对象，那么它是如何在并发环境下保证线程安全的呢？接下来我们简单的捋一下其实保证线程安全还是两种方式：</p>
+<ol>
+<li>将分配内存空间的动作进行同步处理（虚拟机底层的实现逻辑就是CAS + 失败重试）来保证分配内存空间的原子性。</li>
+<li>还有一种就是为每一个线程预先在 Eden 区分配一块儿内存，JVM 在给线程中的对象分配内存时，首先在 TLAB 分配，当对象大于 TLAB 中的剩余内存或 TLAB 的内存已用尽时，再采用上述的 CAS 进行内存分配，这种方式叫做<strong>本地线程分配缓冲 Thread Local Allocation Buffer TLAB</strong>，当本地线程缓冲使用完了，再分配缓存区时才需要同步锁定。至于虚拟机是否使用 TLAB 可通过参数-XX: +&#x2F;-UseTLAB来控制。</li>
+</ol>
+<h2 id="2-3、初始零值"><a href="#2-3、初始零值" class="headerlink" title="2.3、初始零值"></a>2.3、初始零值</h2><p>当分配完内存后，虚拟机必须将分配到的内存空间（不包含对象头）都初始化为零值。如果使用了 TLAB，那么这一步会在 TLAB 分配时进行。为什么虚拟机要有这番操作呢？</p>
+<blockquote>
+<p>主要是为了保证对象的实例字段能够在 Java 代码中可以在不赋值的时候就可以访问直接使用，这样就能使 Java 程序访问这些字段所对应的数据类型的初始零值。</p>
+</blockquote>
+<h2 id="2-4、设置对象头"><a href="#2-4、设置对象头" class="headerlink" title="2.4、设置对象头"></a>2.4、设置对象头</h2><p>设置对象头，虚拟机要对对象进行必要的设置，例如这个对象是哪个类的实例、如何才能找到类的元数据信息、对象的哈希码、对象的GC分代年龄等信息。这些信息存放在对象的对象头之中</p>
+<blockquote>
+<p><font color="#e98787"><strong>虚拟机的视角来看，一个新的对象已经产生了</strong></font></p>
+</blockquote>
+<h2 id="2-5、执行init"><a href="#2-5、执行init" class="headerlink" title="2.5、执行init"></a>2.5、执行init</h2><p>执行完上述操作后，对于 Java 虚拟机来说对象已经创建完了，但是对于 Java 视角来说，对象的创建才刚刚开始，还没有执行init方法。所有的字段还都为零。对象中需要的其它资源和状态信息还没有按照原有的意图去构造好。所以一般来说，new指令之后就会执行init方法，按照 Java 程序员的意图去对对象做一个初始化，这样之后一个真正完整可用的对象才构造出来。</p>
+<blockquote>
+<p><font color="#e98787"><strong>把对象按照程序员的意愿进行初始化，这样一个真正可用的对象才算完全产生出来。</strong></font></p>
+</blockquote>
+<h2 id="对象实例化和初始化的区别"><a href="#对象实例化和初始化的区别" class="headerlink" title="对象实例化和初始化的区别"></a>对象实例化和初始化的区别</h2><h3 id="1、实例化"><a href="#1、实例化" class="headerlink" title="1、实例化"></a>1、实例化</h3><p>实例化主要指的是为对象在内存中分配空间的过程。这是创建一个对象的物理存在的操作，确定对象将占据的实际内存区域。</p>
+<blockquote>
+<p>例如，当使用 new 关键字创建一个对象时，Java 虚拟机（JVM）会根据对象的类型和大小，在堆内存中为其分配一块合适的内存空间。</p>
+</blockquote>
+<p>操作过程：</p>
+<ul>
+<li>首先，JVM 会根据类的信息确定对象所需的内存大小。</li>
+<li>然后，在堆内存中找到一块足够大的连续空间，并标记为该对象所使用。</li>
+<li><font color="gray">这个过程就像是在一个仓库中为一个新的物品找到一个合适的存放位置。</font></li>
+</ul>
+<h3 id="2、初始化"><a href="#2、初始化" class="headerlink" title="2、初始化"></a>2、初始化</h3><p>初始化是指为对象的成员变量赋予初始值，使其达到一个可用的状态。这是设置对象初始状态的操作，确保对象在使用之前具有合理的默认值或特定的值。<br>初始化可以包括为成员变量赋值、执行构造函数中的代码、调用其他初始化方法等</p>
+<p>操作过程</p>
+<ul>
+<li>对于基本数据类型的成员变量，会赋予相应类型的默认值（例如，int 类型初始化为 0，boolean 类型初始化为 false）。</li>
+<li>对于引用类型的成员变量，会初始化为 null。</li>
+<li>然后，执行构造函数中的代码，进一步对成员变量进行赋值或其他初始化操作。构造函数是类的一种特殊方法，用于在创建对象时对对象进行初始化。</li>
+</ul>
+<blockquote>
+<p><font color="red">实例化是初始化的前提。必须先为对象分配内存空间（实例化），然后才能在该空间中进行初始化操作</font></p>
+</blockquote>
+<p>通常，在使用 new 关键字创建对象时，实例化和初始化会依次自动进行</p>
+<h1 id="三、对象内存分配"><a href="#三、对象内存分配" class="headerlink" title="三、对象内存分配"></a>三、对象内存分配</h1><p><img src="/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E5%AF%B9%E8%B1%A1%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E6%B5%81%E7%A8%8B.png" alt="对象内存分配流程"><br>栈上分配，需要先开启逃逸分析</p>
+<blockquote>
+<p>线程销毁或方法结束自动销毁对象</p>
+</blockquote>
+<h2 id="3-1、逃逸分析"><a href="#3-1、逃逸分析" class="headerlink" title="3.1、逃逸分析"></a>3.1、逃逸分析</h2><p>Java中的对象不一定是在堆上分配的，因为JVM通过逃逸分析，能够分析出一个新对象的使用范围，并以此确定是否要将这个对象分配到堆上。</p>
+<p>它的主要目的是分析对象的作用域，判断对象是否会逃逸出方法、线程等。如果一个对象不会逃逸，那么虚拟机就可以对其进行一些优化，比如栈上分配、标量替换等，从而提高程序的性能。</p>
+<h3 id="1-什么时候判断？"><a href="#1-什么时候判断？" class="headerlink" title="1. 什么时候判断？"></a>1. 什么时候判断？</h3><p>主要在编译阶段<br>编译过程通常包括前端编译和后端编译</p>
+<ul>
+<li><strong>前端编译：</strong> 将 Java 源代码转换为字节码，例如使用 Java 编译器（javac）进行的操作</li>
+<li><strong>后端编译：</strong> 在运行时将字节码转换为机器码的过程，常见的如即时编译（Just-In-Time Compilation，JIT）。</li>
+</ul>
+<h4 id="逃逸分析在编译阶段的具体过程"><a href="#逃逸分析在编译阶段的具体过程" class="headerlink" title="逃逸分析在编译阶段的具体过程"></a>逃逸分析在编译阶段的具体过程</h4><p>在编译期间，编译器会对代码进行静态分析，以确定对象的作用域和生命周期。它会检查对象是否在方法内部创建，并分析对象的引用是否会超出创建它的方法范围。</p>
+<h5 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h5><p>如果对象的引用仅在创建它的方法内部使用，并且不会传递到方法外部，那么该对象被认为没有逃逸。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> User <span class="title function_">test1</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">User</span> <span class="variable">user</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">User</span>();</span><br><span class="line">    user.setId(<span class="number">1</span>);</span><br><span class="line">    user.setName(<span class="string">&quot;张三&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span> user;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">test2</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">User</span> <span class="variable">user</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">User</span>();</span><br><span class="line">    user.setId(<span class="number">2</span>);</span><br><span class="line">    user.setName(<span class="string">&quot;李四&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<pre><code>test1()方法构建了user对象，并且返回了user，返回回去的对象肯定是要被外部使用的。这种情况就是user对象逃逸出了test1()方法。
+而test2()方法也是构建了user对象，但是这个对象仅仅是在test2()方法的内部有效，不会在方法外部使用，这种就是user对象没有逃逸。
+</code></pre>
+<blockquote>
+<p>判断一个对象是否是逃逸对象，就看这个对象能否被外部对象访问到</p>
+</blockquote>
+<h3 id="2-优化"><a href="#2-优化" class="headerlink" title="2. 优化"></a>2. 优化</h3><p>如果一个对象不会逃逸，那么虚拟机就可以对其进行一些优化，比如栈上分配、标量替换等，从而提高程序的性能。</p>
+<h4 id="栈上分配（Stack-Allocation）"><a href="#栈上分配（Stack-Allocation）" class="headerlink" title="栈上分配（Stack Allocation）"></a>栈上分配（Stack Allocation）</h4><p>对于未逃逸的对象，编译器可以选择在栈上分配对象的内存空间，而不是在堆上分配。因为栈上的内存分配和回收速度更快，并且不需要进行垃圾回收。当方法结束时，栈帧弹出，栈上分配的对象也随之自动回收，减少了垃圾回收的压力。</p>
+<h4 id="同步消除（Synchronization-Elimination）"><a href="#同步消除（Synchronization-Elimination）" class="headerlink" title="同步消除（Synchronization Elimination）"></a>同步消除（Synchronization Elimination）</h4><p>如果一个对象被确定为未逃逸，那么对该对象的同步操作（如加锁）就可以消除。因为没有其他线程可以访问到这个对象，不存在同步的必要性，从而减少了同步操作带来的性能开销。</p>
+<h4 id="标量替换（Scalar-Replacement）"><a href="#标量替换（Scalar-Replacement）" class="headerlink" title="标量替换（Scalar Replacement）"></a>标量替换（Scalar Replacement）</h4><p>对于未逃逸的对象，如果对象的成员变量可以拆分成多个独立的变量（标量），并且这些标量可以在方法内部直接使用，那么编译器可以将对象分解为这些标量，而不是创建完整的对象。这样可以减少对象的创建和内存占用，提高程序的性能。</p>
+<p>分离对象，标量替换<br>一个线程栈的空间默认也就1M，栈帧空间就更小了，而对象分配需要一块连续的空间，经过计算如果这个对象可以放在栈帧上，但是栈帧的空间不是连续的，对于一个对象来说，这样是不行的，因为对象需要一块连续的空间<br><strong>那怎么办呢？</strong><br>即便在栈帧中没有一块连续的空间方法下这个对象，他也能够通过其他的方式，让这个对象放到栈帧里面去，这个办法就是标量替换。<br><strong>具体怎么做？</strong><br>空间不够<br><img src="/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E6%A0%87%E9%87%8F%E6%9B%BF%E6%8D%A2.png" alt="标量替换"></p>
+<pre><code>确定要将对象分配到栈上时，即时编译可以将对象打散，将对象替换为一个个很小的局部变量，
+我们将这个打散的过程叫做标量替换。将对象替换为一个个局部变量后，就可以非常方便的在栈上进行分配了。
+</code></pre>
+<h3 id="3-如何开启"><a href="#3-如何开启" class="headerlink" title="3. 如何开启"></a>3. 如何开启</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-XX:+DoEscapeAnalysis   开启逃逸分析</span><br><span class="line">-XX:-DoEscapeAnalysis	关闭逃逸分析  </span><br></pre></td></tr></table></figure>
+<p>逃逸分析默认是开启的</p>
+<h2 id="3-2、TLAB"><a href="#3-2、TLAB" class="headerlink" title="3.2、TLAB"></a>3.2、TLAB</h2><p>Thread Local Allocation Buffer：线程本地分配缓存<br>为每一个线程预先在 Eden 区分配一块儿内存，JVM 在给线程中的对象分配内存时，首先在 TLAB 分配，当对象大于 TLAB 中的剩余内存或 TLAB 的内存已用尽时，再采用上述的 CAS 进行内存分配</p>
+<h3 id="TLAB的产生背景和目的"><a href="#TLAB的产生背景和目的" class="headerlink" title="TLAB的产生背景和目的"></a>TLAB的产生背景和目的</h3><ul>
+<li>多线程竞争问题<br>在堆内存中进行对象分配时，如果多个线程同时进行对象分配操作，会存在对堆内存空间分配的竞争<br>这种竞争会导致线程之间的同步开销增加，例如需要使用锁机制来保证分配操作的原子性和一致性。<br>同步操作会降低内存分配的效率，因为线程可能会因为等待锁而被阻塞，导致系统的吞吐量下降。</li>
+<li>引入目的<br>为了减少多线程环境下对象分配时的同步开销，提高对象内存分配的效率，Java虚拟机引入了TLAB。<br>TLAB允许每个线程在自己的缓冲区中进行对象分配，避免了多个线程同时竞争堆内存中的同一区域，从而减少了线程之间的同步和冲突。</li>
+</ul>
+<h3 id="TLAB的工作原理"><a href="#TLAB的工作原理" class="headerlink" title="TLAB的工作原理"></a>TLAB的工作原理</h3><p>缓冲区分配<br>当一个线程启动时，Java虚拟机会为该线程分配一块TLAB空间。这个空间通常位于Eden区（年轻代的一部分）中，是一块线程私有的内存区域。<br>例如，假设Eden区的大小为100MB，虚拟机可以为每个线程分配大约1%到2%的Eden区空间作为TLAB，具体大小可以根据虚拟机的参数进行调整。</p>
+<h2 id="栈上分配和TLAB的对比"><a href="#栈上分配和TLAB的对比" class="headerlink" title="栈上分配和TLAB的对比"></a>栈上分配和TLAB的对比</h2><ul>
+<li>栈上分配：减少GC压力</li>
+<li>TLAB：加速堆上对象的分配速度</li>
+</ul>
+<h1 id="四、对象创建方法"><a href="#四、对象创建方法" class="headerlink" title="四、对象创建方法"></a>四、对象创建方法</h1><ul>
+<li>new</li>
+<li>反射</li>
+<li>工厂</li>
+<li>clone</li>
+<li>反序列化</li>
+</ul>
+<h1 id="五、对象的访问方式"><a href="#五、对象的访问方式" class="headerlink" title="五、对象的访问方式"></a>五、对象的访问方式</h1><h3 id="句柄访问方式"><a href="#句柄访问方式" class="headerlink" title="句柄访问方式"></a>句柄访问方式</h3><p>堆中需要有一块叫做“句柄池”的内存空间，句柄中包含了对象实例数据与类型数据各自的具体地址信息。<br><img src="/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E5%8F%A5%E6%9F%84%E8%AE%BF%E9%97%AE%E6%96%B9%E5%BC%8F.png" alt="句柄访问方式"><br>引用类型的变量存放的是该对象的句柄地址（reference）。访问对象时，首先需要通过引用类型的变量找到该对象的句柄，然后根据句柄中对象的地址找到对象。</p>
+<h3 id="直接指针访问方式"><a href="#直接指针访问方式" class="headerlink" title="直接指针访问方式"></a>直接指针访问方式</h3><p>引用类型的变量直接存放对象的地址，从而不需要句柄池，通过引用能够直接访问对象。但对象所在的内存空间需要额外的策略存储对象所属的类信息的地址。<br><img src="/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E7%9B%B4%E6%8E%A5%E6%8C%87%E9%92%88%E8%AE%BF%E9%97%AE%E6%96%B9%E5%BC%8F.png" alt="直接指针访问方式"></p>
+<blockquote>
+<p>需要说明的是，HotSpot 采用第二种方式，即直接指针方式来访问对象，只需要一次寻址操作，所以在性能上比句柄访问方式快一倍。但像上面所说，它需要额外的策略来存储对象在方法区中类信息的地址。</p>
+</blockquote>
+<h1 id="六、Java继承的内存布局"><a href="#六、Java继承的内存布局" class="headerlink" title="六、Java继承的内存布局"></a>六、Java继承的内存布局</h1><p>代码示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Person</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> age;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">smile</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;Person_smile()_age_&quot;</span> + age);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Student</span> <span class="keyword">extends</span> <span class="title class_">Person</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">double</span> score;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">study</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;Student_study()_score_&quot;</span> + score);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">MainTest</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">Student</span> <span class="variable">s</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Student</span>();</span><br><span class="line">        s.score = <span class="number">95.5</span>;</span><br><span class="line">        s.age = <span class="number">8</span>;</span><br><span class="line">        <span class="comment">// Person_smile()_age_8</span></span><br><span class="line">        s.smile();</span><br><span class="line">        <span class="comment">// Student_study()_score_95.5</span></span><br><span class="line">        s.study();</span><br><span class="line"></span><br><span class="line">        <span class="type">Person</span> <span class="variable">p</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Person</span>();</span><br><span class="line">        p.age = <span class="number">15</span>;</span><br><span class="line">        <span class="comment">// Person_smile()_age_15</span></span><br><span class="line">        p.smile();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>继承的内存布局图：<br><img src="/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1%E7%9A%84hotspot%E5%AE%9E%E7%8E%B0/%E7%BB%A7%E6%89%BF%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80%E5%9B%BE.png" alt="继承的内存布局图"></p>
+<pre><code>Student 类继承 Person 类后会拥有 Person 类中的 age 属性，age 属性在 Student 对象的内存中也拥有一份
+Student 对象的内存和 Person 对象的内存各种独占，互不干扰
+</code></pre>
+<h1 id="七、对象锁"><a href="#七、对象锁" class="headerlink" title="七、对象锁"></a>七、对象锁</h1>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/17/2020-04-17-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%8A%A0%E8%BD%BD_%E9%93%BE%E6%8E%A5%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96/" rel="prev" title="《Java》加载、链接与初始化">
+      <i class="fa fa-chevron-left"></i> 《Java》加载、链接与初始化
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/18/2020-04-18-java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E8%A7%84%E8%8C%83-%E5%AF%B9%E8%B1%A1/" rel="next" title="《Java》对象">
+      《Java》对象 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80"><span class="nav-text">一、对象的内存布局</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9B%E5%BB%BA%E8%BF%87%E7%A8%8B"><span class="nav-text">二、对象的创建过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E7%B1%BB%E5%8A%A0%E8%BD%BD%E6%A3%80%E6%9F%A5"><span class="nav-text">2.1、类加载检查</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E5%88%86%E9%85%8D%E5%86%85%E5%AD%98"><span class="nav-text">2.2、分配内存</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1-%E6%8C%87%E9%92%88%E7%A2%B0%E6%92%9E"><span class="nav-text">2.2.1. 指针碰撞</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-2-%E7%A9%BA%E9%97%B2%E5%88%97%E8%A1%A8"><span class="nav-text">2.2.2. 空闲列表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-3-%E5%88%86%E9%85%8D%E5%86%85%E5%AD%98%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E7%9A%84"><span class="nav-text">2.2.3. 分配内存如何保证线程安全的</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81%E5%88%9D%E5%A7%8B%E9%9B%B6%E5%80%BC"><span class="nav-text">2.3、初始零值</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4%E3%80%81%E8%AE%BE%E7%BD%AE%E5%AF%B9%E8%B1%A1%E5%A4%B4"><span class="nav-text">2.4、设置对象头</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-5%E3%80%81%E6%89%A7%E8%A1%8Cinit"><span class="nav-text">2.5、执行init</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%B9%E8%B1%A1%E5%AE%9E%E4%BE%8B%E5%8C%96%E5%92%8C%E5%88%9D%E5%A7%8B%E5%8C%96%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="nav-text">对象实例化和初始化的区别</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E5%AE%9E%E4%BE%8B%E5%8C%96"><span class="nav-text">1、实例化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-text">2、初始化</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%AF%B9%E8%B1%A1%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D"><span class="nav-text">三、对象内存分配</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E9%80%83%E9%80%B8%E5%88%86%E6%9E%90"><span class="nav-text">3.1、逃逸分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E5%88%A4%E6%96%AD%EF%BC%9F"><span class="nav-text">1. 什么时候判断？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%80%83%E9%80%B8%E5%88%86%E6%9E%90%E5%9C%A8%E7%BC%96%E8%AF%91%E9%98%B6%E6%AE%B5%E7%9A%84%E5%85%B7%E4%BD%93%E8%BF%87%E7%A8%8B"><span class="nav-text">逃逸分析在编译阶段的具体过程</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-text">代码分析</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E4%BC%98%E5%8C%96"><span class="nav-text">2. 优化</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%A0%88%E4%B8%8A%E5%88%86%E9%85%8D%EF%BC%88Stack-Allocation%EF%BC%89"><span class="nav-text">栈上分配（Stack Allocation）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%90%8C%E6%AD%A5%E6%B6%88%E9%99%A4%EF%BC%88Synchronization-Elimination%EF%BC%89"><span class="nav-text">同步消除（Synchronization Elimination）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%A0%87%E9%87%8F%E6%9B%BF%E6%8D%A2%EF%BC%88Scalar-Replacement%EF%BC%89"><span class="nav-text">标量替换（Scalar Replacement）</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E5%A6%82%E4%BD%95%E5%BC%80%E5%90%AF"><span class="nav-text">3. 如何开启</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81TLAB"><span class="nav-text">3.2、TLAB</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TLAB%E7%9A%84%E4%BA%A7%E7%94%9F%E8%83%8C%E6%99%AF%E5%92%8C%E7%9B%AE%E7%9A%84"><span class="nav-text">TLAB的产生背景和目的</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TLAB%E7%9A%84%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="nav-text">TLAB的工作原理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A0%88%E4%B8%8A%E5%88%86%E9%85%8D%E5%92%8CTLAB%E7%9A%84%E5%AF%B9%E6%AF%94"><span class="nav-text">栈上分配和TLAB的对比</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%AF%B9%E8%B1%A1%E5%88%9B%E5%BB%BA%E6%96%B9%E6%B3%95"><span class="nav-text">四、对象创建方法</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%AF%B9%E8%B1%A1%E7%9A%84%E8%AE%BF%E9%97%AE%E6%96%B9%E5%BC%8F"><span class="nav-text">五、对象的访问方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%A5%E6%9F%84%E8%AE%BF%E9%97%AE%E6%96%B9%E5%BC%8F"><span class="nav-text">句柄访问方式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9B%B4%E6%8E%A5%E6%8C%87%E9%92%88%E8%AE%BF%E9%97%AE%E6%96%B9%E5%BC%8F"><span class="nav-text">直接指针访问方式</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%AD%E3%80%81Java%E7%BB%A7%E6%89%BF%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80"><span class="nav-text">六、Java继承的内存布局</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E5%AF%B9%E8%B1%A1%E9%94%81"><span class="nav-text">七、对象锁</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

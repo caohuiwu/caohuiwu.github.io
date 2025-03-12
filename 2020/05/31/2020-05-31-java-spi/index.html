@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、什么是SPI？Service Provider Interface 服务提供接口缩写,是一种服务发现机制。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Java》spi">
+<meta property="og:url" content="http://yoursite.com/2020/05/31/2020-05-31-java-spi/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、什么是SPI？Service Provider Interface 服务提供接口缩写,是一种服务发现机制。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/05/31/2020-05-31-java-spi/spi.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/31/2020-05-31-java-spi/spi%E6%9C%8D%E5%8A%A1%E5%8A%A0%E8%BD%BD%E7%A4%BA%E4%BE%8B.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/31/2020-05-31-java-spi/spi_mysql_%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6.png">
+<meta property="og:image" content="http://yoursite.com/2020/05/31/2020-05-31-java-spi/DriverManager_loadInitialDrivers.png">
+<meta property="article:published_time" content="2020-05-31T04:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.418Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/05/31/2020-05-31-java-spi/spi.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/05/31/2020-05-31-java-spi/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Java》spi | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/05/31/2020-05-31-java-spi/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Java》spi
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-05-31 12:19:31" itemprop="dateCreated datePublished" datetime="2020-05-31T12:19:31+08:00">2020-05-31</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/" itemprop="url" rel="index"><span itemprop="name">java</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/spi/" itemprop="url" rel="index"><span itemprop="name">spi</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>9.9k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>25 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、什么是SPI？"><a href="#一、什么是SPI？" class="headerlink" title="一、什么是SPI？"></a>一、什么是SPI？</h1><p>Service Provider Interface 服务提供接口缩写,是一种服务发现机制。</p>
+<span id="more"></span>
+
+<p>SPI的本质是将接口的实现类的全限定名定义在配置文件中，并有服务器读取配置文件，并加载实现类。这样就可以在运行的时候，动态为接口替换实现类。<br><img src="/2020/05/31/2020-05-31-java-spi/spi.png" alt="spi"></p>
+<h1 id="二、java-spi"><a href="#二、java-spi" class="headerlink" title="二、java spi"></a>二、java spi</h1><h2 id="2-1、工作原理"><a href="#2-1、工作原理" class="headerlink" title="2.1、工作原理"></a>2.1、工作原理</h2><p>1、接口定义【由服务提供方提供接口】</p>
+<blockquote>
+<p>首先定义一个或多个抽象的服务接口，这些接口规定了服务的功能和方法签名</p>
+</blockquote>
+<p>2、服务提供者实现</p>
+<blockquote>
+<p>不同的服务提供者针对这些接口进行具体的实现。每个实现类都代表一种特定的服务实现方式</p>
+</blockquote>
+<p>3、配置文件</p>
+<blockquote>
+<p>服务实现方去配置</p>
+</blockquote>
+<p>4、服务加载</p>
+<blockquote>
+<p>应用程序在运行时，通过java.util.ServiceLoader类来加载服务提供者。ServiceLoader会读取配置文件，实例化其中指定的服务实现类，并返回一个可迭代的服务提供者集合，供应用程序使用。例如：<br><img src="/2020/05/31/2020-05-31-java-spi/spi%E6%9C%8D%E5%8A%A1%E5%8A%A0%E8%BD%BD%E7%A4%BA%E4%BE%8B.png" alt="spi服务加载示例"></p>
+</blockquote>
+<h2 id="2-2、常见示例"><a href="#2-2、常见示例" class="headerlink" title="2.2、常见示例"></a>2.2、常见示例</h2><p>Java中常见的SPI实现就是JDBC。 数据库驱动的加载就使用了 Java SPI 机制，不同的数据库厂商可以提供自己的驱动实现</p>
+<h3 id="2-2-1、原理"><a href="#2-2-1、原理" class="headerlink" title="2.2.1、原理"></a>2.2.1、原理</h3><h4 id="1-接口定义"><a href="#1-接口定义" class="headerlink" title="1. 接口定义"></a>1. 接口定义</h4><p>java.sql.Driver接口</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Driver</span> &#123;</span><br><span class="line"></span><br><span class="line">    Connection <span class="title function_">connect</span><span class="params">(String url, java.util.Properties info)</span> <span class="keyword">throws</span> SQLException;</span><br><span class="line"></span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">acceptsURL</span><span class="params">(String url)</span> <span class="keyword">throws</span> SQLException;</span><br><span class="line"></span><br><span class="line">    DriverPropertyInfo[] getPropertyInfo(String url, java.util.Properties info) <span class="keyword">throws</span> SQLException;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> <span class="title function_">getMajorVersion</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> <span class="title function_">getMinorVersion</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">jdbcCompliant</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> Logger <span class="title function_">getParentLogger</span><span class="params">()</span> <span class="keyword">throws</span> SQLFeatureNotSupportedException;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-接口实现"><a href="#2-接口实现" class="headerlink" title="2. 接口实现"></a>2. 接口实现</h4><p>以MySQL为示例</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//package com.mysql.jdbc;</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Driver</span> <span class="keyword">extends</span> <span class="title class_">com</span>.mysql.cj.jdbc.Driver &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">Driver</span><span class="params">()</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        <span class="built_in">super</span>();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> &#123;</span><br><span class="line">        System.err.println(<span class="string">&quot;Loading class `com.mysql.jdbc.Driver&#x27;. This is deprecated. The new driver class is `com.mysql.cj.jdbc.Driver&#x27;. &quot;</span></span><br><span class="line">                + <span class="string">&quot;The driver is automatically registered via the SPI and manual loading of the driver class is generally unnecessary.&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//package com.mysql.cj.jdbc;</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Driver</span> <span class="keyword">extends</span> <span class="title class_">NonRegisteringDriver</span> <span class="keyword">implements</span> <span class="title class_">java</span>.sql.Driver &#123;</span><br><span class="line">    <span class="comment">//</span></span><br><span class="line">    <span class="comment">// Register ourselves with the DriverManager</span></span><br><span class="line">    <span class="comment">//</span></span><br><span class="line">    <span class="keyword">static</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            java.sql.DriverManager.registerDriver(<span class="keyword">new</span> <span class="title class_">Driver</span>());</span><br><span class="line">        &#125; <span class="keyword">catch</span> (SQLException E) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;Can&#x27;t register driver!&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Construct a new driver and register it with DriverManager</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@throws</span> SQLException</span></span><br><span class="line"><span class="comment">     *             if a database error occurs.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">Driver</span><span class="params">()</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        <span class="comment">// Required for Class.forName().newInstance()</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//package com.mysql.cj.jdbc;</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">NonRegisteringDriver</span> <span class="keyword">implements</span> <span class="title class_">java</span>.sql.Driver &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> String <span class="title function_">getOSName</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> Constants.OS_NAME;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> String <span class="title function_">getPlatform</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> Constants.OS_ARCH;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Class.forName(AbandonedConnectionCleanupThread.class.getName());</span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">            <span class="comment">// ignore</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">getMajorVersionInternal</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> StringUtils.safeIntParse(Constants.CJ_MAJOR_VERSION);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">getMinorVersionInternal</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> StringUtils.safeIntParse(Constants.CJ_MINOR_VERSION);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">NonRegisteringDriver</span><span class="params">()</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        <span class="comment">// Required for Class.forName().newInstance()</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">acceptsURL</span><span class="params">(String url)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        <span class="keyword">return</span> (ConnectionUrl.acceptsUrl(url));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> java.sql.Connection <span class="title function_">connect</span><span class="params">(String url, Properties info)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (!ConnectionUrl.acceptsUrl(url)) &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="type">ConnectionUrl</span> <span class="variable">conStr</span> <span class="operator">=</span> ConnectionUrl.getConnectionUrlInstance(url, info);</span><br><span class="line">            <span class="keyword">switch</span> (conStr.getType()) &#123;</span><br><span class="line">                <span class="keyword">case</span> SINGLE_CONNECTION:</span><br><span class="line">                    <span class="keyword">return</span> com.mysql.cj.jdbc.ConnectionImpl.getInstance(conStr.getMainHost());</span><br><span class="line"></span><br><span class="line">                <span class="keyword">case</span> FAILOVER_CONNECTION:</span><br><span class="line">                <span class="keyword">case</span> FAILOVER_DNS_SRV_CONNECTION:</span><br><span class="line">                    <span class="keyword">return</span> FailoverConnectionProxy.createProxyInstance(conStr);</span><br><span class="line"></span><br><span class="line">                <span class="keyword">case</span> LOADBALANCE_CONNECTION:</span><br><span class="line">                <span class="keyword">case</span> LOADBALANCE_DNS_SRV_CONNECTION:</span><br><span class="line">                    <span class="keyword">return</span> LoadBalancedConnectionProxy.createProxyInstance(conStr);</span><br><span class="line"></span><br><span class="line">                <span class="keyword">case</span> REPLICATION_CONNECTION:</span><br><span class="line">                <span class="keyword">case</span> REPLICATION_DNS_SRV_CONNECTION:</span><br><span class="line">                    <span class="keyword">return</span> ReplicationConnectionProxy.createProxyInstance(conStr);</span><br><span class="line"></span><br><span class="line">                <span class="keyword">default</span>:</span><br><span class="line">                    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">catch</span> (UnsupportedConnectionStringException e) &#123;</span><br><span class="line">            <span class="comment">// when Connector/J can&#x27;t handle this connection string the Driver must return null</span></span><br><span class="line">            <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">catch</span> (CJException ex) &#123;</span><br><span class="line">            <span class="keyword">throw</span> ExceptionFactory.createException(UnableToConnectException.class,</span><br><span class="line">                    Messages.getString(<span class="string">&quot;NonRegisteringDriver.17&quot;</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[] &#123; ex.toString() &#125;), ex);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">getMajorVersion</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> getMajorVersionInternal();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">getMinorVersion</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> getMinorVersionInternal();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> DriverPropertyInfo[] getPropertyInfo(String url, Properties info) <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">host</span> <span class="operator">=</span> <span class="string">&quot;&quot;</span>;</span><br><span class="line">        <span class="type">String</span> <span class="variable">port</span> <span class="operator">=</span> <span class="string">&quot;&quot;</span>;</span><br><span class="line">        <span class="type">String</span> <span class="variable">database</span> <span class="operator">=</span> <span class="string">&quot;&quot;</span>;</span><br><span class="line">        <span class="type">String</span> <span class="variable">user</span> <span class="operator">=</span> <span class="string">&quot;&quot;</span>;</span><br><span class="line">        <span class="type">String</span> <span class="variable">password</span> <span class="operator">=</span> <span class="string">&quot;&quot;</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!isNullOrEmpty(url)) &#123;</span><br><span class="line">            <span class="type">ConnectionUrl</span> <span class="variable">connStr</span> <span class="operator">=</span> ConnectionUrl.getConnectionUrlInstance(url, info);</span><br><span class="line">            <span class="keyword">if</span> (connStr.getType() == Type.SINGLE_CONNECTION) &#123;</span><br><span class="line">                <span class="type">HostInfo</span> <span class="variable">hostInfo</span> <span class="operator">=</span> connStr.getMainHost();</span><br><span class="line">                info = hostInfo.exposeAsProperties();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (info != <span class="literal">null</span>) &#123;</span><br><span class="line">            host = info.getProperty(PropertyKey.HOST.getKeyName());</span><br><span class="line">            port = info.getProperty(PropertyKey.PORT.getKeyName());</span><br><span class="line">            database = info.getProperty(PropertyKey.DBNAME.getKeyName());</span><br><span class="line">            user = info.getProperty(PropertyKey.USER.getKeyName());</span><br><span class="line">            password = info.getProperty(PropertyKey.PASSWORD.getKeyName());</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="type">DriverPropertyInfo</span> <span class="variable">hostProp</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DriverPropertyInfo</span>(PropertyKey.HOST.getKeyName(), host);</span><br><span class="line">        hostProp.required = <span class="literal">true</span>;</span><br><span class="line">        hostProp.description = Messages.getString(<span class="string">&quot;NonRegisteringDriver.3&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="type">DriverPropertyInfo</span> <span class="variable">portProp</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DriverPropertyInfo</span>(PropertyKey.PORT.getKeyName(), port);</span><br><span class="line">        portProp.required = <span class="literal">false</span>;</span><br><span class="line">        portProp.description = Messages.getString(<span class="string">&quot;NonRegisteringDriver.7&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="type">DriverPropertyInfo</span> <span class="variable">dbProp</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DriverPropertyInfo</span>(PropertyKey.DBNAME.getKeyName(), database);</span><br><span class="line">        dbProp.required = <span class="literal">false</span>;</span><br><span class="line">        dbProp.description = Messages.getString(<span class="string">&quot;NonRegisteringDriver.10&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="type">DriverPropertyInfo</span> <span class="variable">userProp</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DriverPropertyInfo</span>(PropertyKey.USER.getKeyName(), user);</span><br><span class="line">        userProp.required = <span class="literal">true</span>;</span><br><span class="line">        userProp.description = Messages.getString(<span class="string">&quot;NonRegisteringDriver.13&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="type">DriverPropertyInfo</span> <span class="variable">passwordProp</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DriverPropertyInfo</span>(PropertyKey.PASSWORD.getKeyName(), password);</span><br><span class="line">        passwordProp.required = <span class="literal">true</span>;</span><br><span class="line">        passwordProp.description = Messages.getString(<span class="string">&quot;NonRegisteringDriver.16&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="type">JdbcPropertySet</span> <span class="variable">propSet</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">JdbcPropertySetImpl</span>();</span><br><span class="line">        propSet.initializeProperties(info);</span><br><span class="line">        List&lt;DriverPropertyInfo&gt; driverPropInfo = propSet.exposeAsDriverPropertyInfo();</span><br><span class="line"></span><br><span class="line">        DriverPropertyInfo[] dpi = <span class="keyword">new</span> <span class="title class_">DriverPropertyInfo</span>[<span class="number">5</span> + driverPropInfo.size()];</span><br><span class="line">        dpi[<span class="number">0</span>] = hostProp;</span><br><span class="line">        dpi[<span class="number">1</span>] = portProp;</span><br><span class="line">        dpi[<span class="number">2</span>] = dbProp;</span><br><span class="line">        dpi[<span class="number">3</span>] = userProp;</span><br><span class="line">        dpi[<span class="number">4</span>] = passwordProp;</span><br><span class="line">        System.arraycopy(driverPropInfo.toArray(<span class="keyword">new</span> <span class="title class_">DriverPropertyInfo</span>[<span class="number">0</span>]), <span class="number">0</span>, dpi, <span class="number">5</span>, driverPropInfo.size());</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> dpi;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">jdbcCompliant</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// <span class="doctag">NOTE:</span> MySQL is not SQL92 compliant</span></span><br><span class="line">        <span class="comment">// TODO Is it true? DatabaseMetaData.supportsANSI92EntryLevelSQL() returns true...</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Logger <span class="title function_">getParentLogger</span><span class="params">()</span> <span class="keyword">throws</span> SQLFeatureNotSupportedException &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">SQLFeatureNotSupportedException</span>();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-配置文件"><a href="#3-配置文件" class="headerlink" title="3. 配置文件"></a>3. 配置文件</h4><p><img src="/2020/05/31/2020-05-31-java-spi/spi_mysql_%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6.png" alt="spi_mysql_配置文件"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">路径</span><br><span class="line">~/.m2/repository/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar!/META-INF/services/java.sql.Driver</span><br><span class="line"></span><br><span class="line">内容</span><br><span class="line">com.mysql.cj.jdbc.Driver</span><br></pre></td></tr></table></figure>
+<h4 id="4-加载驱动"><a href="#4-加载驱动" class="headerlink" title="4. 加载驱动"></a>4. 加载驱动</h4><p><code>DriverManager</code>类在内部会使用 SPI 机制来加载驱动</p>
+<h5 id="4-1、具体流程"><a href="#4-1、具体流程" class="headerlink" title="4.1、具体流程"></a>4.1、具体流程</h5><p><code>com.mysql.cj.jdbc.Driver</code>中的静态代码块调用了DriverManager类的registerDriver方法，因此JVM又会去加载DriverManager类，加载过程中DriverManager的静态代码块被执行。而 DriverManager的静态代码块中调用了loadInitialDrivers方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DriverManager</span> &#123;</span><br><span class="line">    <span class="keyword">static</span> &#123;</span><br><span class="line">        loadInitialDrivers();</span><br><span class="line">        println(<span class="string">&quot;JDBC DriverManager initialized&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/2020/05/31/2020-05-31-java-spi/DriverManager_loadInitialDrivers.png" alt="DriverManager_loadInitialDrivers"></p>
+<ul>
+<li>首先获取 jdbc.drivers 系统属性，该属性可以包含用冒号分隔的驱动类名列表。</li>
+<li>使用 ServiceLoader 来尝试加载 Driver 实现类。ServiceLoader 会扫描 META-INF&#x2F;services&#x2F;java.sql.Driver 文件来查找驱动类。</li>
+<li>如果 jdbc.drivers 系统属性不为空，还会通过 Class.forName() 方法根据属性中指定的驱动类名来加载驱动类。</li>
+</ul>
+<p>ServiceLoader的load()方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> &lt;S&gt; ServiceLoader&lt;S&gt; <span class="title function_">load</span><span class="params">(Class&lt;S&gt; service)</span> &#123;</span><br><span class="line">        <span class="type">ClassLoader</span> <span class="variable">cl</span> <span class="operator">=</span> Thread.currentThread().getContextClassLoader();</span><br><span class="line">        <span class="keyword">return</span> ServiceLoader.load(service, cl);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>SPI机制使用Thread.currentThread().getContextClassLoader()来获取类加载器，而扩展点实现类通过Class&lt;?&gt; c &#x3D; Class.forName(cn, false, loader)来获取。</p>
+<h2 id="2-3、优缺点"><a href="#2-3、优缺点" class="headerlink" title="2.3、优缺点"></a>2.3、优缺点</h2><h3 id="2-3-1、优点"><a href="#2-3-1、优点" class="headerlink" title="2.3.1、优点"></a>2.3.1、优点</h3><p>使用Java SPI 机制的优势是实现解耦，使得接口的定义与具体业务实现分离，而不是耦合在一起。</p>
+<h3 id="2-3-2、缺点"><a href="#2-3-2、缺点" class="headerlink" title="2.3.2、缺点"></a>2.3.2、缺点</h3><p>不能按需加载。虽然ServiceLoader 做了延迟载入，但是基本只能通过遍历全部获取，也就是接口的实现类得全部载入并实例化一遍。</p>
+<h1 id="三、dubbo-SPI"><a href="#三、dubbo-SPI" class="headerlink" title="三、dubbo SPI"></a>三、dubbo SPI</h1><p>与 Java 原生的 SPI 类似，Dubbo 的 SPI 也是一种服务发现机制，但更加灵活和强大。它允许用户扩展 Dubbo 的功能，通过在运行时动态加载扩展类，实现框架的高度可扩展性。</p>
+<h2 id="3-1、核心元素"><a href="#3-1、核心元素" class="headerlink" title="3.1、核心元素"></a>3.1、核心元素</h2><h3 id="接口和实现类"><a href="#接口和实现类" class="headerlink" title="接口和实现类"></a>接口和实现类</h3><p>在 Dubbo 中，核心功能通常以接口的形式定义，如com.alibaba.dubbo.rpc.Protocol（用于定义远程调用协议）、com.alibaba.dubbo.registry.Registry（用于服务注册和发现）等。</p>
+<p>例如，Protocol接口可能有DubboProtocol、HttpProtocol等实现类，分别对应不同的远程调用协议。</p>
+<h3 id="配置文件"><a href="#配置文件" class="headerlink" title="配置文件"></a>配置文件</h3><p>Dubbo 的 SPI 配置文件位于META-INF&#x2F;dubbo目录下，以接口的全限定名命名。</p>
+<p>例如，对于com.alibaba.dubbo.rpc.Protocol接口，其配置文件为META-INF&#x2F;dubbo&#x2F;com.alibaba.dubbo.rpc.Protocol。</p>
+<blockquote>
+<p>文件内容为扩展名&#x3D;实现类的全限定名的形式，如dubbo&#x3D;com.alibaba.dubbo.rpc.protocol.dubbo.DubboProtocol。</p>
+</blockquote>
+<h2 id="3-2、代码示例"><a href="#3-2、代码示例" class="headerlink" title="3.2、代码示例"></a>3.2、代码示例</h2><h3 id="3-2-1、定义接口和实现类"><a href="#3-2-1、定义接口和实现类" class="headerlink" title="3.2.1、定义接口和实现类"></a>3.2.1、定义接口和实现类</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.example.dubbo.spi;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Animal</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">sound</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">package</span> com.example.dubbo.spi.impl;</span><br><span class="line"><span class="keyword">import</span> com.example.dubbo.spi.Animal;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Cat</span> <span class="keyword">implements</span> <span class="title class_">Animal</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">sound</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;Meow&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">package</span> com.example.dubbo.spi.impl;</span><br><span class="line"><span class="keyword">import</span> com.example.dubbo.spi.Animal;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Dog</span> <span class="keyword">implements</span> <span class="title class_">Animal</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">sound</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;Woof&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-2、配置文件："><a href="#3-2-2、配置文件：" class="headerlink" title="3.2.2、配置文件："></a>3.2.2、配置文件：</h3><p>在META-INF&#x2F;dubbo&#x2F;com.example.dubbo.spi.Animal文件中添加：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cat=com.example.dubbo.spi.impl.Cat</span><br><span class="line">dog=com.example.dubbo.spi.impl.Dog</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-3、使用-Dubbo-SPI-加载扩展"><a href="#3-2-3、使用-Dubbo-SPI-加载扩展" class="headerlink" title="3.2.3、使用 Dubbo SPI 加载扩展"></a>3.2.3、使用 Dubbo SPI 加载扩展</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.alibaba.dubbo.common.extension.ExtensionLoader;</span><br><span class="line"><span class="keyword">import</span> com.example.dubbo.spi.Animal;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DubboSPIDemo</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        ExtensionLoader&lt;Animal&gt; loader = ExtensionLoader.getExtensionLoader(Animal.class);</span><br><span class="line">        <span class="type">Animal</span> <span class="variable">cat</span> <span class="operator">=</span> loader.getExtension(<span class="string">&quot;cat&quot;</span>);</span><br><span class="line">        cat.sound();</span><br><span class="line">        <span class="type">Animal</span> <span class="variable">dog</span> <span class="operator">=</span> loader.getExtension(<span class="string">&quot;dog&quot;</span>);</span><br><span class="line">        dog.sound();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-3、扩展点的加载过程"><a href="#3-3、扩展点的加载过程" class="headerlink" title="3.3、扩展点的加载过程"></a>3.3、扩展点的加载过程</h2><p>ExtensionLoader是 Dubbo SPI 的核心类，负责加载扩展类。</p>
+<h3 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">getExtension(String name)  #根据key获取拓展对象</span><br><span class="line">    --&gt;createExtension(String name) #创建拓展实例</span><br><span class="line">        --&gt;getExtensionClasses #根据路径获取所有的拓展类</span><br><span class="line">            --&gt;loadExtensionClasses #加载拓展类</span><br><span class="line">                --&gt;cacheDefaultExtensionName #解析@SPI注解</span><br><span class="line">            --&gt;loadDirectory #方法加载指定文件夹配置文件</span><br><span class="line">                --&gt;loadResource #加载资源</span><br><span class="line">                    --&gt;loadClass #加载类，并通过 loadClass 方法对类进行缓存</span><br></pre></td></tr></table></figure>
+<ul>
+<li>它首先查找META-INF&#x2F;dubbo目录下的配置文件，找到对应接口的扩展实现。</li>
+<li>对扩展类进行缓存，避免重复加载。</li>
+<li>对于自适应扩展，会生成一个动态代理类，该代理类根据条件动态选择实现类。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/05/29/2020-05-29-java-%E5%B9%B6%E5%8F%91-AQS%E7%9B%B8%E5%85%B3%E7%9A%84%E5%AE%9E%E7%8E%B02/" rel="prev" title="《Java》AQS相关实现2">
+      <i class="fa fa-chevron-left"></i> 《Java》AQS相关实现2
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/06/01/2020-06-01-es/" rel="next" title="es">
+      es <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AFSPI%EF%BC%9F"><span class="nav-text">一、什么是SPI？</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81java-spi"><span class="nav-text">二、java spi</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="nav-text">2.1、工作原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E5%B8%B8%E8%A7%81%E7%A4%BA%E4%BE%8B"><span class="nav-text">2.2、常见示例</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1%E3%80%81%E5%8E%9F%E7%90%86"><span class="nav-text">2.2.1、原理</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-%E6%8E%A5%E5%8F%A3%E5%AE%9A%E4%B9%89"><span class="nav-text">1. 接口定义</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-%E6%8E%A5%E5%8F%A3%E5%AE%9E%E7%8E%B0"><span class="nav-text">2. 接口实现</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6"><span class="nav-text">3. 配置文件</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-%E5%8A%A0%E8%BD%BD%E9%A9%B1%E5%8A%A8"><span class="nav-text">4. 加载驱动</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#4-1%E3%80%81%E5%85%B7%E4%BD%93%E6%B5%81%E7%A8%8B"><span class="nav-text">4.1、具体流程</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="nav-text">2.3、优缺点</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-1%E3%80%81%E4%BC%98%E7%82%B9"><span class="nav-text">2.3.1、优点</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-2%E3%80%81%E7%BC%BA%E7%82%B9"><span class="nav-text">2.3.2、缺点</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81dubbo-SPI"><span class="nav-text">三、dubbo SPI</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E6%A0%B8%E5%BF%83%E5%85%83%E7%B4%A0"><span class="nav-text">3.1、核心元素</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8E%A5%E5%8F%A3%E5%92%8C%E5%AE%9E%E7%8E%B0%E7%B1%BB"><span class="nav-text">接口和实现类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6"><span class="nav-text">配置文件</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E4%BB%A3%E7%A0%81%E7%A4%BA%E4%BE%8B"><span class="nav-text">3.2、代码示例</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1%E3%80%81%E5%AE%9A%E4%B9%89%E6%8E%A5%E5%8F%A3%E5%92%8C%E5%AE%9E%E7%8E%B0%E7%B1%BB"><span class="nav-text">3.2.1、定义接口和实现类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-2%E3%80%81%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%EF%BC%9A"><span class="nav-text">3.2.2、配置文件：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-3%E3%80%81%E4%BD%BF%E7%94%A8-Dubbo-SPI-%E5%8A%A0%E8%BD%BD%E6%89%A9%E5%B1%95"><span class="nav-text">3.2.3、使用 Dubbo SPI 加载扩展</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E6%89%A9%E5%B1%95%E7%82%B9%E7%9A%84%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B"><span class="nav-text">3.3、扩展点的加载过程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-text">源码分析</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

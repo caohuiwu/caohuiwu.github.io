@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是“Redis”系列的第一篇文章，主要介绍的是Redis的架构，作为高可用的一部分。  一、redisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Redis》架构">
+<meta property="og:url" content="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“Redis”系列的第一篇文章，主要介绍的是Redis的架构，作为高可用的一部分。  一、redisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E5%8D%95%E6%9C%BA%E6%A8%A1%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E5%93%A8%E5%85%B5%E6%A8%A1%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E9%9B%86%E7%BE%A4%E6%9E%B6%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E9%9B%86%E7%BE%A4%E5%88%86%E7%89%87.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/moved%E9%87%8D%E5%AE%9A%E5%90%91.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/ask%E9%87%8D%E5%AE%9A%E5%90%91.png">
+<meta property="article:published_time" content="2020-07-01T04:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.437Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Redis》架构 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Redis》架构
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-01 12:19:31" itemprop="dateCreated datePublished" datetime="2020-07-01T12:19:31+08:00">2020-07-01</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E6%9E%B6%E6%9E%84/" itemprop="url" rel="index"><span itemprop="name">架构</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>7.9k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>20 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是“Redis”系列的第一篇文章，主要介绍的是Redis的架构，作为高可用的一部分。
+</code></pre>
+<h1 id="一、redis"><a href="#一、redis" class="headerlink" title="一、redis"></a>一、redis</h1><p><code>Redis（Remote Dictionary Server）</code>是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。</p>
+<span id="more"></span>
+
+<h1 id="二、Redis源码结构"><a href="#二、Redis源码结构" class="headerlink" title="二、Redis源码结构"></a>二、Redis源码结构</h1><p>基于redis1.0源码，列出了主流程相关的如下源码文件。<br><img src="/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84.png" alt="源码结构"></p>
+<h1 id="三、架构模式"><a href="#三、架构模式" class="headerlink" title="三、架构模式"></a>三、架构模式</h1><p>Redis 支持单机、主从、哨兵、集群多种架构模式，本文带大家详细讲解这几种架构模式的区别。</p>
+<h2 id="3-1、单机"><a href="#3-1、单机" class="headerlink" title="3.1、单机"></a>3.1、单机</h2><p>单机模式顾名思义就是安装一个 Redis，启动起来，业务调用即可。例如一些简单的应用，并非必须保证高可用的情况下可以使用该模式。<br><img src="/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E5%8D%95%E6%9C%BA%E6%A8%A1%E5%BC%8F.png" alt="单机模式"></p>
+<p><strong>优点</strong></p>
+<ul>
+<li>部署简单；</li>
+<li>成本低，无备用节点；</li>
+<li>高性能，单机不需要同步数据，数据天然一致性。</li>
+</ul>
+<p><strong>缺点</strong></p>
+<ul>
+<li>可靠性保证不是很好，单节点有宕机的风险。</li>
+<li>单机高性能受限于 CPU 的处理能力，Redis 是单线程的。</li>
+</ul>
+<p>单机 Redis 能够承载的 QPS（每秒查询速率）大概在8~10万左右。取决于业务操作的复杂性，Lua 脚本复杂性就极高。假如是简单的 key value 查询那性能就会很高。</p>
+<p>假设上千万、上亿用户同时访问 Redis，QPS 达到 10 万+。这些请求过来，单机 Redis 直接就挂了。系统的瓶颈就出现在 Redis 单机问题上，此时我们可以通过主从复制解决该问题，实现系统的高并发。</p>
+<h2 id="3-2、主从"><a href="#3-2、主从" class="headerlink" title="3.2、主从"></a>3.2、主从</h2><p><img src="/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6.png" alt="主从复制"></p>
+<p>Redis 的复制（Replication）功能允许用户根据一个 Redis 服务器来创建任意多个该服务器的复制品，其中被复制的服务器为主服务器（Master），而通过复制创建出来的复制品则为从服务器（Slave）。 只要主从服务器之间的网络连接正常，主服务器就会将写入自己的数据同步更新给从服务器，从而保证主从服务器的数据相同。</p>
+<p>数据的复制是单向的，只能由主节点到从节点，简单理解就是从节点只支持读操作，不允许写操作。主要是读高并发的场景下用主从架构。<strong>主从模式需要考虑的问题是：当 Master 节点宕机，需要选举产生一个新的 Master 节点，从而保证服务的高可用性。</strong></p>
+<p><strong>优点：</strong></p>
+<ul>
+<li>Master&#x2F;Slave 角色方便水平扩展，QPS 增加，增加 Slave 即可；</li>
+<li>降低 Master 读压力，转交给 Slave 节点；</li>
+<li>主节点宕机，从节点作为主节点的备份可以随时顶上继续提供服务；</li>
+</ul>
+<p>　　<br><strong>缺点：</strong></p>
+<ul>
+<li>可靠性保证不是很好，主节点故障便无法提供写入服务；</li>
+<li>没有解决主节点写的压力；</li>
+<li>数据冗余（为了高并发、高可用和高性能，一般是允许有冗余存在的）；</li>
+<li>一旦主节点宕机，从节点晋升成主节点，需要修改应用方的主节点地址，还需要命令所有从节点去复制新的主节点，整个过程需要人工干预；</li>
+<li>主节点的写能力受到单机的限制；</li>
+<li>主节点的存储能力受到单机的限制。</li>
+</ul>
+<h2 id="3-3、哨兵"><a href="#3-3、哨兵" class="headerlink" title="3.3、哨兵"></a>3.3、哨兵</h2><p>Redis Sentinel是一个<strong>高可用性解决方案</strong>，提供监控、通知和故障转移功能。解决主从复制架构的高可用问题。<br><img src="/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E5%93%A8%E5%85%B5%E6%A8%A1%E5%BC%8F.png" alt="哨兵模式"><br>在哨兵模式下，客户端并不直接连接到Redis的主节点，而是连接到Redis Sentinel。Sentinel会返回当前活动的主节点的地址，客户端可以使用这个地址进行读写操作。客户端一般会保持两个连接，分别是与哨兵的连接和与master的连接，客户端通过哨兵获取到当前redis集群的master的ip与port，之后完成于master的连接。</p>
+<p><strong>连接流程</strong></p>
+<ul>
+<li><strong>客户端连接Sentinel：</strong> 客户端首先与一个Sentinel实例建立连接。</li>
+<li><strong>获取主节点信息：</strong> 通过Sentinel的SENTINEL get-master-address-by-name <master_name>命令获取主节点的地址。</master_name></li>
+<li><strong>直接连接主节点：</strong> 使用获得的主节点地址直接连接Redis实例进行操作。</li>
+</ul>
+<h3 id="3-3-1、Redis-sentinel特性"><a href="#3-3-1、Redis-sentinel特性" class="headerlink" title="3.3.1、Redis sentinel特性"></a>3.3.1、Redis sentinel特性</h3><p>Redis Sentinel 是分布式系统中监控 Redis 主从服务器，并提供主服务器下线时自动故障转移功能的模式。其中三个特性为：</p>
+<ul>
+<li><strong>监控(Monitoring)：</strong> Sentinel 会不断地检查你的主服务器和从服务器是否运作正常；</li>
+<li><strong>提醒(Notification)：</strong> 当被监控的某个 Redis 服务器出现问题时， Sentinel 可以通过 API 向管理员或者其他应用程序发送通知；</li>
+<li><strong>自动故障迁移(Automatic failover)：</strong> 当一个主服务器不能正常工作时， Sentinel 会开始一次自动故障迁移操作。</li>
+</ul>
+<h3 id="3-3-2、相关名词"><a href="#3-3-2、相关名词" class="headerlink" title="3.3.2、相关名词"></a>3.3.2、相关名词</h3><h4 id="3-3-2-1、定时任务"><a href="#3-3-2-1、定时任务" class="headerlink" title="3.3.2.1、定时任务"></a>3.3.2.1、定时任务</h4><p>Sentinel 内部有 3 个定时任务，分别是：</p>
+<ul>
+<li>每 1 秒每个 Sentinel 对其他 Sentinel 和 Redis 节点执行 PING 操作（监控），这是一个心跳检测，是失败判定的依据。</li>
+<li>每 2 秒每个 Sentinel 通过 Master 节点的 channel 交换信息（Publish&#x2F;Subscribe）；</li>
+<li>每 10 秒每个 Sentinel 会对 Master 和 Slave 执行 INFO 命令，这个任务主要达到两个目的：<ul>
+<li>发现 Slave 节点；</li>
+<li>确认主从关系。</li>
+</ul>
+</li>
+</ul>
+<h4 id="3-3-2-2、主观下线"><a href="#3-3-2-2、主观下线" class="headerlink" title="3.3.2.2、主观下线"></a>3.3.2.2、主观下线</h4><p>所谓主观下线（Subjectively Down， 简称 SDOWN）指的是<strong>单个 Sentinel 实例对服务器做出的下线判断</strong>，即单个 Sentinel 认为某个服务下线（有可能是接收不到订阅，之间的网络不通等等原因）。</p>
+<p>主观下线就是说如果服务器在给定的毫秒数之内， 没有返回 Sentinel 发送的 PING 命令的回复， 或者返回一个错误， 那么 Sentinel 会将这个服务器标记为主观下线（SDOWN）。</p>
+<h4 id="3-3-2-3、客观下线"><a href="#3-3-2-3、客观下线" class="headerlink" title="3.3.2.3、客观下线"></a>3.3.2.3、客观下线</h4><p>客观下线（Objectively Down， 简称 ODOWN）指的是<strong>多个 Sentinel 实例在对同一个服务器做出 SDOWN 判断</strong>，并且通过命令互相交流之后，得出的服务器下线判断，然后开启 failover。</p>
+<p>只有在足够数量的 Sentinel 都将一个服务器标记为主观下线之后， 服务器才会被标记为客观下线（ODOWN）。只有当 Master 被认定为客观下线时，才会发生故障迁移。</p>
+<h4 id="3-3-2-4、仲裁"><a href="#3-3-2-4、仲裁" class="headerlink" title="3.3.2.4、仲裁"></a>3.3.2.4、仲裁</h4><p>仲裁指的是配置文件中的 quorum 选项。某个 Sentinel 先将 Master 节点标记为主观下线，然后会将这个判定通过 sentinel is-master-down-by-addr 命令询问其他 Sentinel 节点是否也同样认为该 addr 的 Master 节点要做主观下线。最后当达成这一共识的 Sentinel 个数达到前面说的 quorum 设置的值时，该 Master 节点会被认定为客观下线并进行故障转移。</p>
+<p>quorum 的值一般设置为 Sentinel 个数的二分之一加 1，例如 3 个 Sentinel 就设置为 2。</p>
+<h3 id="3-3-3、哨兵工作原理"><a href="#3-3-3、哨兵工作原理" class="headerlink" title="3.3.3、哨兵工作原理"></a>3.3.3、哨兵工作原理</h3><ol>
+<li>每个 Sentinel 以每秒一次的频率向它所知的 Master，Slave 以及其他 Sentinel 节点发送一个 <code>PING</code> 命令；</li>
+<li>如果一个实例（instance）距离最后一次有效回复 <code>PING</code> 命令的时间超过配置文件 <code>own-after-milliseconds</code> 选项所指定的值，则这个实例会被 Sentinel 标记为<strong>主观下线</strong>；</li>
+<li>如果一个 Master 被标记为主观下线，那么正在监视这个 Master 的所有 Sentinel 要以每秒一次的频率确认 Master 是否真的进入主观下线状态；</li>
+<li>当有足够数量的 <code>Sentinel</code>（大于等于配置文件指定的值）在指定的时间范围内确认 <code>Master</code> 的确进入了主观下线状态，则 <code>Master</code> 会被标记为客观下线；</li>
+<li>如果 <code>Master</code> 处于 <code>ODOWN</code> 状态，则投票自动选出新的主节点<font color="red"><strong>master重新选举</strong></font>。将剩余的从节点指向新的主节点继续进行数据复制；</li>
+<li>在正常情况下，每个 Sentinel 会以每 10 秒一次的频率向它已知的所有 Master，Slave 发送 INFO 命令；当 Master 被 Sentinel 标记为客观下线时，Sentinel 向已下线的 Master 的所有 Slave 发送 INFO 命令的频率会从 10 秒一次改为每秒一次；</li>
+<li>若没有足够数量的 Sentinel 同意 Master 已经下线，Master 的客观下线状态就会被移除。若 Master 重新向 Sentinel 的 PING 命令返回有效回复，Master 的主观下线状态就会被移除。</li>
+</ol>
+<h4 id="3-3-3-1、master重新选举"><a href="#3-3-3-1、master重新选举" class="headerlink" title="3.3.3.1、master重新选举"></a>3.3.3.1、master重新选举</h4><h5 id="1-leader选举"><a href="#1-leader选举" class="headerlink" title="1. leader选举"></a>1. leader选举</h5><p>master的切换，只能由一个sentinel进行操作，所以需要进行sentinel的leader选举，成为leader条件</p>
+<ul>
+<li>获得其他哨兵基友过半的赞成票</li>
+<li>赞成票的数量还要大于等于配置文件的 quorum 的值</li>
+</ul>
+<p>使用的Raft算法进行leader选举。</p>
+<h5 id="2-master筛选条件"><a href="#2-master筛选条件" class="headerlink" title="2. master筛选条件"></a>2. master筛选条件</h5><ul>
+<li>slave 优先级，通过 slave-priority 配置项，给不同的从库设置不同优先级，优先级高的直接晋级为新 master 掌门。</li>
+<li>slave_repl_offset与 master_repl_offset进度差距，如果都一样，那就继续下一个规则。其实就是比较 slave 与旧 master 复制进度的差距；</li>
+<li>slave runID，在优先级和复制进度都相同的情况下，ID 号最小的从库得分最高，会被选为新主库。 （论资排辈，根据 runID 的创建时间来判断，时间早的上位）；</li>
+</ul>
+<h5 id="3-通知"><a href="#3-通知" class="headerlink" title="3. 通知"></a>3. 通知</h5><ul>
+<li>sentinel将新master信息通知slave，然后slave执行replacaof命令，与新master建立连接并且复制新master的数据</li>
+<li>sentinel通知客户端最新的master信息，后续的请求与新master建立连接</li>
+</ul>
+<p><strong>哨兵优点</strong></p>
+<ul>
+<li>哨兵模式是基于主从模式的，所有主从的优点，哨兵模式都有；</li>
+<li>主从可以自动切换，系统更健壮，可用性更高；</li>
+<li>Sentinel 会不断地检查你的主服务器和从服务器是否运作正常。当被监控的某个 Redis 服务器出现问题时， Sentinel 可以通过 API 向管理员或者其他应用程序发送通知。</li>
+</ul>
+<p><strong>哨兵缺点</strong></p>
+<ul>
+<li>主从切换需要时间，会丢失数据；</li>
+<li>还是没有解决主节点写的压力；</li>
+<li>主节点的写能力，存储能力受到单机的限制；</li>
+<li>动态扩容困难复杂，对于集群，容量达到上限时在线扩容会变得很复杂。</li>
+</ul>
+<h2 id="3-4、集群"><a href="#3-4、集群" class="headerlink" title="3.4、集群"></a>3.4、集群</h2><p>之前说的架构模式，都有单点问题，无法处理高于10W+请求，动态扩容困难复杂，于是，Redis 3.0 版本正式推出 Redis Cluster 集群模式，有效地解决了 Redis 分布式方面的需求。Redis Cluster 集群模式具有<strong>高可用、可扩展性、分布式、容错等特性</strong>。<br><img src="/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E9%9B%86%E7%BE%A4%E6%9E%B6%E6%9E%84.png" alt="集群架构"></p>
+<p>特点：</p>
+<ul>
+<li>Redis Cluster 采用无中心结构，每个节点都可以保存数据和整个集群状态，每个节点都和其他所有节点连接。<ul>
+<li>Redis需要开放两个端口，比如一个是 6379，另外一个就是 加1w 的端口号，比如 16379。<ul>
+<li>16379 端口号是用来进行节点间通信的，也就是 cluster bus 的东西，cluster bus 的通信，用来进行故障检测、配置更新、故障转移授权。cluster bus 用了另外一种二进制的协议，gossip 协议，用于节点间进行高效的数据交换，占用更少的网络带宽和处理时间。</li>
+</ul>
+</li>
+<li>客户端与 Redis 节点直连，不需要中间代理层。客户端不需要连接集群所有节点，连接集群中任何一个可用节点即可</li>
+</ul>
+</li>
+<li>Cluster 一般由多个节点组成，节点数量至少为 6 个才能保证组成完整高可用的集群，其中三个为主节点，三个为从节点。三个主节点会分配槽，处理客户端的命令请求，而从节点可用在主节点故障后，顶替主节点。 <ul>
+<li>如上图所示，该集群中包含 6 个 Redis 节点，3 主 3 从，分别为 M1，M2，M3，S1，S2，S3。除了主从 Redis 节点之间进行数据复制外，所有 Redis 节点之间采用 Gossip 协议进行通信，交换维护节点元数据信息。</li>
+</ul>
+</li>
+<li>每一个master节点负责维护一部分槽，以及槽所映射的键值数据<ul>
+<li>Redis Cluster的节点之间会共享消息，每个节点都会知道是哪个节点负责哪个范围内的数据槽。所以客服端请求任意一个节点，都能获取到slot对应的node信息</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-4-1、工作原理"><a href="#3-4-1、工作原理" class="headerlink" title="3.4.1、工作原理"></a>3.4.1、工作原理</h3><h4 id="3-4-1-1、分片"><a href="#3-4-1-1、分片" class="headerlink" title="3.4.1.1、分片"></a>3.4.1.1、分片</h4><p><code>Redis Cluster</code> 采用虚拟哈希槽分区，所有的键根据哈希函数映射到 <code>0 ~ 16383</code> 整数槽内，计算公式：<code>HASH_SLOT = CRC16(key) % 16384</code>。每一个节点负责维护一部分槽以及槽所映射的键值数据。<br><img src="/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/%E9%9B%86%E7%BE%A4%E5%88%86%E7%89%87.png" alt="集群分片"></p>
+<h5 id="1-动态调整"><a href="#1-动态调整" class="headerlink" title="1. 动态调整"></a>1. 动态调整</h5><p>假如，这里有 3 个节点的集群环境如下：</p>
+<ul>
+<li>节点 A 哈希槽范围为 0 ~ 5500；</li>
+<li>节点 B 哈希槽范围为 5501 ~ 11000；</li>
+<li>节点 C 哈希槽范围为 11001 ~ 16383。</li>
+</ul>
+<p>此时，我们如果要存储数据，按照 Redis Cluster 哈希槽的算法，假设结果是： CRC16(key) % 16384 &#x3D; 6782。 那么就会把这个 key 的存储分配到 B 节点。此时连接 A、B、C 任何一个节点获取 key，都会这样计算，最终通过 B 节点获取数据。</p>
+<p>假如这时我们新增一个节点 D，Redis Cluster 会从各个节点中拿取一部分 Slot 到 D 上，比如会变成这样：</p>
+<ul>
+<li>节点 A 哈希槽范围为 1266 ~ 5500；</li>
+<li>节点 B 哈希槽范围为 6827 ~ 11000；</li>
+<li>节点 C 哈希槽范围为 12288 ~ 16383；</li>
+<li>节点 D 哈希槽范围为 0 ~ 1265，5501 ~ 6826，11001 ~ 12287</li>
+</ul>
+<p>这种特性允许在集群中轻松地添加和删除节点。同样的如果我想删除节点 D，只需要将节点 D 的哈希槽移动到其他节点，当节点是空时，便可完全将它从集群中移除。</p>
+<h4 id="3-4-1-2、与客户端交互"><a href="#3-4-1-2、与客户端交互" class="headerlink" title="3.4.1.2、与客户端交互"></a>3.4.1.2、与客户端交互</h4><h5 id="计算键的槽"><a href="#计算键的槽" class="headerlink" title="计算键的槽"></a>计算键的槽</h5><p>当客户端向 Redis 集群发送一个命令时，Redis 首先会根据键的哈希值计算出它对应的哈希槽<br>计算公式：<code>CRC16(key) & 16383</code>，对每个key计算CRC16值，然后对16383取模</p>
+<h5 id="路由到正确的节点"><a href="#路由到正确的节点" class="headerlink" title="路由到正确的节点"></a>路由到正确的节点</h5><p>客户端根据槽的编号确定应该将命令发送到哪个节点。客户端通常会维护一个槽与节点的映射关系，或者通过向集群中的任意一个节点发送请求获取槽与节点的路由信息。</p>
+<p>一旦确定了目标节点，客户端就会将命令直接发送到该节点进行处理。如果目标节点不可用，客户端会尝试重新路由到其他节点。</p>
+<h5 id="客户端请求路由"><a href="#客户端请求路由" class="headerlink" title="客户端请求路由"></a>客户端请求路由</h5><h6 id="moved重定向"><a href="#moved重定向" class="headerlink" title="moved重定向"></a>moved重定向</h6><p><img src="/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/moved%E9%87%8D%E5%AE%9A%E5%90%91.png" alt="moved重定向"><br>触发条件：</p>
+<ul>
+<li>当客户端向一个 Redis 节点发送一个针对特定键的请求，而该节点确定此键所在的槽并不由自己负责时，就会触发MOVED重定向</li>
+<li>这通常发生在集群的槽分配发生变化（例如节点添加或移除、槽重新分配等）或者客户端的槽映射信息过时的情况下。</li>
+</ul>
+<p>执行流程：</p>
+<ul>
+<li>每个节点通过通信都会共享Redis Cluster中槽和集群中对应节点的关系</li>
+<li>客户端向Redis Cluster的任意节点发送命令，接收命令的节点会根据CRC16规则进行hash运算与16383取余，计算自己的槽和对应节点</li>
+<li>如果保存数据的槽被分配给当前节点，则去槽中执行命令，并把命令执行结果返回给客户端</li>
+<li>如果保存数据的槽不在当前节点的管理范围内，则向客户端返回moved重定向异常<ul>
+<li>客户端收到异常，需要进行重定向</li>
+</ul>
+</li>
+<li>客户端接收到节点返回的结果，如果是moved异常，则从moved异常中获取目标节点的信息。<ul>
+<li>客户端进行重定向</li>
+</ul>
+</li>
+<li>客户端向目标节点发送命令，获取命令执行结果</li>
+</ul>
+<h6 id="ask重定向"><a href="#ask重定向" class="headerlink" title="ask重定向"></a>ask重定向</h6><p><img src="/2020/07/01/2020-07-01-redis-%E6%9E%B6%E6%9E%84/ask%E9%87%8D%E5%AE%9A%E5%90%91.png" alt="ask重定向"><br>触发条件：</p>
+<ul>
+<li>当正在进行槽迁移时会触发ASK重定向，进行扩容和缩容时，需要对槽及槽中数据进行迁移。当槽及槽中数据正在迁移时，客服端请求目标节点时，目标节点中的槽已经迁移支别的节点上了，此时目标节点会返回ask转向给客户端。ask重定向主要是解决这种问题</li>
+</ul>
+<p>执行过程：</p>
+<ul>
+<li>当客户端向集群中某个节点发送命令，节点向客户端返回moved异常，告诉客户端数据对应目标槽的节点信息</li>
+<li>客户端再向目标节点发送命令，目标节点中的槽已经迁移出别的节点上了，此时目标节点会返回ask重定向给客户端</li>
+<li>客户端向新的target节点发送Asking命令，然后再次向新节点发送请求请求命令</li>
+<li>新节点target执行命令，把命令执行结果返回给客户端</li>
+</ul>
+<h6 id="moved和ask的区别"><a href="#moved和ask的区别" class="headerlink" title="moved和ask的区别"></a>moved和ask的区别</h6><ul>
+<li>两个都是客户端重定向</li>
+<li>moved异常：槽已确定迁移，并且不在当前请求节点上</li>
+<li>ask异常：槽在迁移中</li>
+</ul>
+<h6 id="smart智能客户端"><a href="#smart智能客户端" class="headerlink" title="smart智能客户端"></a>smart智能客户端</h6><p>每次重定向都产生一次无用的请求，严重影响了redis的性能，为了提高redis的性能，避免大部分请求发生重定向，可以使用智能客户端</p>
+<p>智能客户端知道由哪个节点负责管理哪个槽，而且某个当节点与槽的映射关系发生改变时，客户端也会进行响应的更新，这是一种非常高效的请求方式</p>
+<h3 id="3-4-2、节点通信"><a href="#3-4-2、节点通信" class="headerlink" title="3.4.2、节点通信"></a>3.4.2、节点通信</h3><p>集群中的节点通过 <code>gossip</code> 协议进行通信和发现。</p>
+<h4 id="gossip协议"><a href="#gossip协议" class="headerlink" title="gossip协议"></a>gossip协议</h4><p>gossip 协议包含多种消息，包含 ping,pong,meet,fail 等等</p>
+<ul>
+<li>meet：某个节点发送 meet 给新加入的节点，让新节点加入集群中，然后新节点就会开始与其它节点进行通信。</li>
+<li>ping：ping 时要携带一些元数据，如果很频繁，可能会加重网络负担</li>
+</ul>
+<h3 id="3-4-3、故障检测与自动恢复"><a href="#3-4-3、故障检测与自动恢复" class="headerlink" title="3.4.3、故障检测与自动恢复"></a>3.4.3、故障检测与自动恢复</h3><ul>
+<li>节点之间通过互相发送 PING 和 PONG 消息来检测其他节点的状态。</li>
+<li>如果一个节点在一定时间内没有收到另一个节点的 PONG 消息，就会将其标记为疑似下线（PFail）。</li>
+<li>当足够多的其他节点也认为某个节点疑似下线时，该节点就会被标记为下线（Fail）。</li>
+<li>对于下线的主节点，集群会自动进行故障转移。从其对应的从节点中选择一个提升为主节点，并将原来主节点负责的哈希槽重新分配给新的主节点和其他从节点。</li>
+</ul>
+<p><strong>选主过程</strong></p>
+<ul>
+<li>slave发现自己的master不可用</li>
+<li>slave将记录集群的currentEpoch（选举周期）加1，并广播FAILOVER_AUTH_REQUEST 信息进行选举；</li>
+<li>其他节点收到FAILOVER_AUTH_REQUEST信息后，只有其他的master可以进行响应，master收到消息后返回FAILOVER_AUTH_ACK信息，对于同一个Epoch，只能响应一次ack；</li>
+<li>slave收集maste返回的ack消息</li>
+<li>slave判断收到的ack消息个数是否大于半数的master个数，若是，则变成新的master；</li>
+<li>广播Pong消息通知其他集群节点，自己已经成为新的master。</li>
+</ul>
+<h3 id="3-4-4、伸缩原理"><a href="#3-4-4、伸缩原理" class="headerlink" title="3.4.4、伸缩原理"></a>3.4.4、伸缩原理</h3><h4 id="扩容"><a href="#扩容" class="headerlink" title="扩容"></a>扩容</h4><ol>
+<li>首先启动一个<code>redis</code>节点，记为<code>M4</code></li>
+<li>使用<code>cluster meet</code>命令，让<code>M4</code> 加入到集群。<br>默认为主节点，此时<code>M4</code> 没有负责的槽，所以无法接收请求</li>
+<li>对<code>M4</code>发送<code>importing</code>命令，让目标节点<code>M4</code> 准备导入槽的数据。对源节点，即M1，M2，M3发送<code>migrating</code>命令，让源节点准备需要迁出的槽数据<br>目标节点为importing状态<br>源节点为migrating状态</li>
+<li>在源节点上执行： <code>CLUSTER GETKEYSINSLOT 3432 10</code>，含义：获取槽【3442】的10个还在源节点上的key</li>
+<li>对于第4步获取到的10个key，在源节点执行<code>megrate</code>指令，此时会将10个key移动到目标节点<br><code>migrate</code>命令在执行过程中，节点无法响应请求</li>
+<li>重复4、5操作，直至所有的槽迁移完毕</li>
+<li>向目标节点和原节点清除<code>importing</code>和<code>migrating</code>标记</li>
+</ol>
+<h3 id="3-4-5、集群相关问题"><a href="#3-4-5、集群相关问题" class="headerlink" title="3.4.5、集群相关问题"></a>3.4.5、集群相关问题</h3><h4 id="1-Redis-cluster为什么没有使用一致性hash算法，而是使用了哈希槽预分片？"><a href="#1-Redis-cluster为什么没有使用一致性hash算法，而是使用了哈希槽预分片？" class="headerlink" title="1. Redis cluster为什么没有使用一致性hash算法，而是使用了哈希槽预分片？"></a>1. Redis cluster为什么没有使用一致性hash算法，而是使用了哈希槽预分片？</h4><ul>
+<li>缓存热点问题<br>  一致性哈希算法在节点较少时，容易因数据分配不均匀而造成缓存热点问题<br>      一致性哈希算法可能出现数据集中在某个hash区间内，会导致大量的数据涌入同一个节点，从而造成数据热点问题</li>
+<li>可以用户手动自定义分配的，类似于 windows 盘分区的概念，可以手动控制大小</li>
+<li>每个服务器之间有各自虚拟槽的信息，利于重定向</li>
+</ul>
+<h4 id="2-Redis-cluster的哈希槽为什么是16384个，而不是65536个？"><a href="#2-Redis-cluster的哈希槽为什么是16384个，而不是65536个？" class="headerlink" title="2. Redis cluster的哈希槽为什么是16384个，而不是65536个？"></a>2. Redis cluster的哈希槽为什么是16384个，而不是65536个？</h4><ul>
+<li>如果槽位为65536个，发送心跳信息的消息头达8K，发送的心跳包过大</li>
+<li>Redis的主节点基本不可能超过1000个，节点越多，心跳的消息体越大，容易造成网络堵塞</li>
+<li>槽位越少，节点少的情况下，压缩率高</li>
+</ul>
+<h1 id="四、高可用"><a href="#四、高可用" class="headerlink" title="四、高可用"></a>四、高可用</h1><p>Redis的架构从单机到集群，都是对高可用要求的一步步实现，一步步提升，接下来的文章还会继续介绍redis相关的高可用建设。</p>
+<p>参考文章：<br><a href="https://www.cnblogs.com/mrhelloworld/p/redis-architecture.html">最通俗易懂的 Redis 架构模式详解</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/01/2020-07-01-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/" rel="prev" title="分库分表">
+      <i class="fa fa-chevron-left"></i> 分库分表
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/02/2020-07-02-redis-%E9%AB%98%E5%8F%AF%E7%94%A8-%E6%95%B0%E6%8D%AE%E6%8C%81%E4%B9%85%E5%8C%96/" rel="next" title="《Redis》高可用之“数据持久化”">
+      《Redis》高可用之“数据持久化” <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81redis"><span class="nav-text">一、redis</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Redis%E6%BA%90%E7%A0%81%E7%BB%93%E6%9E%84"><span class="nav-text">二、Redis源码结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%9E%B6%E6%9E%84%E6%A8%A1%E5%BC%8F"><span class="nav-text">三、架构模式</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E5%8D%95%E6%9C%BA"><span class="nav-text">3.1、单机</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E4%B8%BB%E4%BB%8E"><span class="nav-text">3.2、主从</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E5%93%A8%E5%85%B5"><span class="nav-text">3.3、哨兵</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-1%E3%80%81Redis-sentinel%E7%89%B9%E6%80%A7"><span class="nav-text">3.3.1、Redis sentinel特性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-2%E3%80%81%E7%9B%B8%E5%85%B3%E5%90%8D%E8%AF%8D"><span class="nav-text">3.3.2、相关名词</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3-2-1%E3%80%81%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1"><span class="nav-text">3.3.2.1、定时任务</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3-2-2%E3%80%81%E4%B8%BB%E8%A7%82%E4%B8%8B%E7%BA%BF"><span class="nav-text">3.3.2.2、主观下线</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3-2-3%E3%80%81%E5%AE%A2%E8%A7%82%E4%B8%8B%E7%BA%BF"><span class="nav-text">3.3.2.3、客观下线</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3-2-4%E3%80%81%E4%BB%B2%E8%A3%81"><span class="nav-text">3.3.2.4、仲裁</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-3%E3%80%81%E5%93%A8%E5%85%B5%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="nav-text">3.3.3、哨兵工作原理</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3-3-1%E3%80%81master%E9%87%8D%E6%96%B0%E9%80%89%E4%B8%BE"><span class="nav-text">3.3.3.1、master重新选举</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-leader%E9%80%89%E4%B8%BE"><span class="nav-text">1. leader选举</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-master%E7%AD%9B%E9%80%89%E6%9D%A1%E4%BB%B6"><span class="nav-text">2. master筛选条件</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-%E9%80%9A%E7%9F%A5"><span class="nav-text">3. 通知</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4%E3%80%81%E9%9B%86%E7%BE%A4"><span class="nav-text">3.4、集群</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-1%E3%80%81%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="nav-text">3.4.1、工作原理</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-4-1-1%E3%80%81%E5%88%86%E7%89%87"><span class="nav-text">3.4.1.1、分片</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E5%8A%A8%E6%80%81%E8%B0%83%E6%95%B4"><span class="nav-text">1. 动态调整</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-4-1-2%E3%80%81%E4%B8%8E%E5%AE%A2%E6%88%B7%E7%AB%AF%E4%BA%A4%E4%BA%92"><span class="nav-text">3.4.1.2、与客户端交互</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E8%AE%A1%E7%AE%97%E9%94%AE%E7%9A%84%E6%A7%BD"><span class="nav-text">计算键的槽</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E8%B7%AF%E7%94%B1%E5%88%B0%E6%AD%A3%E7%A1%AE%E7%9A%84%E8%8A%82%E7%82%B9"><span class="nav-text">路由到正确的节点</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%AF%B7%E6%B1%82%E8%B7%AF%E7%94%B1"><span class="nav-text">客户端请求路由</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#moved%E9%87%8D%E5%AE%9A%E5%90%91"><span class="nav-text">moved重定向</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#ask%E9%87%8D%E5%AE%9A%E5%90%91"><span class="nav-text">ask重定向</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#moved%E5%92%8Cask%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="nav-text">moved和ask的区别</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#smart%E6%99%BA%E8%83%BD%E5%AE%A2%E6%88%B7%E7%AB%AF"><span class="nav-text">smart智能客户端</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-2%E3%80%81%E8%8A%82%E7%82%B9%E9%80%9A%E4%BF%A1"><span class="nav-text">3.4.2、节点通信</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#gossip%E5%8D%8F%E8%AE%AE"><span class="nav-text">gossip协议</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-3%E3%80%81%E6%95%85%E9%9A%9C%E6%A3%80%E6%B5%8B%E4%B8%8E%E8%87%AA%E5%8A%A8%E6%81%A2%E5%A4%8D"><span class="nav-text">3.4.3、故障检测与自动恢复</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-4%E3%80%81%E4%BC%B8%E7%BC%A9%E5%8E%9F%E7%90%86"><span class="nav-text">3.4.4、伸缩原理</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%89%A9%E5%AE%B9"><span class="nav-text">扩容</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-5%E3%80%81%E9%9B%86%E7%BE%A4%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98"><span class="nav-text">3.4.5、集群相关问题</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-Redis-cluster%E4%B8%BA%E4%BB%80%E4%B9%88%E6%B2%A1%E6%9C%89%E4%BD%BF%E7%94%A8%E4%B8%80%E8%87%B4%E6%80%A7hash%E7%AE%97%E6%B3%95%EF%BC%8C%E8%80%8C%E6%98%AF%E4%BD%BF%E7%94%A8%E4%BA%86%E5%93%88%E5%B8%8C%E6%A7%BD%E9%A2%84%E5%88%86%E7%89%87%EF%BC%9F"><span class="nav-text">1. Redis cluster为什么没有使用一致性hash算法，而是使用了哈希槽预分片？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-Redis-cluster%E7%9A%84%E5%93%88%E5%B8%8C%E6%A7%BD%E4%B8%BA%E4%BB%80%E4%B9%88%E6%98%AF16384%E4%B8%AA%EF%BC%8C%E8%80%8C%E4%B8%8D%E6%98%AF65536%E4%B8%AA%EF%BC%9F"><span class="nav-text">2. Redis cluster的哈希槽为什么是16384个，而不是65536个？</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E9%AB%98%E5%8F%AF%E7%94%A8"><span class="nav-text">四、高可用</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、启动过程执行start.sh，实际将执行catalina.shjava命令执行Bootstrap类的main方法，将start作为参数传入Boostrap:">
+<meta property="og:type" content="article">
+<meta property="og:title" content="tomcat启动过程">
+<meta property="og:url" content="http://yoursite.com/2019/12/21/2019-12-21-tomcat%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B2/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、启动过程执行start.sh，实际将执行catalina.shjava命令执行Bootstrap类的main方法，将start作为参数传入Boostrap:">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-12-21T12:19:03.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.055Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="Tomcat">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2019/12/21/2019-12-21-tomcat%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B2/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>tomcat启动过程 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/12/21/2019-12-21-tomcat%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          tomcat启动过程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-12-21 20:19:03" itemprop="dateCreated datePublished" datetime="2019-12-21T20:19:03+08:00">2019-12-21</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>13k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>31 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、启动过程"><a href="#一、启动过程" class="headerlink" title="一、启动过程"></a>一、启动过程</h1><p>执行start.sh，实际将执行catalina.sh<br>java命令执行Bootstrap类的main方法，将start作为参数传入<br>Boostrap:</p>
+<span id="more"></span>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">public static void main(String args[]) &#123;</span><br><span class="line">    synchronized (daemonLock) &#123;</span><br><span class="line">        Bootstrap daemon = new Bootstrap();</span><br><span class="line">        if (command.equals(&quot;startd&quot;)) &#123;</span><br><span class="line">            args[args.length - 1] = &quot;start&quot;;</span><br><span class="line">            daemon.load(args);</span><br><span class="line">            daemon.start();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>执行Boostrap的main方法，此时tomcat就在JVM作为一个线程启动了    </p>
+<p>执行start方法</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">public void start() throws Exception &#123;</span><br><span class="line">    Method method = catalinaDaemon.getClass().getMethod(&quot;start&quot;, (Class [])null);</span><br><span class="line">    method.invoke(catalinaDaemon, (Object [])null);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>通过反射，执行catlinaDaemon的start方法    </p>
+<h1 id="二、start流程"><a href="#二、start流程" class="headerlink" title="二、start流程"></a>二、start流程</h1><h2 id="2-1、Catalina"><a href="#2-1、Catalina" class="headerlink" title="2.1、Catalina:"></a>2.1、Catalina:</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public void start() &#123;</span><br><span class="line">    // Start the new server</span><br><span class="line">    try &#123;</span><br><span class="line">        getServer().start();</span><br><span class="line">    &#125; catch (LifecycleException e) &#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>进行服务的初始化</p>
+<h2 id="2-2、StandardServer"><a href="#2-2、StandardServer" class="headerlink" title="2.2、StandardServer:"></a>2.2、StandardServer:</h2><p>实际的server实现是StandardServer</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">protected void startInternal() throws LifecycleException &#123;</span><br><span class="line">    // Start our defined Services</span><br><span class="line">    synchronized (servicesLock) &#123;</span><br><span class="line">        for (int i = 0; i &lt; services.length; i++) &#123;</span><br><span class="line">            services[i].start();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>从server的启动上看，一个server有多个service</p>
+<h2 id="2-3、StandardService"><a href="#2-3、StandardService" class="headerlink" title="2.3、StandardService:"></a>2.3、StandardService:</h2><p>实际的service实现是StandardService</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">protected void startInternal() throws LifecycleException &#123;</span><br><span class="line">    // Start our defined Container first</span><br><span class="line">    if (engine != null) &#123;</span><br><span class="line">        synchronized (engine) &#123;</span><br><span class="line">            engine.start();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    synchronized (executors) &#123;</span><br><span class="line">        for (Executor executor: executors) &#123;</span><br><span class="line">            executor.start();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    mapperListener.start();</span><br><span class="line">    // Start our defined Connectors second</span><br><span class="line">    synchronized (connectorsLock) &#123;</span><br><span class="line">        for (Connector connector: connectors) &#123;</span><br><span class="line">            try &#123;</span><br><span class="line">                // If it has already failed, don&#x27;t try and start it</span><br><span class="line">                if (connector.getState() != LifecycleState.FAILED) &#123;</span><br><span class="line">                    connector.start();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; catch (Exception e) &#123;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li>service执行engine的启动。(engine继承Container，所以实际是进行container的初始化)</li>
+<li>然后创建一组线程池。executor是Tomcat自己实现的线程池。【此时会去创建具体的工作线程】</li>
+<li>然后进行连接器的初始化（一组连接器，server.xml中可以配置）</li>
+</ol>
+<h2 id="2-4、Executor—StandardThreadExecutor"><a href="#2-4、Executor—StandardThreadExecutor" class="headerlink" title="2.4、Executor—StandardThreadExecutor"></a>2.4、Executor—StandardThreadExecutor</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">protected void startInternal() throws LifecycleException &#123;</span><br><span class="line">    taskqueue = new TaskQueue(maxQueueSize);</span><br><span class="line">    TaskThreadFactory tf = new TaskThreadFactory(namePrefix,daemon,getThreadPriority());</span><br><span class="line">    executor = new ThreadPoolExecutor(getMinSpareThreads(), getMaxThreads(), maxIdleTime, TimeUnit.MILLISECONDS,taskqueue, tf);</span><br><span class="line">    executor.setThreadRenewalDelay(threadRenewalDelay);</span><br><span class="line">    if (prestartminSpareThreads) &#123;</span><br><span class="line">        executor.prestartAllCoreThreads();</span><br><span class="line">    &#125;</span><br><span class="line">    taskqueue.setParent(executor);</span><br><span class="line">    setState(LifecycleState.STARTING);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li>创建任务队列</li>
+<li>创建工作线程</li>
+</ol>
+<h2 id="2-5、Connector"><a href="#2-5、Connector" class="headerlink" title="2.5、Connector"></a>2.5、Connector</h2><p>连接器的启动</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">protected void startInternal() throws LifecycleException &#123;</span><br><span class="line">    try &#123;</span><br><span class="line">        protocolHandler.start();//启动协议处理器</span><br><span class="line">    &#125; catch (Exception e) &#123;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<h2 id="2-6、protocolHandler-—-AbstractHProtocal"><a href="#2-6、protocolHandler-—-AbstractHProtocal" class="headerlink" title="2.6、protocolHandler —&gt; AbstractHProtocal"></a>2.6、protocolHandler —&gt; AbstractHProtocal</h2><p>协议处理器的启动。 </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public void start() throws Exception &#123;</span><br><span class="line">    endpoint.start();//启动端口</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-7、endpoint-—-AbstractEndpoint-—-NIOEndpoint"><a href="#2-7、endpoint-—-AbstractEndpoint-—-NIOEndpoint" class="headerlink" title="2.7、endpoint —&gt; AbstractEndpoint —&gt;  NIOEndpoint"></a>2.7、endpoint —&gt; AbstractEndpoint —&gt;  NIOEndpoint</h2><p>终端的启动</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">public void startInternal() throws Exception &#123;</span><br><span class="line"></span><br><span class="line">    if (!running) &#123;</span><br><span class="line">                processorCache = new SynchronizedStack&lt;&gt;(SynchronizedStack.DEFAULT_SIZE,</span><br><span class="line">                socketProperties.getProcessorCache());</span><br><span class="line">        eventCache = new SynchronizedStack&lt;&gt;(SynchronizedStack.DEFAULT_SIZE,</span><br><span class="line">                        socketProperties.getEventCache());</span><br><span class="line">        nioChannels = new SynchronizedStack&lt;&gt;(SynchronizedStack.DEFAULT_SIZE,</span><br><span class="line">                socketProperties.getBufferPool());</span><br><span class="line">        // Create worker collection</span><br><span class="line">        if ( getExecutor() == null ) &#123;</span><br><span class="line">            createExecutor();</span><br><span class="line">        &#125;</span><br><span class="line">        initializeConnectionLatch();</span><br><span class="line">        // Start poller threads【轮询线程】</span><br><span class="line">        pollers = new Poller[getPollerThreadCount()];</span><br><span class="line">        for (int i=0; i&lt;pollers.length; i++) &#123;</span><br><span class="line">            pollers[i] = new Poller();</span><br><span class="line">            Thread pollerThread = new Thread(pollers[i], getName() + &quot;-ClientPoller-&quot;+i);</span><br><span class="line">            pollerThread.setPriority(threadPriority);</span><br><span class="line">            pollerThread.setDaemon(true);</span><br><span class="line">            pollerThread.start();</span><br><span class="line">        &#125;</span><br><span class="line">        //开启接收线程</span><br><span class="line">        startAcceptorThreads();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li>终端的启动，首先创建轮询线程(一般为1个，轮询selector多路复用器)<ul>
+<li>poller是轮训selector的线程</li>
+</ul>
+</li>
+<li>然后启动接收线程【连接池线程数量】</li>
+</ol>
+<p>接收线程：NIOEndpoint.Acceptor</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">protected class Acceptor extends AbstractEndpoint.Acceptor &#123;</span><br><span class="line"></span><br><span class="line">    @Override</span><br><span class="line">    public void run() &#123;</span><br><span class="line"></span><br><span class="line">        int errorDelay = 0;</span><br><span class="line"></span><br><span class="line">        // Loop until we receive a shutdown command</span><br><span class="line">        while (running) &#123;</span><br><span class="line">            state = AcceptorState.RUNNING;</span><br><span class="line">            try &#123;</span><br><span class="line">                //if we have reached max connections, wait</span><br><span class="line">                countUpOrAwaitConnection();</span><br><span class="line">                AsynchronousSocketChannel socket = null;</span><br><span class="line">                try &#123;</span><br><span class="line">                    // Accept the next incoming connection from the server</span><br><span class="line">                    // socket</span><br><span class="line">                    socket = serverSock.accept().get();</span><br><span class="line">                &#125; catch (Exception e) &#123;</span><br><span class="line">                    // We didn&#x27;t get a socket</span><br><span class="line">                    countDownConnection();</span><br><span class="line">                    if (running) &#123;</span><br><span class="line">                        // Introduce delay if necessary</span><br><span class="line">                        errorDelay = handleExceptionWithDelay(errorDelay);</span><br><span class="line">                        // re-throw</span><br><span class="line">                        throw e;</span><br><span class="line">                    &#125; else &#123;</span><br><span class="line">                        break;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                // Configure the socket</span><br><span class="line">                if (running &amp;&amp; !paused) &#123;</span><br><span class="line">                    // setSocketOptions() will hand the socket off to</span><br><span class="line">                    // an appropriate processor if successful</span><br><span class="line">                    if (!setSocketOptions(socket)) &#123;//处理请求！！！！！</span><br><span class="line">                        closeSocket(socket);</span><br><span class="line">                   &#125;</span><br><span class="line">                &#125; else &#123;</span><br><span class="line">                    closeSocket(socket);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; catch (Throwable t) &#123;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        state = AcceptorState.ENDED;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>接收socket连接请求</p>
+<p>处理请求：setSocketOptions</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">protected boolean setSocketOptions(SocketChannel socket) &#123;</span><br><span class="line">    // Process the connection</span><br><span class="line">    try &#123;</span><br><span class="line">        //disable blocking, APR style, we are gonna be polling it</span><br><span class="line">        socket.configureBlocking(false);</span><br><span class="line">        Socket sock = socket.socket();</span><br><span class="line">        socketProperties.setProperties(sock);</span><br><span class="line">        NioChannel channel = nioChannels.pop();</span><br><span class="line">        if (channel == null) &#123;</span><br><span class="line">            SocketBufferHandler bufhandler = new SocketBufferHandler(</span><br><span class="line">                    socketProperties.getAppReadBufSize(),</span><br><span class="line">                    socketProperties.getAppWriteBufSize(),</span><br><span class="line">                    socketProperties.getDirectBuffer());</span><br><span class="line">            if (isSSLEnabled()) &#123;</span><br><span class="line">                channel = new SecureNioChannel(socket, bufhandler, selectorPool, this);</span><br><span class="line">            &#125; else &#123;</span><br><span class="line">                channel = new NioChannel(socket, bufhandler);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            channel.setIOChannel(socket);</span><br><span class="line">            channel.reset();</span><br><span class="line">        &#125;</span><br><span class="line">        //将channer注册进Poller，poller相当于selector</span><br><span class="line">        getPoller0().register(channel);</span><br><span class="line">    &#125; catch (Throwable t) &#123;</span><br><span class="line">    &#125;</span><br><span class="line">    return true;</span><br><span class="line">&#125;</span><br><span class="line">//注册过程，创建PollerEvent，将事件注册进Poller</span><br><span class="line">public void register(final NioChannel socket) &#123;</span><br><span class="line">    socket.setPoller(this);</span><br><span class="line">    NioSocketWrapper ka = new NioSocketWrapper(socket, NioEndpoint.this);</span><br><span class="line">    socket.setSocketWrapper(ka);</span><br><span class="line">    ka.setPoller(this);</span><br><span class="line">    ka.setReadTimeout(getSocketProperties().getSoTimeout());</span><br><span class="line">    ka.setWriteTimeout(getSocketProperties().getSoTimeout());</span><br><span class="line">    ka.setKeepAliveLeft(NioEndpoint.this.getMaxKeepAliveRequests());</span><br><span class="line">    ka.setSecure(isSSLEnabled());</span><br><span class="line">    ka.setReadTimeout(getConnectionTimeout());</span><br><span class="line">    ka.setWriteTimeout(getConnectionTimeout());</span><br><span class="line">    PollerEvent r = eventCache.pop();</span><br><span class="line">    ka.interestOps(SelectionKey.OP_READ);//this is what OP_REGISTER turns into.</span><br><span class="line">    if ( r==null) r = new PollerEvent(socket,ka,OP_REGISTER);</span><br><span class="line">    else r.reset(socket,ka,OP_REGISTER);</span><br><span class="line">    addEvent(r);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Poller轮询：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">public void run() &#123;</span><br><span class="line">    // Loop until destroy() is called</span><br><span class="line">    while (true) &#123;</span><br><span class="line">        boolean hasEvents = false;</span><br><span class="line">        Iterator&lt;SelectionKey&gt; iterator =</span><br><span class="line">            keyCount &gt; 0 ? selector.selectedKeys().iterator() : null;</span><br><span class="line">        // Walk through the collection of ready keys and dispatch</span><br><span class="line">        // any active event.</span><br><span class="line">        while (iterator != null &amp;&amp; iterator.hasNext()) &#123;</span><br><span class="line">            SelectionKey sk = iterator.next();</span><br><span class="line">            NioSocketWrapper attachment = (NioSocketWrapper)sk.attachment();</span><br><span class="line">            // Attachment may be null if another thread has called</span><br><span class="line">            // cancelledKey()</span><br><span class="line">            if (attachment == null) &#123;</span><br><span class="line">                iterator.remove();</span><br><span class="line">            &#125; else &#123;</span><br><span class="line">                iterator.remove();</span><br><span class="line">                processKey(sk, attachment);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;//while</span><br><span class="line">    &#125;//while</span><br><span class="line">    getStopLatch().countDown();</span><br><span class="line">&#125;</span><br><span class="line">1、迭代key并处理processKey</span><br></pre></td></tr></table></figure>
+
+<p>processKey</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">protected void processKey(SelectionKey sk, NioSocketWrapper attachment) &#123;</span><br><span class="line">    try &#123;</span><br><span class="line">        if ( close ) &#123;</span><br><span class="line">            cancelledKey(sk);</span><br><span class="line">        &#125; else if ( sk.isValid() &amp;&amp; attachment != null ) &#123;</span><br><span class="line">            if (sk.isReadable() || sk.isWritable() ) &#123;</span><br><span class="line">                if ( attachment.getSendfileData() != null ) &#123;</span><br><span class="line">                    processSendfile(sk,attachment, false);</span><br><span class="line">                &#125; else &#123;</span><br><span class="line">                    unreg(sk, attachment, sk.readyOps());</span><br><span class="line">                    boolean closeSocket = false;</span><br><span class="line">                    // Read goes before write</span><br><span class="line">                    if (sk.isReadable()) &#123;</span><br><span class="line">                        if (!processSocket(attachment, SocketEvent.OPEN_READ, true)) &#123;</span><br><span class="line">                            closeSocket = true;</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                    if (!closeSocket &amp;&amp; sk.isWritable()) &#123;</span><br><span class="line">                        if (!processSocket(attachment, SocketEvent.OPEN_WRITE, true)) &#123;</span><br><span class="line">                            closeSocket = true;</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                    if (closeSocket) &#123;</span><br><span class="line">                        cancelledKey(sk);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            //invalid key</span><br><span class="line">            cancelledKey(sk);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; catch ( CancelledKeyException ckx ) &#123;</span><br><span class="line">        cancelledKey(sk);</span><br><span class="line">    &#125; catch (Throwable t) &#123;</span><br><span class="line">        ExceptionUtils.handleThrowable(t);</span><br><span class="line">        log.error(&quot;&quot;,t);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>processSocket</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">public boolean processSocket(SocketWrapperBase&lt;S&gt; socketWrapper,</span><br><span class="line">        SocketEvent event, boolean dispatch) &#123;</span><br><span class="line">    try &#123;</span><br><span class="line">        if (socketWrapper == null) &#123;</span><br><span class="line">            return false;</span><br><span class="line">        &#125;</span><br><span class="line">        SocketProcessorBase&lt;S&gt; sc = processorCache.pop();</span><br><span class="line">        if (sc == null) &#123;</span><br><span class="line">            sc = createSocketProcessor(socketWrapper, event);</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            sc.reset(socketWrapper, event);</span><br><span class="line">        &#125;</span><br><span class="line">        Executor executor = getExecutor();</span><br><span class="line">        if (dispatch &amp;&amp; executor != null) &#123;</span><br><span class="line">            executor.execute(sc);</span><br><span class="line">        &#125; else &#123;</span><br><span class="line">            sc.run();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; catch (RejectedExecutionException ree) &#123;</span><br><span class="line">        getLog().warn(sm.getString(&quot;endpoint.executor.fail&quot;, socketWrapper) , ree);</span><br><span class="line">        return false;</span><br><span class="line">    &#125; catch (Throwable t) &#123;</span><br><span class="line">        ExceptionUtils.handleThrowable(t);</span><br><span class="line">        // This means we got an OOM or similar creating a thread, or that</span><br><span class="line">        // the pool and its queue are full</span><br><span class="line">        getLog().error(sm.getString(&quot;endpoint.process.fail&quot;), t);</span><br><span class="line">        return false;</span><br><span class="line">    &#125;</span><br><span class="line">    return true;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>具体执行过程</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br></pre></td><td class="code"><pre><span class="line">protected class SocketProcessor extends SocketProcessorBase&lt;NioChannel&gt; &#123;</span><br><span class="line">    @Override</span><br><span class="line">    protected void doRun() &#123;</span><br><span class="line">        NioChannel socket = socketWrapper.getSocket();</span><br><span class="line">        SelectionKey key = socket.getIOChannel().keyFor(socket.getPoller().getSelector());</span><br><span class="line">        try &#123;</span><br><span class="line">            int handshake = -1;</span><br><span class="line">            try &#123;</span><br><span class="line">                if (key != null) &#123;</span><br><span class="line">                    if (socket.isHandshakeComplete()) &#123;</span><br><span class="line">                        // No TLS handshaking required. Let the handler</span><br><span class="line">                        // process this socket / event combination.</span><br><span class="line">                        handshake = 0;</span><br><span class="line">                    &#125; else if (event == SocketEvent.STOP || event == SocketEvent.DISCONNECT ||</span><br><span class="line">                            event == SocketEvent.ERROR) &#123;</span><br><span class="line">                        // Unable to complete the TLS handshake. Treat it as</span><br><span class="line">                        // if the handshake failed.</span><br><span class="line">                        handshake = -1;</span><br><span class="line">                    &#125; else &#123;</span><br><span class="line">                        handshake = socket.handshake(key.isReadable(), key.isWritable());</span><br><span class="line">                        // The handshake process reads/writes from/to the</span><br><span class="line">                        // socket. status may therefore be OPEN_WRITE once</span><br><span class="line">                        // the handshake completes. However, the handshake</span><br><span class="line">                        // happens when the socket is opened so the status</span><br><span class="line">                        // must always be OPEN_READ after it completes. It</span><br><span class="line">                        // is OK to always set this as it is only used if</span><br><span class="line">                        // the handshake completes.</span><br><span class="line">                        event = SocketEvent.OPEN_READ;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; catch (IOException x) &#123;</span><br><span class="line">                handshake = -1;</span><br><span class="line">                if (log.isDebugEnabled()) log.debug(&quot;Error during SSL handshake&quot;,x);</span><br><span class="line">            &#125; catch (CancelledKeyException ckx) &#123;</span><br><span class="line">                handshake = -1;</span><br><span class="line">            &#125;</span><br><span class="line">            if (handshake == 0) &#123;</span><br><span class="line">                SocketState state = SocketState.OPEN;</span><br><span class="line">                // Process the request from this socket</span><br><span class="line">                if (event == null) &#123;</span><br><span class="line">                    state = getHandler().process(socketWrapper, SocketEvent.OPEN_READ);</span><br><span class="line">                &#125; else &#123;</span><br><span class="line">                    state = getHandler().process(socketWrapper, event);</span><br><span class="line">                &#125;</span><br><span class="line">                if (state == SocketState.CLOSED) &#123;</span><br><span class="line">                    close(socket, key);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; else if (handshake == -1 ) &#123;</span><br><span class="line">                getHandler().process(socketWrapper, SocketEvent.CONNECT_FAIL);</span><br><span class="line">                close(socket, key);</span><br><span class="line">            &#125; else if (handshake == SelectionKey.OP_READ)&#123;</span><br><span class="line">                socketWrapper.registerReadInterest();</span><br><span class="line">            &#125; else if (handshake == SelectionKey.OP_WRITE)&#123;</span><br><span class="line">                socketWrapper.registerWriteInterest();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; catch (CancelledKeyException cx) &#123;</span><br><span class="line">            socket.getPoller().cancelledKey(key);</span><br><span class="line">        &#125; catch (VirtualMachineError vme) &#123;</span><br><span class="line">            ExceptionUtils.handleThrowable(vme);</span><br><span class="line">        &#125; catch (Throwable t) &#123;</span><br><span class="line">            log.error(&quot;&quot;, t);</span><br><span class="line">            socket.getPoller().cancelledKey(key);</span><br><span class="line">        &#125; finally &#123;</span><br><span class="line">            socketWrapper = null;</span><br><span class="line">            event = null;</span><br><span class="line">            //return to cache</span><br><span class="line">            if (running &amp;&amp; !paused) &#123;</span><br><span class="line">                processorCache.push(this);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>getHandler().process</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">AbstractProtocol</span><br><span class="line">state = processor.process(wrapper, status);</span><br><span class="line">AbstractProtocal类中，获取processor后去执行任务</span><br></pre></td></tr></table></figure>
+
+<p>processor.process—-AbstractProcessorLight</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">public SocketState process(SocketWrapperBase&lt;?&gt; socketWrapper, SocketEvent status)</span><br><span class="line">        throws IOException &#123;</span><br><span class="line">    SocketState state = SocketState.CLOSED;</span><br><span class="line">    Iterator&lt;DispatchType&gt; dispatches = null;</span><br><span class="line">    do &#123;</span><br><span class="line">        //判断状态</span><br><span class="line">        &#125; else if (status == SocketEvent.OPEN_READ) &#123;</span><br><span class="line">            state = service(socketWrapper);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; while (state == SocketState.ASYNC_END ||</span><br><span class="line">            dispatches != null &amp;&amp; state != SocketState.CLOSED);</span><br><span class="line"></span><br><span class="line">    return state;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>service —-Http11Processor</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">getAdapter().service(request, response);</span><br></pre></td></tr></table></figure>
+
+
+<p>adapter.service —- CoyoteAdapter</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">// Parse and set Catalina and configuration specific</span><br><span class="line">// request parameters</span><br><span class="line">postParseSuccess = postParseRequest(req, request, res, response);</span><br><span class="line">// Calling the container</span><br><span class="line">connector.getService().getContainer().getPipeline().getFirst().invoke(</span><br><span class="line">        request, response);</span><br><span class="line">```        </span><br><span class="line">        </span><br><span class="line">1. 根据请求信息解析, 将对应的Host, Context, Wrapper容器对象封装到request实例中(重点)</span><br><span class="line">2. 调用StandardEngine的pipeline对Request,Response进行处理, StandardHostValve保存在pipeline的first属性中</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">postParseRequest</span><br></pre></td></tr></table></figure>
+<p>connector.getService().getMapper().map(serverName, decodedURI,<br>        version, request.getMappingData());</p>
+<pre><code>
+
+# 启动过程总结：
+1. Load阶段已经绑定了端口号
+2. start启动阶段，需要启动轮询线程、创建工作线程、连接池线程
+
+
+
+
+
+https://blog.csdn.net/qq_38975553/article/details/103443321
+
+</code></pre>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Tomcat/" rel="tag"># Tomcat</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B/" rel="prev" title="tomcat启动过程">
+      <i class="fa fa-chevron-left"></i> tomcat启动过程
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/12/22/2019-12-22-tomcat-webxml%E8%A7%A3%E6%9E%90/" rel="next" title="tomcat-webxml解析">
+      tomcat-webxml解析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B"><span class="nav-text">一、启动过程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81start%E6%B5%81%E7%A8%8B"><span class="nav-text">二、start流程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81Catalina"><span class="nav-text">2.1、Catalina:</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81StandardServer"><span class="nav-text">2.2、StandardServer:</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81StandardService"><span class="nav-text">2.3、StandardService:</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4%E3%80%81Executor%E2%80%94StandardThreadExecutor"><span class="nav-text">2.4、Executor—StandardThreadExecutor</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-5%E3%80%81Connector"><span class="nav-text">2.5、Connector</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-6%E3%80%81protocolHandler-%E2%80%94-AbstractHProtocal"><span class="nav-text">2.6、protocolHandler —&gt; AbstractHProtocal</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-7%E3%80%81endpoint-%E2%80%94-AbstractEndpoint-%E2%80%94-NIOEndpoint"><span class="nav-text">2.7、endpoint —&gt; AbstractEndpoint —&gt;  NIOEndpoint</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

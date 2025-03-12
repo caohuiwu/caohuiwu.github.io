@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是“Redis”系列的第十三篇文章，主要介绍的是Redis“常见面试题？”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Redis》常见面试题">
+<meta property="og:url" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是“Redis”系列的第十三篇文章，主要介绍的是Redis“常见面试题？”。  一、RedisRedis（Remote Dictionary Server）是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/Redis%E5%86%85%E5%AD%98%E6%B6%88%E8%80%97%E5%88%92%E5%88%86.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_redis%E6%97%A0%E6%B3%95%E5%86%99%E5%85%A5.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E9%80%90%E5%87%BA%E5%86%85%E5%AD%98%E6%88%96%E8%BF%87%E6%9C%9F.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E6%98%AF%E5%90%A6%E6%95%B0%E6%8D%AE%E9%87%8F%E5%A4%AA%E5%A4%A7.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E6%98%AF%E5%90%A6%E6%95%B0%E6%8D%AE%E9%87%8F%E5%A4%AA%E5%A4%A72.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E6%98%AF%E5%90%A6%E6%95%B0%E6%8D%AE%E9%87%8F%E5%A4%AA%E5%A4%A73.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E8%BE%93%E5%85%A5%E7%BC%93%E5%86%B2%E5%8C%BA.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_redis%E6%97%A0%E6%B3%95%E5%86%99%E5%85%A5.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E8%BE%93%E5%85%A5%E7%BC%93%E5%86%B2%E5%8C%BA2.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E8%BE%93%E5%85%A5%E7%BC%93%E5%86%B2%E5%8C%BA3.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E5%A4%8D%E5%88%B6%E7%BC%93%E5%86%B2%E5%8C%BA.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E5%A4%8D%E5%88%B6%E7%BC%93%E5%86%B2%E5%8C%BA2.png">
+<meta property="article:published_time" content="2020-07-27T14:19:31.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.557Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/Redis%E5%86%85%E5%AD%98%E6%B6%88%E8%80%97%E5%88%92%E5%88%86.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Redis》常见面试题 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Redis》常见面试题
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-27 22:19:31" itemprop="dateCreated datePublished" datetime="2020-07-27T22:19:31+08:00">2020-07-27</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/redis/%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/" itemprop="url" rel="index"><span itemprop="name">常见面试题</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>3.9k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>10 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是“Redis”系列的第十三篇文章，主要介绍的是Redis“常见面试题？”。
+</code></pre>
+<h1 id="一、Redis"><a href="#一、Redis" class="headerlink" title="一、Redis"></a>一、Redis</h1><p><code>Redis（Remote Dictionary Server）</code>是一个开源的内存数据库，遵守 BSD 协议，它提供了一个高性能的键值（key-value）存储系统，常用于缓存、消息队列、会话存储等应用场景。</p>
+<span id="more"></span>
+
+<h1 id="二、OOM了怎么办？"><a href="#二、OOM了怎么办？" class="headerlink" title="二、OOM了怎么办？"></a>二、OOM了怎么办？</h1><p>你是否有过这种困扰：我的数据量非常小，但还是报 OOM 错误？</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># ⼀个简单set提示内存不⾜</span><br><span class="line">[root@10-186-61-38 redis]# redis-cli -p 9999 set actionsky 1</span><br><span class="line">(error) OOM command not allowed when used memory &gt; &#x27;maxmemory&#x27;.</span><br></pre></td></tr></table></figure>
+<p>首先我给大家解释下，Redis 的 OOM 分两种。</p>
+<ul>
+<li>⼀种是因 Redis 使用内存超出 OS 物理内存，OS 将 Redis 进程杀死。</li>
+<li>另⼀种是 Redis 使用内存超过 maxmemory 参数配置，引发 Redis Server 层 OOM。</li>
+</ul>
+<p>OOM 是 Redis 最常见的内存故障，它影响很大：</p>
+<ul>
+<li><strong>故障发生时，进程并不会退出，能读但无法写入。</strong></li>
+<li><strong>配置了 allkeys-lru、allkeys-lfu 等内存淘汰策略场景下，会有大量键失效，导致缓存命中率急剧下降。</strong></li>
+</ul>
+<p>本文中，我会给大家分享下该种内存问题的排查方向及运维命令。</p>
+<h2 id="2-1、Redis-内存消耗划分"><a href="#2-1、Redis-内存消耗划分" class="headerlink" title="2.1、Redis 内存消耗划分"></a>2.1、Redis 内存消耗划分</h2><p><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/Redis%E5%86%85%E5%AD%98%E6%B6%88%E8%80%97%E5%88%92%E5%88%86.png" alt="Redis内存消耗划分"><br>简短介绍下 Redis 内存消耗划分情况，为下文诊断提供思路。上图可以总结 Redis 消耗内存分如下几块：</p>
+<ul>
+<li>对象内存：理论上占用最大，存储所有业务数据，如字符串类型、哈希类型对象等。</li>
+<li>客户端内存：包括输入客户端（查询或写入命令）、输出客户端使用的内存，因为不受 maxmemory 参数控制，这块我们需重点排查。</li>
+<li>复制积压缓冲：replication buffer，所有从库客户端共享、保存固定大小的写入命令用于从库失连后数据补偿。</li>
+<li>Redis 自身内存：存储数据元数据信息、过期键字典等。</li>
+<li>AOF 缓冲区：AOF 持久化、重写缓冲区，⼀般占用很少，基本不需要关注。</li>
+</ul>
+<h2 id="2-2、内存-OOM-会导致哪些问题？"><a href="#2-2、内存-OOM-会导致哪些问题？" class="headerlink" title="2.2、内存 OOM 会导致哪些问题？"></a>2.2、内存 OOM 会导致哪些问题？</h2><h3 id="2-2-1、Redis-无法写入，只能读取。"><a href="#2-2-1、Redis-无法写入，只能读取。" class="headerlink" title="2.2.1、Redis 无法写入，只能读取。"></a>2.2.1、Redis 无法写入，只能读取。</h3><p><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_redis%E6%97%A0%E6%B3%95%E5%86%99%E5%85%A5.png" alt="oom_redis无法写入"></p>
+<h3 id="2-2-2、Redis-大量键被逐出内存或过期，导致-Redis-查询效率降低（maxmemory-policy-配置为非默认值-noeviction-时）。"><a href="#2-2-2、Redis-大量键被逐出内存或过期，导致-Redis-查询效率降低（maxmemory-policy-配置为非默认值-noeviction-时）。" class="headerlink" title="2.2.2、Redis 大量键被逐出内存或过期，导致 Redis 查询效率降低（maxmemory-policy 配置为非默认值 noeviction 时）。"></a>2.2.2、Redis 大量键被逐出内存或过期，导致 Redis 查询效率降低（maxmemory-policy 配置为非默认值 noeviction 时）。</h3><p><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E9%80%90%E5%87%BA%E5%86%85%E5%AD%98%E6%88%96%E8%BF%87%E6%9C%9F.png" alt="oom_逐出内存或过期"></p>
+<h2 id="2-3、OOM排查思路"><a href="#2-3、OOM排查思路" class="headerlink" title="2.3、OOM排查思路"></a>2.3、OOM排查思路</h2><blockquote>
+<p>注意：下文不做特别说明的话，我的 maxmemory 设置为 1G，其它任何参数为默认。</p>
+</blockquote>
+<h3 id="2-3-1、是否数据量太大？"><a href="#2-3-1、是否数据量太大？" class="headerlink" title="2.3.1、是否数据量太大？"></a>2.3.1、是否数据量太大？</h3><p>使用 redis-benchmark 持续灌入数据，<br><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E6%98%AF%E5%90%A6%E6%95%B0%E6%8D%AE%E9%87%8F%E5%A4%AA%E5%A4%A7.png" alt="oom_排查_是否数据量太大"><br>检查内存使用情况，发生 OOM 状态时 used_memory ⼀定会大于 maxmemory。<br><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E6%98%AF%E5%90%A6%E6%95%B0%E6%8D%AE%E9%87%8F%E5%A4%AA%E5%A4%A72.png" alt="oom_排查_是否数据量太大2"><br>检查数据对象内存和其它内存使用情况如下图：<br><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E6%98%AF%E5%90%A6%E6%95%B0%E6%8D%AE%E9%87%8F%E5%A4%AA%E5%A4%A73.png" alt="oom_排查_是否数据量太大3"><br>这里有必要说明下 overhead.total，它包括除数据外 Redis 消耗的所有内存，比如前面提到的复制缓冲区、客户端输入输出缓冲区等，另外还包括⼀些元数据如 overhead.hashtable，它是数据库中元数据消耗的内存大小，包括以下三项：</p>
+<ul>
+<li>整个数据库是⼀种 hash 表，首先就是这张 hash 表使用的内存。</li>
+<li>每⼀个 key-value 对都有⼀个 dictEntry 来记录他们的关系，元信息便包含该 db 中所有 dictEntry 使用的内存。</li>
+<li>redis 使用 redisObject 来描述 value 所对应的不同数据类型（string、list、hash、set、zset），那么 redisObject 占用的空间也计算在元数据。</li>
+</ul>
+<p>大家对这个现象可能有点疑惑，为啥我明明设置 maxmemory 为 1G，你 Redis 只给我存了 990 多 M 数据就满了？</p>
+<p>很好理解，根据上面测试可知数据达到⼀定规模后，因需消耗额外的元数据、缓存内存，Redis 最终将超过 maxmemory 而 OOM。</p>
+<h3 id="2-3-2、是否客户端输入缓冲区有问题？"><a href="#2-3-2、是否客户端输入缓冲区有问题？" class="headerlink" title="2.3.2、是否客户端输入缓冲区有问题？"></a>2.3.2、是否客户端输入缓冲区有问题？</h3><p>制造输入缓冲区压力（防止干扰，先清空数据再压测）<br><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E8%BE%93%E5%85%A5%E7%BC%93%E5%86%B2%E5%8C%BA.png" alt="oom_排查_输入缓冲区"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># 关键参数解释</span><br><span class="line">-d 表示每个set值的大小，单位为字节</span><br><span class="line">-c 启多少个连接</span><br></pre></td></tr></table></figure>
+<p>压测几秒钟后，触发 OOM，<br><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_redis%E6%97%A0%E6%B3%95%E5%86%99%E5%85%A5.png" alt="oom_redis无法写入"><br>检查输入缓冲区内存消耗，能看到客户端输入缓冲区消耗总量为 2.4G左右，远远超过 maxmemory 参数设置。<br><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E8%BE%93%E5%85%A5%E7%BC%93%E5%86%B2%E5%8C%BA2.png" alt="oom_排查_输入缓冲区2"><br>那我如何找到消耗内存量最大的那个连接呢？<br><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E8%BE%93%E5%85%A5%E7%BC%93%E5%86%B2%E5%8C%BA3.png" alt="oom_排查_输入缓冲区3"><br>可通过运行上述检查命令，定位到各客户端输入缓冲区的内存消耗（由大到小排序）。</p>
+<p>⼀般如果定位到有连接异常，可以使用如下命令杀掉。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># 例如杀掉上图中 id=51421 的连接</span><br><span class="line">127.0.0.1:9999&gt; CLIENT KILL ID 51421</span><br><span class="line">(integer) 1</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-3、是否复制积压缓冲区有问题？"><a href="#2-3-3、是否复制积压缓冲区有问题？" class="headerlink" title="2.3.3、是否复制积压缓冲区有问题？"></a>2.3.3、是否复制积压缓冲区有问题？</h3><p>为测试方便，我直接把复制积压缓冲区配置为 800M。</p>
+<p>开启 redis-benchmark 压测进程，<br><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E5%A4%8D%E5%88%B6%E7%BC%93%E5%86%B2%E5%8C%BA.png" alt="oom_排查_复制缓冲区"><br>检查复制积压缓冲区内存消耗，可以看到因为缓冲区设置过大，数据量才存储 190 多 M，Redis 就无法写入了。<br><img src="/2020/07/27/2020-07-27-redis-%E5%B8%B8%E8%A7%81%E9%9D%A2%E8%AF%95%E9%A2%98/oom_%E6%8E%92%E6%9F%A5_%E5%A4%8D%E5%88%B6%E7%BC%93%E5%86%B2%E5%8C%BA2.png" alt="oom_排查_复制缓冲区2"></p>
+<h1 id="三、慢查询"><a href="#三、慢查询" class="headerlink" title="三、慢查询"></a>三、慢查询</h1><p>慢查询日志操作</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">slowlog get、slowlog len、slowlog reset。</span><br></pre></td></tr></table></figure>
+<p>设置</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">slowlog-log-slower-than</span><br><span class="line">    预设阈值，它的单位是微妙（1秒=1000毫秒=1000000微秒），默认值10000</span><br><span class="line">slowlog-max-len</span><br><span class="line">    Redis使用了一个列表存放慢查询日志，slowlog-max-len就是这个列表的最大长度</span><br></pre></td></tr></table></figure>
+
+<h1 id="四、数据一致性"><a href="#四、数据一致性" class="headerlink" title="四、数据一致性"></a>四、数据一致性</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">begin transaction</span><br><span class="line">insert mysql</span><br><span class="line">set  redis</span><br><span class="line">commit transaction</span><br></pre></td></tr></table></figure>
+<p>以上步骤，有哪些步骤会出现数据不一致情况</p>
+<h2 id="4-1、insert-mysql-步骤"><a href="#4-1、insert-mysql-步骤" class="headerlink" title="4.1、insert mysql 步骤"></a>4.1、insert mysql 步骤</h2><ul>
+<li>数据库操作失败<br>如果在向 MySQL 插入数据时，由于网络故障、数据库锁冲突、磁盘空间不足等原因导致插入操作失败，而后续的 set redis 操作在未感知到 MySQL 插入失败的情况下继续执行，就会造成 Redis 中存在一个在 MySQL 里并不存在的数据。例如，当数据库表达到最大行数限制或者插入的数据违反了唯一约束时，插入操作会失败，但 Redis 写入仍可能成功。</li>
+<li>部分写入成功<br>在分布式事务场景下，如果涉及多个 MySQL 节点或者分库分表操作，可能会出现部分节点写入成功，部分节点写入失败的情况。此时如果 set redis 操作基于部分成功的写入结果进行，就会导致 Redis 中的数据与 MySQL 整体的数据状态不一致。</li>
+</ul>
+<h2 id="4-2、set-redis-步骤"><a href="#4-2、set-redis-步骤" class="headerlink" title="4.2、set redis 步骤"></a>4.2、set redis 步骤</h2><ul>
+<li>Redis 操作失败<br>当向 Redis 设置数据时，可能因为 Redis 服务不可用（如 Redis 节点崩溃、网络连接中断）、Redis 内存不足等原因导致 set 操作失败。但此时 MySQL 中的插入操作已经成功，就会造成 MySQL 中有新数据而 Redis 中没有对应的缓存数据，后续读取操作可能会因为缓存未命中而频繁访问 MySQL，增加数据库压力，并且在缓存重建之前，不同客户端读取到的数据可能不一致。</li>
+<li>并发问题导致的数据覆盖<br>在高并发场景下，如果多个客户端同时进行类似的插入和缓存设置操作，可能会出现数据覆盖问题。例如，客户端 A 和客户端 B 同时执行插入操作，客户端 A 先完成 insert mysql 和 set redis，但客户端 B 在客户端 A 设置 Redis 之后才完成自己的 set redis 操作，可能会将客户端 A 插入的数据对应的缓存覆盖掉，导致 Redis 缓存与 MySQL 数据不一致。</li>
+</ul>
+<h2 id="4-3、commit-transaction-步骤"><a href="#4-3、commit-transaction-步骤" class="headerlink" title="4.3、commit transaction 步骤"></a>4.3、commit transaction 步骤</h2><p>-事务提交失败<br>在提交 MySQL 事务时，如果出现错误（如事务日志写入失败、数据库崩溃等），MySQL 会进行回滚操作，撤销之前的插入操作。但此时 Redis 中的数据已经设置成功，无法自动回滚，就会导致 Redis 中存在一个 MySQL 已经撤销插入的数据，造成数据不一致。</p>
+<h1 id="五、Redis实现定时任务"><a href="#五、Redis实现定时任务" class="headerlink" title="五、Redis实现定时任务"></a>五、Redis实现定时任务</h1><h2 id="5-1、任务存储"><a href="#5-1、任务存储" class="headerlink" title="5.1、任务存储"></a>5.1、任务存储</h2><p>数据结构</p>
+<ul>
+<li>使用zset</li>
+</ul>
+<p>有序集合（Sorted Set）中的每个元素都有一个分数（score），可以根据分数对元素进行排序。我们可以将任务的执行时间作为分数，任务的标识作为元素，通过定时扫描有序集合，找出分数小于等于当前时间的元素，执行相应的任务。</p>
+<h3 id="5-1-1、添加任务到有序集合"><a href="#5-1-1、添加任务到有序集合" class="headerlink" title="5.1.1、添加任务到有序集合"></a>5.1.1、添加任务到有序集合</h3><p>使用 ZADD 命令把任务添加到有序集合。此命令会将一个或多个成员及其分数添加到有序集合中。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ZADD scheduled_tasks &lt;execute_time&gt; &lt;task_id&gt;</span><br></pre></td></tr></table></figure>
+<p>示例：假设现在时间戳是 1695014400，要让一个任务在 60 秒后执行，可使用以下命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ZADD scheduled_tasks 1695014460 task:id:1</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="5-2、任务执行"><a href="#5-2、任务执行" class="headerlink" title="5.2、任务执行"></a>5.2、任务执行</h2><h3 id="5-2-1、任务获取"><a href="#5-2-1、任务获取" class="headerlink" title="5.2.1、任务获取"></a>5.2.1、任务获取</h3><p>定时扫描有序集合：编写一个定时任务，每隔一段时间扫描有序集合，找出分数小于等于当前时间的元素，执行相应的任务，并从有序集合中移除这些元素。示例代码如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ZRANGEBYSCORE scheduled_tasks 0 &lt;current_time&gt;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>scheduled_tasks：有序集合的名称。</li>
+<li>0：分数的下限。</li>
+<li><current_time>：当前时间的时间戳。</current_time></li>
+</ul>
+<p>示例：假设当前时间戳是 1695014460，执行以下命令获取需要执行的任务：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ZRANGEBYSCORE scheduled_tasks 0 1695014460</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-2-2、执行任务并移除已执行的任务"><a href="#5-2-2、执行任务并移除已执行的任务" class="headerlink" title="5.2.2、执行任务并移除已执行的任务"></a>5.2.2、执行任务并移除已执行的任务</h3><p>在获取到需要执行的任务后，执行相应的任务逻辑，然后使用 ZREM 命令将这些任务从有序集合中移除。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ZREM scheduled_tasks &lt;task_id&gt;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>scheduled_tasks：有序集合的名称。</li>
+<li><task_id>：任务的唯一标识。</task_id></li>
+</ul>
+<p>示例：移除 task:id:1 这个任务：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ZREM scheduled_tasks task:id:1</span><br></pre></td></tr></table></figure>
+
+<p>参考文章：<br><a href="https://opensource.actionsky.com/20210415-redis/">故障分析</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/24/2020-07-24-redis-%E6%95%B0%E6%8D%AE%E5%BA%93%E5%92%8C%E7%BC%93%E5%AD%98%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%E4%B8%80%E8%87%B4%E6%80%A7/" rel="prev" title="《Redis》数据库和缓存如何保证一致性？">
+      <i class="fa fa-chevron-left"></i> 《Redis》数据库和缓存如何保证一致性？
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/08/01/2020-08-01-%E6%95%B0%E6%8D%AE%E5%BA%93-%E5%B8%B8%E8%A7%81%E6%A6%82%E5%BF%B5/" rel="next" title="《数据库》常见概念">
+      《数据库》常见概念 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Redis"><span class="nav-text">一、Redis</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81OOM%E4%BA%86%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="nav-text">二、OOM了怎么办？</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81Redis-%E5%86%85%E5%AD%98%E6%B6%88%E8%80%97%E5%88%92%E5%88%86"><span class="nav-text">2.1、Redis 内存消耗划分</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E5%86%85%E5%AD%98-OOM-%E4%BC%9A%E5%AF%BC%E8%87%B4%E5%93%AA%E4%BA%9B%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="nav-text">2.2、内存 OOM 会导致哪些问题？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1%E3%80%81Redis-%E6%97%A0%E6%B3%95%E5%86%99%E5%85%A5%EF%BC%8C%E5%8F%AA%E8%83%BD%E8%AF%BB%E5%8F%96%E3%80%82"><span class="nav-text">2.2.1、Redis 无法写入，只能读取。</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-2%E3%80%81Redis-%E5%A4%A7%E9%87%8F%E9%94%AE%E8%A2%AB%E9%80%90%E5%87%BA%E5%86%85%E5%AD%98%E6%88%96%E8%BF%87%E6%9C%9F%EF%BC%8C%E5%AF%BC%E8%87%B4-Redis-%E6%9F%A5%E8%AF%A2%E6%95%88%E7%8E%87%E9%99%8D%E4%BD%8E%EF%BC%88maxmemory-policy-%E9%85%8D%E7%BD%AE%E4%B8%BA%E9%9D%9E%E9%BB%98%E8%AE%A4%E5%80%BC-noeviction-%E6%97%B6%EF%BC%89%E3%80%82"><span class="nav-text">2.2.2、Redis 大量键被逐出内存或过期，导致 Redis 查询效率降低（maxmemory-policy 配置为非默认值 noeviction 时）。</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81OOM%E6%8E%92%E6%9F%A5%E6%80%9D%E8%B7%AF"><span class="nav-text">2.3、OOM排查思路</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-1%E3%80%81%E6%98%AF%E5%90%A6%E6%95%B0%E6%8D%AE%E9%87%8F%E5%A4%AA%E5%A4%A7%EF%BC%9F"><span class="nav-text">2.3.1、是否数据量太大？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-2%E3%80%81%E6%98%AF%E5%90%A6%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%BE%93%E5%85%A5%E7%BC%93%E5%86%B2%E5%8C%BA%E6%9C%89%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="nav-text">2.3.2、是否客户端输入缓冲区有问题？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-3%E3%80%81%E6%98%AF%E5%90%A6%E5%A4%8D%E5%88%B6%E7%A7%AF%E5%8E%8B%E7%BC%93%E5%86%B2%E5%8C%BA%E6%9C%89%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="nav-text">2.3.3、是否复制积压缓冲区有问题？</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%85%A2%E6%9F%A5%E8%AF%A2"><span class="nav-text">三、慢查询</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7"><span class="nav-text">四、数据一致性</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81insert-mysql-%E6%AD%A5%E9%AA%A4"><span class="nav-text">4.1、insert mysql 步骤</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81set-redis-%E6%AD%A5%E9%AA%A4"><span class="nav-text">4.2、set redis 步骤</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81commit-transaction-%E6%AD%A5%E9%AA%A4"><span class="nav-text">4.3、commit transaction 步骤</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81Redis%E5%AE%9E%E7%8E%B0%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1"><span class="nav-text">五、Redis实现定时任务</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1%E3%80%81%E4%BB%BB%E5%8A%A1%E5%AD%98%E5%82%A8"><span class="nav-text">5.1、任务存储</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-1%E3%80%81%E6%B7%BB%E5%8A%A0%E4%BB%BB%E5%8A%A1%E5%88%B0%E6%9C%89%E5%BA%8F%E9%9B%86%E5%90%88"><span class="nav-text">5.1.1、添加任务到有序集合</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-2%E3%80%81%E4%BB%BB%E5%8A%A1%E6%89%A7%E8%A1%8C"><span class="nav-text">5.2、任务执行</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-1%E3%80%81%E4%BB%BB%E5%8A%A1%E8%8E%B7%E5%8F%96"><span class="nav-text">5.2.1、任务获取</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-2%E3%80%81%E6%89%A7%E8%A1%8C%E4%BB%BB%E5%8A%A1%E5%B9%B6%E7%A7%BB%E9%99%A4%E5%B7%B2%E6%89%A7%E8%A1%8C%E7%9A%84%E4%BB%BB%E5%8A%A1"><span class="nav-text">5.2.2、执行任务并移除已执行的任务</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

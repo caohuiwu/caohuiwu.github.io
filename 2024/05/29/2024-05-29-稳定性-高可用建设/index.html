@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是系统稳定性系列的第一篇文章，主要介绍的是一些高可用建设的基础知识。  一、高可用 “高可用性”（High Availability）通常来描述一个系统经过专门的设计，从而减少停工时间，而保持其服务的高度可用性。其计算公式是：可用率&#x3D;（总时间-不可用时间）&#x2F;总时间。  高可用建设是确保系统在面临各种故障和挑战时仍能持续稳定运行，为用户提供可靠服务的一系列措施。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《稳定性》高可用建设思路">
+<meta property="og:url" content="http://yoursite.com/2024/05/29/2024-05-29-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E9%AB%98%E5%8F%AF%E7%94%A8%E5%BB%BA%E8%AE%BE/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是系统稳定性系列的第一篇文章，主要介绍的是一些高可用建设的基础知识。  一、高可用 “高可用性”（High Availability）通常来描述一个系统经过专门的设计，从而减少停工时间，而保持其服务的高度可用性。其计算公式是：可用率&#x3D;（总时间-不可用时间）&#x2F;总时间。  高可用建设是确保系统在面临各种故障和挑战时仍能持续稳定运行，为用户提供可靠服务的一系列措施。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-05-29T02:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.837Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2024/05/29/2024-05-29-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E9%AB%98%E5%8F%AF%E7%94%A8%E5%BB%BA%E8%AE%BE/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《稳定性》高可用建设思路 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2024/05/29/2024-05-29-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E9%AB%98%E5%8F%AF%E7%94%A8%E5%BB%BA%E8%AE%BE/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《稳定性》高可用建设思路
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-05-29 10:00:00" itemprop="dateCreated datePublished" datetime="2024-05-29T10:00:00+08:00">2024-05-29</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%A8%B3%E5%AE%9A%E6%80%A7/" itemprop="url" rel="index"><span itemprop="name">稳定性</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E9%AB%98%E5%8F%AF%E7%94%A8/" itemprop="url" rel="index"><span itemprop="name">高可用</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>923</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>2 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是系统稳定性系列的第一篇文章，主要介绍的是一些高可用建设的基础知识。
+</code></pre>
+<h3 id="一、高可用"><a href="#一、高可用" class="headerlink" title="一、高可用"></a>一、高可用</h3><blockquote>
+<p>“高可用性”（High Availability）通常来描述一个系统经过专门的设计，从而减少停工时间，而保持其服务的高度可用性。其计算公式是：可用率&#x3D;（总时间-不可用时间）&#x2F;总时间。</p>
+</blockquote>
+<p>高可用建设是确保系统在面临各种故障和挑战时仍能持续稳定运行，为用户提供可靠服务的一系列措施。</p>
+<span id="more"></span>
+<p>高可用建设总结归纳成3个方面：防、控、练。</p>
+<h4 id="1-防"><a href="#1-防" class="headerlink" title="1 防"></a>1 防</h4><p>“防” 在高可用建设中代表着通过各种手段预防故障发生、防范风险因素和防止性能下降，为系统的高可用性提供坚实的基础。 可以从架构设计、技术选型、业务风险、容量规划等方面进行。</p>
+<p>⭐️ 架构设计</p>
+<ul>
+<li>通过合理的分布式架构设计，将系统拆分为多个独立的模块或服务，避免单点故障。</li>
+<li>进行冗余设计，对关键组件如数据库、服务器等进行备份，确保在主组件出现故障时，备用组件能够及时接管，保证系统的持续运行。</li>
+</ul>
+<p>⭐️ 风险梳理<br>通过人工梳理或者工具梳理，分析业务流程中的风险点，采取相应的措施进行防范。例如分析交易主链路中的风险点。</p>
+<p>⭐️ 风险治理<br>针对风险梳理出来的问题进行治理，治理方案如下：</p>
+<blockquote>
+<ul>
+<li>强弱依赖：判断强依赖是否可以降成弱依赖。</li>
+<li>隔离建设：<ul>
+<li>限流隔离：分应用隔离、分场景隔离。</li>
+<li>线程池隔离：</li>
+<li>功能隔离：<ul>
+<li>应用分组隔离：例如交易服务可分成导购分组、下单分组。</li>
+<li>应用功能隔离：例如交易的商户订单、用户订单，可做隔离。</li>
+</ul>
+</li>
+<li>资源隔离：例如缓存，针对不同业务，申请不同资源。</li>
+</ul>
+</li>
+<li>限流治理：<ul>
+<li>保护自己</li>
+<li>保护下游</li>
+</ul>
+</li>
+<li>容灾建设：<ul>
+<li>单元化</li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<h4 id="2-控"><a href="#2-控" class="headerlink" title="2 控"></a>2 控</h4><blockquote>
+<ul>
+<li>控” 意味着对系统的各个关键环节进行持续监控；能够快速发现系统中的异常情况；隔离故障影响；快速恢复服务。</li>
+</ul>
+</blockquote>
+<blockquote>
+<ul>
+<li>发现响应：<ul>
+<li>告警配置：<ul>
+<li>基础指标：<ul>
+<li>入口：RPC、消息、定时任务等。</li>
+<li>下游：RPC、数据库、缓存、消息等。</li>
+<li>容器：探活、CPU、内存、磁盘等。</li>
+<li>JVM：GC、内存、线程池。</li>
+<li>其他：独立线程池、限流。</li>
+</ul>
+</li>
+<li>业务指标：<ul>
+<li>业务动作：例如下单量。</li>
+</ul>
+</li>
+<li>异常指标：<ul>
+<li>基础异常指标：例如CPU上涨20%。</li>
+<li>业务异常指标：例如下单成交量下跌5%。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>告警响应：<ul>
+<li>告警分级（电话、短信、钉钉），</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>应急止血：</li>
+<li>应急三角色：止血、定位、同步。</li>
+<li>止血恢复：自动恢复、人工介入恢复。</li>
+<li>定位：交易大盘、工具、排障手册。</li>
+</ul>
+</blockquote>
+<h4 id="3-练"><a href="#3-练" class="headerlink" title="3 练"></a>3 练</h4><blockquote>
+<ul>
+<li>练<ul>
+<li>攻防演练</li>
+<li>预案演练：注入</li>
+</ul>
+</li>
+</ul>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2024/05/04/2024-05-04-%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84-%E8%B5%84%E4%BA%A7%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84/" rel="prev" title="《系统重构》资产管理系统重构">
+      <i class="fa fa-chevron-left"></i> 《系统重构》资产管理系统重构
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2024/06/03/2024-06-03-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E7%BA%BF%E7%A8%8B%E6%B1%A0%E7%9B%91%E6%8E%A7/" rel="next" title="《稳定性》线程池的“控”">
+      《稳定性》线程池的“控” <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E9%AB%98%E5%8F%AF%E7%94%A8"><span class="nav-text">一、高可用</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-%E9%98%B2"><span class="nav-text">1 防</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-%E6%8E%A7"><span class="nav-text">2 控</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-%E7%BB%83"><span class="nav-text">3 练</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是性能优化系列的第三篇文章，主要介绍的是多线程相关优化。  一、背景在美团，主要是负责对资产管理系统的重构工作，现在对系统的作用及功能做介绍。  系统定位：对美团的充电宝、优选物资、优选低值物资等资产的完整生命周期进行管理。 主要功能：资产新增、资产重建、资产调整、资产折旧、资产处置等。  对资产的操作，例如资产新增，一般是通过excel导入系统，导入的数据量最多30W行，如此大的数据量，处理时">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《性能优化系列》多线程优化">
+<meta property="og:url" content="http://yoursite.com/2024/03/05/2024-03-05-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96-%E5%A4%9A%E7%BA%BF%E7%A8%8B%E4%BC%98%E5%8C%96/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是性能优化系列的第三篇文章，主要介绍的是多线程相关优化。  一、背景在美团，主要是负责对资产管理系统的重构工作，现在对系统的作用及功能做介绍。  系统定位：对美团的充电宝、优选物资、优选低值物资等资产的完整生命周期进行管理。 主要功能：资产新增、资产重建、资产调整、资产折旧、资产处置等。  对资产的操作，例如资产新增，一般是通过excel导入系统，导入的数据量最多30W行，如此大的数据量，处理时">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.plantuml.com/plantuml/svg/hP7FIiD04CRl-nJx0ZrupS5tMTCz1AhMPX6zvQ3YdxID-A_GDkq6IufW4xHAIHRoCZkRzTHNC3GM2Ws2u6LWXlb-y_4DCTbX2-jv0DTS9WdSzb2Jj9XbMaromB3-E9D9cCzuxbtaxscUZb2TCB97R8htJ-sZ1aARsjhkjW0RFnJr64FWBuKBaO3p2JqnQGCHard7XD6gIzkZAhw1GJZWHV0SokIciF8lJBbmr92NLMTzpLsvU2kgUeXLUwR6_El5NOfBDHOWkklsgXA_ogbm-Tg3mLGvuNhRLQE9ZW9YsvILEisdln5aDYmWfGEqcjMgpUli7le-gjC_9b7GDfvfu1s8k-hf4xnEISpJE-KFq3S0">
+<meta property="article:published_time" content="2024-03-05T02:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.792Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="美团">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.plantuml.com/plantuml/svg/hP7FIiD04CRl-nJx0ZrupS5tMTCz1AhMPX6zvQ3YdxID-A_GDkq6IufW4xHAIHRoCZkRzTHNC3GM2Ws2u6LWXlb-y_4DCTbX2-jv0DTS9WdSzb2Jj9XbMaromB3-E9D9cCzuxbtaxscUZb2TCB97R8htJ-sZ1aARsjhkjW0RFnJr64FWBuKBaO3p2JqnQGCHard7XD6gIzkZAhw1GJZWHV0SokIciF8lJBbmr92NLMTzpLsvU2kgUeXLUwR6_El5NOfBDHOWkklsgXA_ogbm-Tg3mLGvuNhRLQE9ZW9YsvILEisdln5aDYmWfGEqcjMgpUli7le-gjC_9b7GDfvfu1s8k-hf4xnEISpJE-KFq3S0">
+
+<link rel="canonical" href="http://yoursite.com/2024/03/05/2024-03-05-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96-%E5%A4%9A%E7%BA%BF%E7%A8%8B%E4%BC%98%E5%8C%96/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《性能优化系列》多线程优化 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2024/03/05/2024-03-05-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96-%E5%A4%9A%E7%BA%BF%E7%A8%8B%E4%BC%98%E5%8C%96/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《性能优化系列》多线程优化
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-03-05 10:00:00" itemprop="dateCreated datePublished" datetime="2024-03-05T10:00:00+08:00">2024-03-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/" itemprop="url" rel="index"><span itemprop="name">java</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/%E5%B9%B6%E5%8F%91/" itemprop="url" rel="index"><span itemprop="name">并发</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java/%E5%B9%B6%E5%8F%91/%E7%BA%BF%E7%A8%8B%E6%B1%A0/" itemprop="url" rel="index"><span itemprop="name">线程池</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/" itemprop="url" rel="index"><span itemprop="name">性能优化</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%BE%8E%E5%9B%A2/" itemprop="url" rel="index"><span itemprop="name">美团</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>2.2k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>5 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是性能优化系列的第三篇文章，主要介绍的是多线程相关优化。
+</code></pre>
+<h3 id="一、背景"><a href="#一、背景" class="headerlink" title="一、背景"></a>一、背景</h3><p>在美团，主要是负责对资产管理系统的重构工作，现在对系统的作用及功能做介绍。</p>
+<ul>
+<li>系统定位：对美团的充电宝、优选物资、优选低值物资等资产的完整生命周期进行管理。</li>
+<li>主要功能：资产新增、资产重建、资产调整、资产折旧、资产处置等。</li>
+</ul>
+<p>对资产的操作，例如资产新增，一般是通过excel导入系统，导入的数据量最多30W行，如此大的数据量，处理时长达1小时，系统可以说是一种不可用的状态。当时从产品设计、系统架构、数据模型，对系统进行了重大的调整。本文主要对多线程方面进行讲解。</p>
+<span id="more"></span>
+
+<h3 id="二、当前业务说明"><a href="#二、当前业务说明" class="headerlink" title="二、当前业务说明"></a>二、当前业务说明</h3><p>系统处理的时序图如下：</p>
+<img src="http://www.plantuml.com/plantuml/svg/hP7FIiD04CRl-nJx0ZrupS5tMTCz1AhMPX6zvQ3YdxID-A_GDkq6IufW4xHAIHRoCZkRzTHNC3GM2Ws2u6LWXlb-y_4DCTbX2-jv0DTS9WdSzb2Jj9XbMaromB3-E9D9cCzuxbtaxscUZb2TCB97R8htJ-sZ1aARsjhkjW0RFnJr64FWBuKBaO3p2JqnQGCHard7XD6gIzkZAhw1GJZWHV0SokIciF8lJBbmr92NLMTzpLsvU2kgUeXLUwR6_El5NOfBDHOWkklsgXA_ogbm-Tg3mLGvuNhRLQE9ZW9YsvILEisdln5aDYmWfGEqcjMgpUli7le-gjC_9b7GDfvfu1s8k-hf4xnEISpJE-KFq3S0">
+
+<p>伪代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Object&gt; assetList = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line"><span class="comment">//开启事务：@Transaction</span></span><br><span class="line"><span class="keyword">for</span> (Object asset : assetList) &#123;</span><br><span class="line">    <span class="comment">//对资产进行校验</span></span><br><span class="line">    check(asset);</span><br><span class="line">    <span class="comment">//数据存储</span></span><br><span class="line">    service.addAsset(asset);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="三、优化"><a href="#三、优化" class="headerlink" title="三、优化"></a>三、优化</h3><p>优化思路：</p>
+<ul>
+<li>大事务：解决大事务问题。</li>
+<li>并发：使用多线程提升性能。</li>
+</ul>
+<h4 id="⭐️-使用CompletableFeature"><a href="#⭐️-使用CompletableFeature" class="headerlink" title="⭐️ 使用CompletableFeature"></a>⭐️ 使用CompletableFeature</h4><p>从业务的执行流程上看，可以把资产的操作分成2部分：</p>
+<ul>
+<li>第一部分：资产数据的校验。</li>
+<li>第二部分：资产数据的保存。</li>
+</ul>
+<p>2个操作是先后顺序，非常适合使用CompletableFeature。</p>
+<ul>
+<li>1、将资产进行分段，例如分成3段，每一段用多线程去并发处理（同时分割成3个小事务）。</li>
+<li>2、使用CompletableFuture.supplyAsync()，处理第一部分，生成对应的实体类。</li>
+<li>3、然后使用CompletableFuture.thenApplyAsync()处理第一部分返回的数据，进行数据的插入。</li>
+</ul>
+<p>伪代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//1. 首先将assetList分组</span></span><br><span class="line">List&lt;Integer&gt; originalList = List.of(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>, <span class="number">10</span>);</span><br><span class="line">List&lt;List&lt;Integer&gt;&gt; copyPartition = Lists.partition(originalList, <span class="number">3</span>);</span><br><span class="line">List&lt;CompletableFuture&lt;Object&gt;&gt; futureList = copyPartition.stream().map(subList -&gt;</span><br><span class="line">        <span class="comment">//任务传递给supplyAsync()方法，该任务将在ForkJoinPool.commonPool()中异步完成运行</span></span><br><span class="line">        <span class="comment">//最后，supplyAsync()将返回新的CompletableFuture，其值是通过调用给定的Supplier所获得的值。</span></span><br><span class="line">        CompletableFuture.supplyAsync(() -&gt; &#123;</span><br><span class="line">                    log.info(<span class="string">&quot;处理第&#123;&#125;段数据开始&quot;</span>, n);</span><br><span class="line">                    <span class="keyword">return</span> checkImportAndBuildEvent(baseMessageMap, subList, totalCheckedMap, mis);</span><br><span class="line">            &#125;, importForkJoinPool)</span><br><span class="line">            <span class="comment">//thenApplyAsync()方法，从supplyAsync()获得的参数传递来执行给定的函数</span></span><br><span class="line">            .thenApplyAsync(eventSaveReqs -&gt; &#123;</span><br><span class="line">                    <span class="keyword">try</span> &#123;</span><br><span class="line">                        EventStrategyFactory.getStrategy(EventLargeCategoryEnum.IMPAIRMENT_ADD.getCode()).triggerEvent(eventSaveReqs);</span><br><span class="line">                        totalCheckedMap.get(BaseConstants.SUC_LIST).addAll(subList);</span><br><span class="line">                    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">                        log.error(<span class="string">&quot;资产新建失败&quot;</span>, e);</span><br><span class="line">                        subList.forEach(importDto -&gt; &#123;</span><br><span class="line">                            importDto.setFailReason(<span class="string">&quot;资产新建入库失败&quot;</span>);</span><br><span class="line">                        &#125;);</span><br><span class="line">                        totalCheckedMap.get(BaseConstants.FAIL_LIST).addAll(subList);</span><br><span class="line">                    &#125;</span><br><span class="line">                    log.info(<span class="string">&quot;处理第&#123;&#125;段数据开始&quot;</span>, n);</span><br><span class="line">                    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">                &#125;,</span><br><span class="line">                queryForkJoinPool</span><br><span class="line">            )</span><br><span class="line">).collect(toList());</span><br><span class="line">futureList.stream().map(CompletableFuture::join).collect(Collectors.toList());</span><br></pre></td></tr></table></figure>
+
+<p>数据校验和保存，使用了2个线程池，达到业务隔离的作用：</p>
+<ul>
+<li>importForkJoinPool：处理数据校验。</li>
+<li>queryForkJoinPool：处理数据的存储。</li>
+</ul>
+<h3 id="四、优化结果"><a href="#四、优化结果" class="headerlink" title="四、优化结果"></a>四、优化结果</h3><p>30W数据excel导入，由1小时优化到了2分钟，优化效果大大的提高了系统可用性。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E7%BE%8E%E5%9B%A2/" rel="tag"># 美团</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2024/03/03/2024-03-03-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96-MySQL%E6%9F%A5%E8%AF%A2%E4%BC%98%E5%8C%96/" rel="prev" title="《性能优化系列》MySQL查询优化">
+      <i class="fa fa-chevron-left"></i> 《性能优化系列》MySQL查询优化
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2024/03/07/2024-03-07-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96-jvm%E4%BC%98%E5%8C%96/" rel="next" title="《性能优化系列》jvm优化">
+      《性能优化系列》jvm优化 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E8%83%8C%E6%99%AF"><span class="nav-text">一、背景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%BD%93%E5%89%8D%E4%B8%9A%E5%8A%A1%E8%AF%B4%E6%98%8E"><span class="nav-text">二、当前业务说明</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E4%BC%98%E5%8C%96"><span class="nav-text">三、优化</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E2%AD%90%EF%B8%8F-%E4%BD%BF%E7%94%A8CompletableFeature"><span class="nav-text">⭐️ 使用CompletableFeature</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E4%BC%98%E5%8C%96%E7%BB%93%E6%9E%9C"><span class="nav-text">四、优化结果</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

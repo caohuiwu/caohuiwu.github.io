@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、内存内存（Memory）是计算机的重要组成部分，用于存储计算机正在运行的程序和数据。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Linux》内存">
+<meta property="og:url" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="一、内存内存（Memory）是计算机的重要组成部分，用于存储计算机正在运行的程序和数据。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E8%99%9A%E6%8B%9F%E5%AF%BB%E5%9D%80.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/mmu.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E9%A1%B5%E8%A1%A8.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E7%BC%BA%E9%A1%B5.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E5%86%85%E6%A0%B8%E6%80%81.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E7%94%A8%E6%88%B7%E6%80%81.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80%E6%80%BB%E7%BB%93.png">
+<meta property="og:image" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86.png">
+<meta property="article:published_time" content="2020-03-02T09:15:35.000Z">
+<meta property="article:modified_time" content="2025-03-04T07:37:55.070Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E8%99%9A%E6%8B%9F%E5%AF%BB%E5%9D%80.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Linux》内存 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Linux》内存
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-03-02 17:15:35" itemprop="dateCreated datePublished" datetime="2020-03-02T17:15:35+08:00">2020-03-02</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/linux/" itemprop="url" rel="index"><span itemprop="name">linux</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/linux/%E5%86%85%E5%AD%98/" itemprop="url" rel="index"><span itemprop="name">内存</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>8.2k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>21 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="一、内存"><a href="#一、内存" class="headerlink" title="一、内存"></a>一、内存</h1><p>内存（Memory）是计算机的重要组成部分，用于存储计算机正在运行的程序和数据。</p>
+<span id="more"></span>  
+
+
+<h2 id="1-1、内存类型"><a href="#1-1、内存类型" class="headerlink" title="1.1、内存类型"></a>1.1、内存类型</h2><p>内存主要分为<strong>随机存取存储器</strong>（Random - Access Memory，RAM）和<strong>只读存储器</strong>（Read - Only Memory，ROM）。</p>
+<ul>
+<li>RAM 是计算机的主存储器，通常所说的内存大小就是指 RAM 的大小，它允许计算机快速地读取和写入数据，但是在计算机断电后，存储的数据会丢失。</li>
+<li>ROM 则用于存储一些固定的程序或数据，如计算机的 BIOS（基本输入输出系统），它的数据在一般情况下只能读取，不能随意写入，并且在断电后数据不会丢失。</li>
+</ul>
+<h1 id="二、内存管理"><a href="#二、内存管理" class="headerlink" title="二、内存管理"></a>二、内存管理</h1><h2 id="2-1、分区式内存管理"><a href="#2-1、分区式内存管理" class="headerlink" title="2.1、分区式内存管理"></a>2.1、分区式内存管理</h2><h3 id="2-1-1、固定分区"><a href="#2-1-1、固定分区" class="headerlink" title="2.1.1、固定分区"></a>2.1.1、固定分区</h3><ul>
+<li><strong>原理：</strong> 在系统初始化时，把内存划分为若干个固定大小的分区。每个分区的大小可以相同，也可以不同。每个分区可以装入一道程序，程序运行时整个分区都分配给它。例如，内存大小为 64KB，划分成 4 个分区，每个分区大小为 16KB。当有一个大小为 10KB 的程序要运行时，就会分配一个 16KB 的分区给它，剩余 6KB 空间浪费掉。</li>
+<li><strong>优点：</strong> 实现简单，易于理解和管理。对于一些对内存要求固定且已知的系统比较适用。</li>
+<li><strong>缺点：</strong> 存在内部碎片，即分区内未被利用的空间。内存利用率较低，因为程序大小不一定刚好与分区大小匹配；并且分区数量固定，限制了可同时运行的程序数量。</li>
+</ul>
+<h3 id="2-1-2、动态分区"><a href="#2-1-2、动态分区" class="headerlink" title="2.1.2、动态分区"></a>2.1.2、动态分区</h3><ul>
+<li><strong>原理：</strong> 在程序装入内存时，根据程序的大小动态地划分内存空间。例如，内存最初是一个空闲的大块，当第一个程序大小为 20KB 需要装入时，就从内存中划分出 20KB 给它；当第二个程序大小为 30KB 装入时，再从剩余空闲空间划分出 30KB。</li>
+<li><strong>优点：</strong> 没有内部碎片，因为是按照程序大小分配空间的。内存利用率相对较高。</li>
+<li><strong>缺点：</strong> 存在外部碎片，即内存中由于多次分配和回收产生的小的空闲分区，这些小分区可能无法满足新程序的装入需求，尽管它们的总和可能足够。并且内存分配和回收的算法相对复杂，管理开销较大。</li>
+</ul>
+<h2 id="2-2、页式内存管理"><a href="#2-2、页式内存管理" class="headerlink" title="2.2、页式内存管理"></a>2.2、页式内存管理</h2><ul>
+<li><strong>原理：</strong> 把内存空间划分为大小相等的页面（Page），一般页面大小为 4KB 或 8KB 等固定值。同时，将程序的逻辑地址空间也划分为同样大小的页。当程序运行时，以页为单位进行内存分配。例如，程序的逻辑地址空间有 100 页，内存中有 200 个物理页面。当程序需要运行时，操作系统会将程序的页映射到内存的物理页面上。</li>
+<li><strong>优点：</strong> 有效地解决了外部碎片问题，因为页面大小固定，分配和回收相对简单。便于操作系统进行内存管理，通过页表（Page Table）来记录逻辑页和物理页的映射关系，方便实现虚拟内存。</li>
+<li><strong>缺点：</strong> 存在内部碎片，因为最后一页可能没有装满程序内容。页表需要占用一定的内存空间，并且页表的查询会带来一定的时间开销。</li>
+</ul>
+<p>在 32 位的 x86 架构中，早期的 Windows 和 Linux 系统通常使用 4KB 的页大小。随着 64 位架构的发展，也支持更大的页大小，如 2MB 或 4MB 的大页（Huge Pages）来提高性能</p>
+<h2 id="2-3、段式内存管理"><a href="#2-3、段式内存管理" class="headerlink" title="2.3、段式内存管理"></a>2.3、段式内存管理</h2><ul>
+<li><strong>原理：</strong> 根据程序的逻辑结构将程序划分为若干个段（Segment），如代码段、数据段、堆栈段等。每个段有自己的名字和长度，在内存中可以独立地进行存储和管理。例如，一个编译后的程序可能包括代码段存放指令，数据段存放变量和常量，堆栈段用于函数调用等。</li>
+<li><strong>优点：</strong> 便于程序和数据的共享，不同的程序可以共享相同的代码段。可以根据程序的逻辑结构进行动态增长，例如堆栈段可以根据函数调用的深度动态增长。</li>
+<li><strong>缺点：</strong> 会产生外部碎片，因为段的大小不固定。段表（Segment Table）用于管理段的存储位置等信息，段表的管理和维护也会带来一定的开销。</li>
+</ul>
+<h2 id="2-4、段页式内存管理"><a href="#2-4、段页式内存管理" class="headerlink" title="2.4、段页式内存管理"></a>2.4、段页式内存管理</h2><ul>
+<li><strong>原理：</strong> 结合了段式和页式管理的优点。先将程序按逻辑结构分成段，然后每个段内再划分成页。在内存分配时，先找到相应的段，再将段内的页映射到内存中的物理页面。例如，一个程序分为代码段和数据段，代码段有 30 页，数据段有 20 页，这些页会根据需要映射到内存的物理页面上。</li>
+<li><strong>优点：</strong> 综合了段式和页式的优点，既便于程序的逻辑管理，又有效地解决了外部碎片问题，同时也能方便地实现虚拟内存。</li>
+<li><strong>缺点：</strong> 管理复杂程度较高，因为需要同时维护段表和页表，增加了系统的开销。内存空间的分配和回收过程涉及更多的步骤和数据结构。</li>
+</ul>
+<p><strong>因为内存的控制方式是页，所以和磁盘的交互也是以页的方式页的整数倍</strong>。</p>
+<h1 id="三、虚拟内存"><a href="#三、虚拟内存" class="headerlink" title="三、虚拟内存"></a>三、虚拟内存</h1><p>虚拟内存是一种计算机系统内存管理技术，它使得应用程序在运行时能够使用比实际物理内存更大的地址空间。它将计算机的物理内存（Random - Access Memory，RAM）和磁盘空间（通常是硬盘的一部分）结合起来，为每个进程创建一个虚拟的、连续的地址空间。这个虚拟地址空间对进程来说就好像是真实的物理内存，但实际上，只有部分虚拟地址空间中的数据存储在物理内存中，其余部分存储在磁盘上。</p>
+<blockquote>
+<p>众所周知，Linux采用虚拟内存管理技术，每个进程都有独立的进程地址空间。这是Linux内存管理的基础，所以我们先讲解一下虚拟内存技术。</p>
+</blockquote>
+<h2 id="3-1、为什么需要虚拟内存？"><a href="#3-1、为什么需要虚拟内存？" class="headerlink" title="3.1、为什么需要虚拟内存？"></a>3.1、为什么需要虚拟内存？</h2><ul>
+<li>扩大内存<br>多线程环境下，内存空间小，容易不足，为了使进程之间互不影响，</li>
+<li>安全性提高<br>不直接访问物理内存，这样就不会修改其他进程的数据，使安全性得到提高</li>
+<li>易于开发<br>每个进程拥有自己的独立空间</li>
+</ul>
+<h2 id="3-2、虚拟内存和物理内存"><a href="#3-2、虚拟内存和物理内存" class="headerlink" title="3.2、虚拟内存和物理内存"></a>3.2、虚拟内存和物理内存</h2><p>计算机系统的主存被组织成一个由 M 个连续的字节大小的单元组成的数组。每字节都有一个唯一的<strong>物理地址（Physical Address，PA）</strong>。第一个字节的地址为 0，接下来的字节地址为 1，再下一个为 2，依此类推。给定这种简单的结构，CPU 访问内存的最自然的方式就是使用物理地址。我们把这种方式称为<strong>物理寻址（physical addressing）</strong>。</p>
+<p>早期的 PC 使用物理寻址，而且诸如数字信号处理器、嵌入式微控制器以及 Cray 超级计算机这样的系统仍然继续使用这种寻址方式。然而，现代处理器使用的是一种称为<strong>虚拟寻址（virtual addressing）</strong> 的寻址形式<br><img src="/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E8%99%9A%E6%8B%9F%E5%AF%BB%E5%9D%80.png" alt="虚拟寻址"><br>使用虚拟寻址，CPU 通过生成一个<strong>虚拟地址（Virtual Address，VA）</strong> 来访问主存，这个虚拟地址在被送到内存之前先转换成适当的物理地址。将一个虚拟地址转换为物理地址的任务叫做<strong>地址翻译（address translation）</strong>。就像异常处理一样，地址翻译需要 CPU 硬件和操作系统之间的紧密合作。CPU 芯片上叫做<strong>内存管理单元（Memory Management Unit，MMU）</strong> 的专用硬件，利用存放在主存中的查询表来动态翻译虚拟地址，该表的内容由操作系统管理。</p>
+<h2 id="3-3、内存管理单元（Memory-Management-Unit，MMU）"><a href="#3-3、内存管理单元（Memory-Management-Unit，MMU）" class="headerlink" title="3.3、内存管理单元（Memory Management Unit，MMU）"></a>3.3、内存管理单元（Memory Management Unit，MMU）</h2><h3 id="3-3-1、定义"><a href="#3-3-1、定义" class="headerlink" title="3.3.1、定义"></a>3.3.1、定义</h3><p>内存管理单元（MMU）是计算机系统中的一个硬件组件，主要负责处理 CPU 的内存访问请求。它位于 CPU 和物理内存之间，是实现虚拟内存和内存保护机制的关键部件。</p>
+<h3 id="3-3-2、作用"><a href="#3-3-2、作用" class="headerlink" title="3.3.2、作用"></a>3.3.2、作用</h3><p>其基本功能包括虚拟地址到物理地址的转换以及内存访问权限的检查。当 CPU 发出一个虚拟内存地址访问请求时，MMU 会将这个虚拟地址转换为物理地址，使得 CPU 能够正确地访问物理内存中的数据。同时，MMU 会根据预先设置的内存访问权限规则，检查 CPU 的访问请求是否合法，例如，防止程序对只读内存区域进行写操作。<br><img src="/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/mmu.png" alt="mmu"><br>总结一下：地址翻译功能。</p>
+<h2 id="3-3、页表"><a href="#3-3、页表" class="headerlink" title="3.3、页表"></a>3.3、页表</h2><h3 id="3-3-1、定义-1"><a href="#3-3-1、定义-1" class="headerlink" title="3.3.1、定义"></a>3.3.1、定义</h3><p><code>页表</code>是虚拟内存系统的核心数据结构。它记录了每个虚拟页对应的物理页号、页面的状态（如是否在物理内存中、是否被修改等）和访问权限（如可读、可写、可执行）等信息。</p>
+<h3 id="3-3-2、作用-1"><a href="#3-3-2、作用-1" class="headerlink" title="3.3.2、作用"></a>3.3.2、作用</h3><p>页表存储了进程中虚拟地址到物理地址的映射关系。</p>
+<p>当 CPU 执行指令访问内存时，它使用的是虚拟地址。MMU收到CPU的虚拟地址之后开始查询页表，确定是否存在映射以及读写权限是否正常。</p>
+<h3 id="3-3-3、页表示例："><a href="#3-3-3、页表示例：" class="headerlink" title="3.3.3、页表示例："></a>3.3.3、页表示例：</h3><p><img src="/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E9%A1%B5%E8%A1%A8.png" alt="页表"><br>页表就是一个页表条目（Page Table Entry，PTE）的数组。</p>
+<h3 id="3-3-4、页表工作流程"><a href="#3-3-4、页表工作流程" class="headerlink" title="3.3.4、页表工作流程"></a>3.3.4、页表工作流程</h3><p>第一步：虚拟地址分解：</p>
+<ul>
+<li>虚拟地址通常由两部分组成，即页号和页内偏移量。以 32 位虚拟地址和 4KB 页面大小为例，高 20 位表示页号，低 12 位表示页内偏移量。当 CPU 要访问一个虚拟地址时，首先将虚拟地址分解为页号和页内偏移量这两个部分。</li>
+</ul>
+<p>第二步：查找物理页号：</p>
+<ul>
+<li>根据虚拟地址中的页号，在页表中查找对应的页表项。找到页表项后，获取其中的物理页号。如果页表项中的存在位为 0，说明该虚拟页不在物理内存中，此时会触发页面缺失处理机制，操作系统会从磁盘中读取该虚拟页到物理内存中，并更新页表项中的相关信息。</li>
+</ul>
+<p>第三步：计算物理地址：</p>
+<ul>
+<li>将获取到的物理页号和虚拟地址中的页内偏移量组合起来，计算出物理地址。物理页号需要左移页内偏移量对应的位数（如对于 4KB 页面，左移 12 位），然后再加上页内偏移量，得到最终的物理地址。这样，CPU 就可以根据这个物理地址来访问物理内存中的数据。</li>
+</ul>
+<h2 id="3-4、缺页"><a href="#3-4、缺页" class="headerlink" title="3.4、缺页"></a>3.4、缺页</h2><h3 id="3-4-1、定义"><a href="#3-4-1、定义" class="headerlink" title="3.4.1、定义"></a>3.4.1、定义</h3><p>缺页中断（英语：Page fault，又名硬错误、硬中断、分页错误、寻页缺失、缺页中断、页故障等）指的是当软件试图访问已映射在 虚拟 地址空间中，但是目前并未被加载在 物理内存中的一个 分页时，由 中央处理器的内存管理单元所发出的 中断。</p>
+<h3 id="3-4-2、导致缺页异常发生的情况有如下："><a href="#3-4-2、导致缺页异常发生的情况有如下：" class="headerlink" title="3.4.2、导致缺页异常发生的情况有如下："></a>3.4.2、导致缺页异常发生的情况有如下：</h3><ul>
+<li>地址不在<code>虚拟地址空间</code>中</li>
+<li>地址在<code>虚拟地址空间</code>中，但是其访问权限不够，例如写只读区间</li>
+<li>还有和物理地址建立映射关系</li>
+<li>映射的<code>物理页</code>已经不在内存中</li>
+<li>映射的<code>物理页</code>访问权限不够</li>
+<li>内核态下，通过vmalloc获取线性地址引起的异常，主要是因为延迟更新的问题，导致进程页表还没有更新</li>
+</ul>
+<h3 id="3-4-2、工作流程"><a href="#3-4-2、工作流程" class="headerlink" title="3.4.2、工作流程"></a>3.4.2、工作流程</h3><p>以物理页不在内存中来进行说明：<br><img src="/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E7%BC%BA%E9%A1%B5.png" alt="缺页"><br>假如目标内存页在物理内存中没有对应的页帧或者存在但无对应权限，CPU 就无法获取数据，这种情况下CPU就会报告一个缺页错误。</p>
+<p>由于CPU没有数据就无法进行计算，CPU罢工了用户进程也就出现了缺页中断，进程会从用户态切换到内核态，并将缺页中断交给内核的 Page Fault Handler 处理。</p>
+<h1 id="四、进程的内存布局"><a href="#四、进程的内存布局" class="headerlink" title="四、进程的内存布局"></a>四、进程的内存布局</h1><p>以<code>32位</code>的计算机为例，一共可以虚拟出<code>4G（2^32）</code>的虚拟内存，每个进程都有各自独立的进程地址空间，意思就是<strong>每一个进程都有4G的线性虚拟地址空间</strong> 。4G进程地址空间被划分两部分，<strong>内核空间和用户空间</strong> 。用户空间从0到3G，内核空间从3G到4G；但是内核空间是由内核负责映射，不会跟着进程变化；内核空间地址有自己对应的页表，用户进程各自有不同的页表。可以理解为每个普通进程都有自己的用户空间，但是内核空间被所有普通进程所共享（每个进程虚拟空间的3G~4G部分是相同的 ）。<br><img src="/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80.png" alt="进程内存布局"></p>
+<p>下面来看看<strong>进程</strong>在虚拟内存中的分布情况</p>
+<h2 id="4-1、内核态"><a href="#4-1、内核态" class="headerlink" title="4.1、内核态"></a>4.1、内核态</h2><p><img src="/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E5%86%85%E6%A0%B8%E6%80%81.png" alt="内核态"></p>
+<ul>
+<li><strong>固定映射区（Fixing Mapping Region）：</strong> 该区域和4G的顶端只有4k的隔离带，其每个地址项都服务于特定的用途，如ACPI_BASE等。</li>
+<li><strong>永久内存映射区（PKMap Region）：</strong> 该区域可访问高端内存。访问方法是使用alloc_page(_GFP_HIGHMEM)分配高端内存页或者使用kmap函数将分配到的高端内存映射到该区域。</li>
+<li><strong>动态内存映射区（Vmalloc Region）：</strong> 该区域由内核函数vmalloc来分配，特点是：线性空间连续，但是对应的物理空间不一定连续。vmalloc分配的线性地址所对应的物理页可能处于低端内存，也可能处于高端内存。</li>
+<li><strong>直接映射区（Direct Memory Region）：</strong> 线性空间中从3G开始最大896M的区间，为直接内存映射区，该区域的线性地址和物理地址存在线性转换关系：线性地址&#x3D;3G+物理地址。</li>
+</ul>
+<h2 id="4-2、用户态"><a href="#4-2、用户态" class="headerlink" title="4.2、用户态"></a>4.2、用户态</h2><p><img src="/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E7%94%A8%E6%88%B7%E6%80%81.png" alt="用户态"></p>
+<ul>
+<li><strong>栈：</strong> 栈是用户存放程序临时创建的局部变量，也就是说我们函数括弧“{}”中定义的变量（但不包括static声明的变量，static意味着在数据段中存放变量）。除此以外，在函数被调用时，其参数也会被压入发起调用的进程栈中，并且待到调用结束后，函数的返回值也会被存放回栈中。</li>
+<li><strong>mmap 内存映射区：</strong> 用于文件映射（包括动态库）和匿名映射。常见的就是使用 mmap 分配的虚拟内存区域。</li>
+<li><strong>堆：</strong> 堆是用于存放进程运行中被动态分配的内存段，它的大小并不固定，可动态扩张或缩减。当进程调用malloc等函数分配内存时，新分配的内存就被动态添加到堆上（堆被扩张）；当利用free等函数释放内存时，被释放的内存从堆中被剔除（堆被缩减）。</li>
+<li><strong>BSS段：</strong> BSS段包含了未初始化的全局变量，在内存中bss段全部置零。</li>
+<li><strong>数据段：</strong> 数据段用来存放已初始化的全局变量，换句话说就是存放程序静态分配的变量和全局变量。</li>
+<li><strong>代码段：</strong> 代码段是用来存放可执行文件的操作指令，也就是说是它是可执行程序在内存中的镜像。代码段需要防止在运行时被非法修改，所以是不可写的。</li>
+</ul>
+<p>用一张图总结一下：<br><img src="/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80%E6%80%BB%E7%BB%93.png" alt="进程内存布局总结"></p>
+<h2 id="4-3、进程内存管理"><a href="#4-3、进程内存管理" class="headerlink" title="4.3、进程内存管理"></a>4.3、进程内存管理</h2><p>Linux内核通过一个被称为<strong>进程描述符的<code>task_struct</code></strong> 结构体来管理进程，这个结构体包含了一个进程所需的所有信息。mm_struct中的pgd为页表，就是前面讲的一级页表。task_struct中有一个结构体被称为**内存描述符的<code>mm_struct</code>**，描述了一个进程的整个虚拟地址空间。每个进程正是因为都有自己的mm_struct，才使得每个进程都有自己独立的虚拟的地址空间<br><img src="/2020/03/02/2020-03-02-Linux-%E5%86%85%E5%AD%98/%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86.png" alt="进程内存管理"></p>
+<ul>
+<li>**<code>task_struct</code>**：进程描述符</li>
+<li><strong><code>mm_struct</code><strong>： Linux 内核中用于表示进程内存管理信息的一个关键数据结构。描述了</strong>一个进程的整个虚拟地址空间</strong>。每个进程正是因为都有自己的mm_struct，才使得每个进程都有自己独立的虚拟的地址空间<ul>
+<li>**<code>pgd</code>**：Page Global Directory，在 x86 架构的 Linux 系统中，采用多级页表结构，pgd是顶级页目录。</li>
+<li><em>*<code>mmap</code><strong>：</strong>链表头（通常是struct vm_area_struct <em>mmap）</em>* 用于将所有通过mmap系统调用创建的内存区域（vm_area_struct）链接在一起。同时，为了更高效地查找和管理这些区域，还可能使用</em>*红黑树（例如struct rb_root mm_rb）**。在插入新的vm_area_struct时，内核会根据内存区域的起始地址等信息将其插入到链表和红黑树中。这样，当需要查找一个特定的内存区域（比如根据虚拟地址查找对应的区域）时，可以通过遍历链表或者在红黑树中查找来定位。</li>
+</ul>
+</li>
+<li>**<code>vm_area_struct</code>**：表示进程地址空间中的一个连续的虚拟内存区域。一个进程的地址空间通常由多个这样的区域组成，每个区域有不同的属性和用途。<ul>
+<li>**<code>vm_start</code>**：指向这个区域的起始处。</li>
+<li>**<code>vm_end</code>**：指向这个区域的结束处。</li>
+<li>**<code>vm_prot</code>**：描述这个区域内包含的所有页的读写许可权限。</li>
+<li>**<code>vm_flags</code>**：描述这个区域内的页面是与其他进程共享的，还是这个进程私有的（还描述了其他一些信息）。 </li>
+<li>**<code>vm_next</code>**：指向链表中下—区域结构。</li>
+</ul>
+</li>
+</ul>
+<h2 id="4-3、用户态如何切换到内核态？"><a href="#4-3、用户态如何切换到内核态？" class="headerlink" title="4.3、用户态如何切换到内核态？"></a>4.3、用户态如何切换到内核态？</h2><ol>
+<li>系统调用（Trap）<br>用户进程【主动】要求切换到内核态的一种方式。主要是为了使用内核态才能做的事情。</li>
+<li>中断（Interrupt）<br>当外围设备完成用户请求的操作后，会向CPU发出相应的中断信息，这时CPU会暂时停止执行下一条即将要执行的指令转而去执行与中断信号对应的处理程序。例如磁盘读写操作完成，系统会切换到磁盘读写的中断处理程序中执行后续操作等。</li>
+<li>异常（Exception）<br>当CPU执行用户程序发生了不可预知的异常，这时会触发由当前运行进程切换到处理此异常的内核相关程序中，也就转到了内核态，比如缺页异常。</li>
+</ol>
+<h3 id="4-3-1、系统调用"><a href="#4-3-1、系统调用" class="headerlink" title="4.3.1、系统调用"></a>4.3.1、系统调用</h3><h4 id="4-3-1-1、文件操作相关系统调用"><a href="#4-3-1-1、文件操作相关系统调用" class="headerlink" title="4.3.1.1、文件操作相关系统调用"></a>4.3.1.1、文件操作相关系统调用</h4><p><strong><code>open</code></strong></p>
+<ul>
+<li><strong>功能：</strong> 用于打开或创建一个文件。它接受文件名和打开模式（如只读、只写、读写等）作为参数。例如，open(“test.txt”, O_RDONLY)会以只读模式打开名为test.txt的文件。</li>
+<li><strong>返回值：</strong> 成功时返回一个文件描述符（一个非负整数），这个文件描述符是后续文件操作的重要标识；失败时返回 - 1，并设置相应的错误码，可以通过perror函数来查看错误信息。</li>
+</ul>
+<p><strong><code>read</code></strong></p>
+<ul>
+<li><strong>功能：</strong> 从打开的文件中读取数据。它需要文件描述符、缓冲区地址和要读取的字节数作为参数。例如，read(fd, buffer, 1024)会尝试从文件描述符fd对应的文件中读取 1024 字节的数据到buffer中。</li>
+<li><strong>返回值：</strong> 成功时返回实际读取的字节数，这个数字可能小于请求读取的字节数（比如文件末尾剩余的数据不足请求的字节数）；如果返回 0，表示已经到达文件末尾；如果返回 - 1，则表示读取操作出现错误，同样可以通过perror来查看错误原因。</li>
+</ul>
+<p><strong><code>write</code></strong></p>
+<ul>
+<li><strong>功能：</strong> 向打开的文件中写入数据。参数包括文件描述符、要写入的数据缓冲区和要写入的字节数。例如，write(fd, data, sizeof(data))会将data中的数据写入文件描述符fd对应的文件中。</li>
+<li><strong>返回值：</strong> 成功时返回实际写入的字节数；如果返回 - 1，表示写入操作出现错误。</li>
+</ul>
+<p><strong><code>close</code></strong></p>
+<ul>
+<li><strong>功能：</strong> 关闭一个打开的文件。关闭文件后，对应的文件描述符可以被重新分配。参数是要关闭的文件描述符。例如，close(fd)会关闭文件描述符fd对应的文件。</li>
+<li><strong>返回值：</strong> 成功时返回 0；如果返回 - 1，表示关闭操作出现错误。</li>
+</ul>
+<h4 id="4-3-1-2、进程管理相关系统调用"><a href="#4-3-1-2、进程管理相关系统调用" class="headerlink" title="4.3.1.2、进程管理相关系统调用"></a>4.3.1.2、进程管理相关系统调用</h4><p><strong><code>fork</code></strong></p>
+<ul>
+<li><strong>功能：</strong> 用于创建一个新的进程。在父进程中调用fork后，会创建一个子进程，子进程是父进程的副本，拥有几乎相同的内存空间（采用写时复制技术）、文件描述符等资源。例如，一个简单的fork用法如下：</li>
+<li><strong>返回值：</strong> 在父进程中，fork返回子进程的进程 ID（一个大于 0 的整数）；在子进程中，fork返回 0；如果fork调用失败，返回 - 1。</li>
+</ul>
+<p><strong><code>exec系列（如execve）</code></strong></p>
+<ul>
+<li><strong>功能：</strong> 用于在当前进程的上下文中加载并执行一个新的可执行文件。它会替换当前进程的内存空间（代码段、数据段等）为新的可执行文件的内容。例如，execve(“&#x2F;bin&#x2F;ls”, argv, envp)会在当前进程中执行&#x2F;bin&#x2F;ls命令，argv是命令行参数数组，envp是环境变量数组。</li>
+<li><strong>返回值：</strong> 如果exec系列函数调用成功，不会返回原来的代码，因为进程的内存空间已经被替换；如果调用失败，返回 - 1。</li>
+</ul>
+<h4 id="4-3-1-3、内存管理相关系统调用"><a href="#4-3-1-3、内存管理相关系统调用" class="headerlink" title="4.3.1.3、内存管理相关系统调用"></a>4.3.1.3、内存管理相关系统调用</h4><p><strong><code>mmap和munmap</code></strong></p>
+<ul>
+<li><strong>功能：</strong> mmap用于在进程的虚拟地址空间创建一个新的内存映射，如将文件映射到内存或者创建匿名内存映射；munmap则用于取消一个已经存在的内存映射。例如，void *addr &#x3D; mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset)可以将文件描述符fd对应的文件从offset位置开始，映射size字节的内容到进程的虚拟地址空间，返回映射区域的起始虚拟地址addr。munmap(addr, size)则可以取消这个内存映射。</li>
+<li><strong>返回值：</strong> mmap成功时返回映射区域的起始虚拟地址；如果调用失败，返回MAP_FAILED（通常是(void *)-1）。munmap成功时返回 0；如果调用失败，返回 - 1。</li>
+</ul>
+<h4 id="4-3-1-4、进程间通信相关系统调用（IPC）"><a href="#4-3-1-4、进程间通信相关系统调用（IPC）" class="headerlink" title="4.3.1.4、进程间通信相关系统调用（IPC）"></a>4.3.1.4、进程间通信相关系统调用（IPC）</h4><p><strong><code>pipe</code></strong></p>
+<ul>
+<li><strong>功能：</strong> 用于创建一个管道，管道是一种单向的、先进先出（FIFO）的通信通道，通常用于父子进程之间的通信。例如，int pipefd[2]; pipe(pipefd)会创建一个管道，pipefd[0]是管道的读端，pipefd[1]是管道的写端。</li>
+<li><strong>返回值：</strong> 成功时返回 0；如果调用失败，返回 - 1。</li>
+</ul>
+<h3 id="4-3-2、中断"><a href="#4-3-2、中断" class="headerlink" title="4.3.2、中断"></a>4.3.2、中断</h3><p><strong>定义：</strong> 中断是指计算机在执行程序的过程中，遇到某些紧急事件需要处理时，暂时中止当前程序的执行，转而去执行相应的中断处理程序，处理完后再返回原来被中断的程序继续执行。中断机制就像是一个紧急事件处理系统，它可以让计算机系统对外部设备的请求或者内部异常情况做出及时响应。</p>
+<p>中断源分类：</p>
+<ul>
+<li><strong>硬件中断：</strong> 由外部硬件设备触发，比如键盘按键、鼠标移动、网卡接收数据等。例如，当你在计算机上按下一个键时，键盘控制器会向 CPU 发送一个中断信号，通知 CPU 有按键事件发生，CPU 会暂停当前正在执行的程序，转而执行键盘中断处理程序来读取按键值并进行相应的处理。</li>
+<li><strong>软件中断：</strong> 由软件指令触发，通常用于系统调用或者处理内部异常。在操作系统中，系统调用是通过软件中断实现的。例如，在 Linux 系统中，用户程序通过int 0x80（这是一种软件中断指令）来请求系统服务，如文件读写、进程创建等。</li>
+</ul>
+<h3 id="4-3-3、异常"><a href="#4-3-3、异常" class="headerlink" title="4.3.3、异常"></a>4.3.3、异常</h3><p>参考文章：<br><a href="https://www.jianshu.com/p/fb345b94501f">链接</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/03/01/2020-03-01-Linux-%E7%A3%81%E7%9B%98/" rel="prev" title="《Linux》磁盘">
+      <i class="fa fa-chevron-left"></i> 《Linux》磁盘
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/03/04/2020-03-04-Linux-cpu/" rel="next" title="《Linux》cpu">
+      《Linux》cpu <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%86%85%E5%AD%98"><span class="nav-text">一、内存</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-1%E3%80%81%E5%86%85%E5%AD%98%E7%B1%BB%E5%9E%8B"><span class="nav-text">1.1、内存类型</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86"><span class="nav-text">二、内存管理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E5%88%86%E5%8C%BA%E5%BC%8F%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86"><span class="nav-text">2.1、分区式内存管理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-1%E3%80%81%E5%9B%BA%E5%AE%9A%E5%88%86%E5%8C%BA"><span class="nav-text">2.1.1、固定分区</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-2%E3%80%81%E5%8A%A8%E6%80%81%E5%88%86%E5%8C%BA"><span class="nav-text">2.1.2、动态分区</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E9%A1%B5%E5%BC%8F%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86"><span class="nav-text">2.2、页式内存管理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81%E6%AE%B5%E5%BC%8F%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86"><span class="nav-text">2.3、段式内存管理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4%E3%80%81%E6%AE%B5%E9%A1%B5%E5%BC%8F%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86"><span class="nav-text">2.4、段页式内存管理</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E8%99%9A%E6%8B%9F%E5%86%85%E5%AD%98"><span class="nav-text">三、虚拟内存</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E8%99%9A%E6%8B%9F%E5%86%85%E5%AD%98%EF%BC%9F"><span class="nav-text">3.1、为什么需要虚拟内存？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E8%99%9A%E6%8B%9F%E5%86%85%E5%AD%98%E5%92%8C%E7%89%A9%E7%90%86%E5%86%85%E5%AD%98"><span class="nav-text">3.2、虚拟内存和物理内存</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E5%8D%95%E5%85%83%EF%BC%88Memory-Management-Unit%EF%BC%8CMMU%EF%BC%89"><span class="nav-text">3.3、内存管理单元（Memory Management Unit，MMU）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-1%E3%80%81%E5%AE%9A%E4%B9%89"><span class="nav-text">3.3.1、定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-2%E3%80%81%E4%BD%9C%E7%94%A8"><span class="nav-text">3.3.2、作用</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E9%A1%B5%E8%A1%A8"><span class="nav-text">3.3、页表</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-1%E3%80%81%E5%AE%9A%E4%B9%89-1"><span class="nav-text">3.3.1、定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-2%E3%80%81%E4%BD%9C%E7%94%A8-1"><span class="nav-text">3.3.2、作用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-3%E3%80%81%E9%A1%B5%E8%A1%A8%E7%A4%BA%E4%BE%8B%EF%BC%9A"><span class="nav-text">3.3.3、页表示例：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-4%E3%80%81%E9%A1%B5%E8%A1%A8%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B"><span class="nav-text">3.3.4、页表工作流程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4%E3%80%81%E7%BC%BA%E9%A1%B5"><span class="nav-text">3.4、缺页</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-1%E3%80%81%E5%AE%9A%E4%B9%89"><span class="nav-text">3.4.1、定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-2%E3%80%81%E5%AF%BC%E8%87%B4%E7%BC%BA%E9%A1%B5%E5%BC%82%E5%B8%B8%E5%8F%91%E7%94%9F%E7%9A%84%E6%83%85%E5%86%B5%E6%9C%89%E5%A6%82%E4%B8%8B%EF%BC%9A"><span class="nav-text">3.4.2、导致缺页异常发生的情况有如下：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-2%E3%80%81%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B"><span class="nav-text">3.4.2、工作流程</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E8%BF%9B%E7%A8%8B%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80"><span class="nav-text">四、进程的内存布局</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E5%86%85%E6%A0%B8%E6%80%81"><span class="nav-text">4.1、内核态</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81%E7%94%A8%E6%88%B7%E6%80%81"><span class="nav-text">4.2、用户态</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81%E8%BF%9B%E7%A8%8B%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86"><span class="nav-text">4.3、进程内存管理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81%E7%94%A8%E6%88%B7%E6%80%81%E5%A6%82%E4%BD%95%E5%88%87%E6%8D%A2%E5%88%B0%E5%86%85%E6%A0%B8%E6%80%81%EF%BC%9F"><span class="nav-text">4.3、用户态如何切换到内核态？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-1%E3%80%81%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-text">4.3.1、系统调用</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-1-1%E3%80%81%E6%96%87%E4%BB%B6%E6%93%8D%E4%BD%9C%E7%9B%B8%E5%85%B3%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-text">4.3.1.1、文件操作相关系统调用</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-1-2%E3%80%81%E8%BF%9B%E7%A8%8B%E7%AE%A1%E7%90%86%E7%9B%B8%E5%85%B3%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-text">4.3.1.2、进程管理相关系统调用</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-1-3%E3%80%81%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E7%9B%B8%E5%85%B3%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-text">4.3.1.3、内存管理相关系统调用</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-1-4%E3%80%81%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1%E7%9B%B8%E5%85%B3%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%EF%BC%88IPC%EF%BC%89"><span class="nav-text">4.3.1.4、进程间通信相关系统调用（IPC）</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-2%E3%80%81%E4%B8%AD%E6%96%AD"><span class="nav-text">4.3.2、中断</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-3%E3%80%81%E5%BC%82%E5%B8%B8"><span class="nav-text">4.3.3、异常</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">134</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
