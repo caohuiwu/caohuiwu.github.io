@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是rocketmq系列的第四篇文章，主要介绍的是Broker启动。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red }   一、核心组件–Broker消息存储与转发核心节点，支持主从架构（master-slave）、数据分片（queue）。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《rocketmq》Broker启动">
+<meta property="og:url" content="http://yoursite.com/2020/09/10/2020-09-10-rocketmq-Broker-%E5%90%AF%E5%8A%A8/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是rocketmq系列的第四篇文章，主要介绍的是Broker启动。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red }   一、核心组件–Broker消息存储与转发核心节点，支持主从架构（master-slave）、数据分片（queue）。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/09/10/2020-09-10-rocketmq-Broker-%E5%90%AF%E5%8A%A8/Broker%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B.png">
+<meta property="article:published_time" content="2020-09-09T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-18T07:03:49.383Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/09/10/2020-09-10-rocketmq-Broker-%E5%90%AF%E5%8A%A8/Broker%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/09/10/2020-09-10-rocketmq-Broker-%E5%90%AF%E5%8A%A8/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《rocketmq》Broker启动 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/09/10/2020-09-10-rocketmq-Broker-%E5%90%AF%E5%8A%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《rocketmq》Broker启动
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-09-10 00:00:00" itemprop="dateCreated datePublished" datetime="2020-09-10T00:00:00+08:00">2020-09-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-18 15:03:49" itemprop="dateModified" datetime="2025-03-18T15:03:49+08:00">2025-03-18</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/rocketmq/" itemprop="url" rel="index"><span itemprop="name">rocketmq</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/rocketmq/broker/" itemprop="url" rel="index"><span itemprop="name">broker</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>20k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>49 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是rocketmq系列的第四篇文章，主要介绍的是Broker启动。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+</style>
+
+<h1 id="一、核心组件–Broker"><a href="#一、核心组件–Broker" class="headerlink" title="一、核心组件–Broker"></a>一、核心组件–Broker</h1><p>消息存储与转发核心节点，支持主从架构（master-slave）、数据分片（queue）。</p>
+<span id="more"></span>
+
+<h1 id="二、Broker启动"><a href="#二、Broker启动" class="headerlink" title="二、Broker启动"></a>二、Broker启动</h1><p>运行的是 BrokerStartup  的main 方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* main 方法启动</span></span><br><span class="line"><span class="comment"> * @param args</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">    <span class="comment">//创建brokerController</span></span><br><span class="line">    start(createBrokerController(args));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//1.创建 BrokerController instance</span></span><br><span class="line"><span class="keyword">final</span> <span class="type">BrokerController</span> <span class="variable">controller</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">BrokerController</span>(</span><br><span class="line">        brokerConfig,</span><br><span class="line">        nettyServerConfig,</span><br><span class="line">        nettyClientConfig,</span><br><span class="line">        messageStoreConfig);</span><br><span class="line"><span class="comment">// remember all configs to prevent discard</span></span><br><span class="line">controller.getConfiguration().registerConfig(properties);</span><br><span class="line"><span class="comment">//2.进行初始化 Broker controller</span></span><br><span class="line"><span class="type">boolean</span> <span class="variable">initResult</span> <span class="operator">=</span> controller.initialize();</span><br></pre></td></tr></table></figure>
+<p>启动过程，分成2部分</p>
+<ol>
+<li>BrokerController的创建及初始化。</li>
+<li>BrokerController的启动。</li>
+</ol>
+<h1 id="三、核心组件-BrokerController"><a href="#三、核心组件-BrokerController" class="headerlink" title="三、核心组件-BrokerController"></a>三、核心组件-BrokerController</h1><p><code>BrokerController</code> 是 Apache RocketMQ 中负责管理 Broker 的核心类。它负责启动、停止和管理 Broker 的各个模块，包括消息存储、消息消费、网络通信等。</p>
+<p>源码结构如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">BrokerController</span><span class="params">(</span></span><br><span class="line"><span class="params">        <span class="keyword">final</span> BrokerConfig brokerConfig,</span></span><br><span class="line"><span class="params">        <span class="keyword">final</span> NettyServerConfig nettyServerConfig,</span></span><br><span class="line"><span class="params">        <span class="keyword">final</span> NettyClientConfig nettyClientConfig,</span></span><br><span class="line"><span class="params">        <span class="keyword">final</span> MessageStoreConfig messageStoreConfig</span></span><br><span class="line"><span class="params">    )</span> &#123;</span><br><span class="line">        <span class="comment">//broker 配置信息</span></span><br><span class="line">        <span class="built_in">this</span>.brokerConfig = brokerConfig;</span><br><span class="line">        <span class="comment">//nettyServer配置信息</span></span><br><span class="line">        <span class="built_in">this</span>.nettyServerConfig = nettyServerConfig;</span><br><span class="line">        <span class="comment">//nettyClient 配置信息</span></span><br><span class="line">        <span class="built_in">this</span>.nettyClientConfig = nettyClientConfig;</span><br><span class="line">        <span class="comment">//store 配置信息</span></span><br><span class="line">        <span class="built_in">this</span>.messageStoreConfig = messageStoreConfig;</span><br><span class="line">        <span class="comment">//consumer 偏移量管理器，会读取store/config/consumerOffset.json  json 配置文件，维护了offsetTable Map 结构</span></span><br><span class="line">        <span class="built_in">this</span>.consumerOffsetManager = <span class="keyword">new</span> <span class="title class_">ConsumerOffsetManager</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="comment">//topic 配置管理器，会读取store/config/topics.json</span></span><br><span class="line">        <span class="built_in">this</span>.topicConfigManager = <span class="keyword">new</span> <span class="title class_">TopicConfigManager</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="comment">//拉去消息处理器，用来处理消费端消息拉去，关联的业务code 为RequestCode.PULL_MESSAGE</span></span><br><span class="line">        <span class="built_in">this</span>.pullMessageProcessor = <span class="keyword">new</span> <span class="title class_">PullMessageProcessor</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        <span class="built_in">this</span>.pullRequestHoldService = <span class="keyword">new</span> <span class="title class_">PullRequestHoldService</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        <span class="built_in">this</span>.messageArrivingListener = <span class="keyword">new</span> <span class="title class_">NotifyMessageArrivingListener</span>(<span class="built_in">this</span>.pullRequestHoldService);</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        <span class="built_in">this</span>.consumerIdsChangeListener = <span class="keyword">new</span> <span class="title class_">DefaultConsumerIdsChangeListener</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="built_in">this</span>.consumerManager = <span class="keyword">new</span> <span class="title class_">ConsumerManager</span>(<span class="built_in">this</span>.consumerIdsChangeListener);</span><br><span class="line">        <span class="comment">// 消费过滤管理器会读取store/config/consumerFilter.json</span></span><br><span class="line">        <span class="built_in">this</span>.consumerFilterManager = <span class="keyword">new</span> <span class="title class_">ConsumerFilterManager</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="comment">//生产者管理器</span></span><br><span class="line">        <span class="built_in">this</span>.producerManager = <span class="keyword">new</span> <span class="title class_">ProducerManager</span>();</span><br><span class="line">        <span class="comment">//用于清除不活动的连接，可以看到里面有一些扫描生产者以及消费者不活动连接的方法</span></span><br><span class="line">        <span class="built_in">this</span>.clientHousekeepingService = <span class="keyword">new</span> <span class="title class_">ClientHousekeepingService</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        <span class="built_in">this</span>.broker2Client = <span class="keyword">new</span> <span class="title class_">Broker2Client</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="built_in">this</span>.subscriptionGroupManager = <span class="keyword">new</span> <span class="title class_">SubscriptionGroupManager</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="comment">//NettyClient 初始化</span></span><br><span class="line">        <span class="built_in">this</span>.brokerOuterAPI = <span class="keyword">new</span> <span class="title class_">BrokerOuterAPI</span>(nettyClientConfig);</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        <span class="built_in">this</span>.filterServerManager = <span class="keyword">new</span> <span class="title class_">FilterServerManager</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        <span class="built_in">this</span>.slaveSynchronize = <span class="keyword">new</span> <span class="title class_">SlaveSynchronize</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="comment">//发送线程池队列</span></span><br><span class="line">        <span class="built_in">this</span>.sendThreadPoolQueue = <span class="keyword">new</span> <span class="title class_">LinkedBlockingQueue</span>&lt;Runnable&gt;(<span class="built_in">this</span>.brokerConfig.getSendThreadPoolQueueCapacity());</span><br><span class="line">        <span class="comment">//拉取线程池队列</span></span><br><span class="line">        <span class="built_in">this</span>.pullThreadPoolQueue = <span class="keyword">new</span> <span class="title class_">LinkedBlockingQueue</span>&lt;Runnable&gt;(<span class="built_in">this</span>.brokerConfig.getPullThreadPoolQueueCapacity());</span><br><span class="line">        <span class="comment">//查询线程池队列</span></span><br><span class="line">        <span class="built_in">this</span>.queryThreadPoolQueue = <span class="keyword">new</span> <span class="title class_">LinkedBlockingQueue</span>&lt;Runnable&gt;(<span class="built_in">this</span>.brokerConfig.getQueryThreadPoolQueueCapacity());</span><br><span class="line">        <span class="built_in">this</span>.clientManagerThreadPoolQueue = <span class="keyword">new</span> <span class="title class_">LinkedBlockingQueue</span>&lt;Runnable&gt;(<span class="built_in">this</span>.brokerConfig.getClientManagerThreadPoolQueueCapacity());</span><br><span class="line">        <span class="built_in">this</span>.consumerManagerThreadPoolQueue = <span class="keyword">new</span> <span class="title class_">LinkedBlockingQueue</span>&lt;Runnable&gt;(<span class="built_in">this</span>.brokerConfig.getConsumerManagerThreadPoolQueueCapacity());</span><br><span class="line">        <span class="comment">//broker 状态管理器</span></span><br><span class="line">        <span class="built_in">this</span>.brokerStatsManager = <span class="keyword">new</span> <span class="title class_">BrokerStatsManager</span>(<span class="built_in">this</span>.brokerConfig.getBrokerClusterName());</span><br><span class="line">        <span class="built_in">this</span>.setStoreHost(<span class="keyword">new</span> <span class="title class_">InetSocketAddress</span>(<span class="built_in">this</span>.getBrokerConfig().getBrokerIP1(), <span class="built_in">this</span>.getNettyServerConfig().getListenPort()));</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        <span class="built_in">this</span>.brokerFastFailure = <span class="keyword">new</span> <span class="title class_">BrokerFastFailure</span>(<span class="built_in">this</span>);</span><br><span class="line">        <span class="built_in">this</span>.configuration = <span class="keyword">new</span> <span class="title class_">Configuration</span>(</span><br><span class="line">            log,</span><br><span class="line">            BrokerPathConfigHelper.getBrokerConfigPath(),</span><br><span class="line">            <span class="built_in">this</span>.brokerConfig, <span class="built_in">this</span>.nettyServerConfig, <span class="built_in">this</span>.nettyClientConfig, <span class="built_in">this</span>.messageStoreConfig</span><br><span class="line">        );</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p><code>BrokerController</code>的主要模块：</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>MessageStore</strong></td>
+<td>负责消息的存储和检索，包括 CommitLog、ConsumeQueue 和 IndexFile。</td>
+</tr>
+<tr>
+<td><strong>RemotingServer</strong></td>
+<td>负责处理网络请求，与 Producer 和 Consumer 通信。</td>
+</tr>
+<tr>
+<td><strong>BrokerStatsManager</strong></td>
+<td>负责统计 Broker 的运行状态和性能指标。</td>
+</tr>
+<tr>
+<td><strong>BrokerOuterAPI</strong></td>
+<td>负责与 NameServer 通信，注册和上报 Broker 信息。</td>
+</tr>
+<tr>
+<td><strong>PullMessageProcessor</strong></td>
+<td>负责处理消费者的消息拉取请求。</td>
+</tr>
+<tr>
+<td><strong>SendMessageProcessor</strong></td>
+<td>负责处理生产者的消息写入请求。</td>
+</tr>
+</tbody></table>
+<h1 id="四、Broker启动【第1步】BrokerController的创建与初始化"><a href="#四、Broker启动【第1步】BrokerController的创建与初始化" class="headerlink" title="四、Broker启动【第1步】BrokerController的创建与初始化"></a>四、Broker启动【第1步】BrokerController的创建与初始化</h1><h2 id="4-1、BrokerController初始化流程"><a href="#4-1、BrokerController初始化流程" class="headerlink" title="4.1、BrokerController初始化流程"></a>4.1、BrokerController初始化流程</h2><ol>
+<li>载入各种配置文件（topic配置、消费偏移量、订阅群组、消费过滤）。</li>
+<li>初始化DefaultMessageStore消息存储器，并load：载入CommitLog、ConsumeQueue、载入索引文件。</li>
+<li>构造NettyRemotingServer netty远程通信服务器（普通+vip）、9种执行器（sendMessageExecutor、pullMessageExecutor、replyMessageExecutor、queryMessageExecutor、adminBrokerExecutor、clientManageExecutor、heartbeatExecutor、endTransactionExecutor、consumerManageExecutor）</li>
+<li>registerProcessor()：注册处理器（使用上面9个执行器，分别注册到普通远程通信服务器、VIP远程通信服务器）具体通信机制见 RocketMQ详解（三）核心设计原理。</li>
+<li>初始化定时任务：BrokerStats当天数据统计、每5S持久化一次消费Offset、每10s持久化一次消费者filter、每3分钟执行一次broker保护（默认不执行）、每1s打印水位日志（线程池待处理队列）、每1分钟打印commitLog分发滞后bytes、每2分钟（请求<a href="http://jmenv.tbsite.net:8080/rocketmq/nsaddr%EF%BC%89%E6%8B%89%E5%8F%96%E4%B8%80%E6%AC%A1nameserver%E5%9C%B0%E5%9D%80%E3%80%81%E4%B8%BB%E8%8A%82%E7%82%B9%E6%AF%8F1%E5%88%86%E9%92%9F%EF%BC%88%E5%BC%80%E5%90%AFDLeger%E4%B8%BB%E4%BB%8E%E5%88%87%E6%8D%A2%EF%BC%89%E6%89%93%E5%8D%B0%E4%BB%8E%E6%BB%9E%E5%90%8E%E4%B8%BBoffset%E3%80%82">http://jmenv.tbsite.net:8080/rocketmq/nsaddr）拉取一次nameserver地址、主节点每1分钟（开启DLeger主从切换）打印从滞后主offset。</a></li>
+<li>注册SSL证书变化监听器。</li>
+<li>初始化事务相关服务、监听器。</li>
+<li>初始化AccessValidator</li>
+<li>初始化RPC请求钩子RPCHook（远程通信服务端+VIP远程通信服务端），包含doBeforeRequest请求前、doAfterResponse请求后2个方法。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">initialize</span><span class="params">()</span> <span class="keyword">throws</span> CloneNotSupportedException &#123;</span><br><span class="line">    <span class="type">boolean</span> <span class="variable">result</span> <span class="operator">=</span> <span class="built_in">this</span>.topicConfigManager.load();</span><br><span class="line">    <span class="comment">//加载对应管理器的配置文件</span></span><br><span class="line">    result = result &amp;&amp; <span class="built_in">this</span>.consumerOffsetManager.load();</span><br><span class="line">    result = result &amp;&amp; <span class="built_in">this</span>.subscriptionGroupManager.load();</span><br><span class="line">    result = result &amp;&amp; <span class="built_in">this</span>.consumerFilterManager.load();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (result) &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="built_in">this</span>.messageStore =</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">DefaultMessageStore</span>(<span class="built_in">this</span>.messageStoreConfig, <span class="built_in">this</span>.brokerStatsManager, <span class="built_in">this</span>.messageArrivingListener,</span><br><span class="line">                    <span class="built_in">this</span>.brokerConfig);</span><br><span class="line">            <span class="built_in">this</span>.brokerStats = <span class="keyword">new</span> <span class="title class_">BrokerStats</span>((DefaultMessageStore) <span class="built_in">this</span>.messageStore);</span><br><span class="line">            <span class="comment">//load plugin</span></span><br><span class="line">            Mes[<span class="number">2020</span>-09-<span class="number">10</span>-rocketmq-Broker-启动.md](<span class="number">2020</span>-09-<span class="number">10</span>-rocketmq-Broker-启动.md)<span class="type">sageStorePluginContext</span> <span class="variable">context</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MessageStorePluginContext</span>(messageStoreConfig, brokerStatsManager, messageArrivingListener, brokerConfig);</span><br><span class="line">            <span class="built_in">this</span>.messageStore = MessageStoreFactory.build(context, <span class="built_in">this</span>.messageStore);</span><br><span class="line">            <span class="built_in">this</span>.messageStore.getDispatcherList().addFirst(<span class="keyword">new</span> <span class="title class_">CommitLogDispatcherCalcBitMap</span>(<span class="built_in">this</span>.brokerConfig, <span class="built_in">this</span>.consumerFilterManager));</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">            result = <span class="literal">false</span>;</span><br><span class="line">            log.error(<span class="string">&quot;Failed to initialize&quot;</span>, e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//加载CommitLog 文件</span></span><br><span class="line">    result = result &amp;&amp; <span class="built_in">this</span>.messageStore.load();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (result) &#123;</span><br><span class="line">        <span class="comment">//初始化NettyServer</span></span><br><span class="line">        <span class="built_in">this</span>.remotingServer = <span class="keyword">new</span> <span class="title class_">NettyRemotingServer</span>(<span class="built_in">this</span>.nettyServerConfig, <span class="built_in">this</span>.clientHousekeepingService);</span><br><span class="line">        <span class="type">NettyServerConfig</span> <span class="variable">fastConfig</span> <span class="operator">=</span> (NettyServerConfig) <span class="built_in">this</span>.nettyServerConfig.clone();</span><br><span class="line">        fastConfig.setListenPort(nettyServerConfig.getListenPort() - <span class="number">2</span>);</span><br><span class="line">        <span class="comment">//初始化VIP NettyServer 端口为在109011 -2 </span></span><br><span class="line">        <span class="built_in">this</span>.fastRemotingServer = <span class="keyword">new</span> <span class="title class_">NettyRemotingServer</span>(fastConfig, <span class="built_in">this</span>.clientHousekeepingService);</span><br><span class="line">        <span class="comment">//初始化一些线程池</span></span><br><span class="line">        <span class="built_in">this</span>.sendMessageExecutor = <span class="keyword">new</span> <span class="title class_">BrokerFixedThreadPoolExecutor</span>(</span><br><span class="line">            <span class="built_in">this</span>.brokerConfig.getSendMessageThreadPoolNums(),</span><br><span class="line">            <span class="built_in">this</span>.brokerConfig.getSendMessageThreadPoolNums(),</span><br><span class="line">            <span class="number">1000</span> * <span class="number">60</span>,</span><br><span class="line">            TimeUnit.MILLISECONDS,</span><br><span class="line">            <span class="built_in">this</span>.sendThreadPoolQueue,</span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">ThreadFactoryImpl</span>(<span class="string">&quot;SendMessageThread_&quot;</span>));</span><br><span class="line"></span><br><span class="line">        <span class="built_in">this</span>.pullMessageExecutor = <span class="keyword">new</span> <span class="title class_">BrokerFixedThreadPoolExecutor</span>(</span><br><span class="line">            <span class="built_in">this</span>.brokerConfig.getPullMessageThreadPoolNums(),</span><br><span class="line">            <span class="built_in">this</span>.brokerConfig.getPullMessageThreadPoolNums(),</span><br><span class="line">            <span class="number">1000</span> * <span class="number">60</span>,</span><br><span class="line">            TimeUnit.MILLISECONDS,</span><br><span class="line">            <span class="built_in">this</span>.pullThreadPoolQueue,</span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">ThreadFactoryImpl</span>(<span class="string">&quot;PullMessageThread_&quot;</span>));</span><br><span class="line"></span><br><span class="line">        <span class="built_in">this</span>.queryMessageExecutor = <span class="keyword">new</span> <span class="title class_">BrokerFixedThreadPoolExecutor</span>(</span><br><span class="line">            <span class="built_in">this</span>.brokerConfig.getQueryMessageThreadPoolNums(),</span><br><span class="line">            <span class="built_in">this</span>.brokerConfig.getQueryMessageThreadPoolNums(),</span><br><span class="line">            <span class="number">1000</span> * <span class="number">60</span>,</span><br><span class="line">            TimeUnit.MILLISECONDS,</span><br><span class="line">            <span class="built_in">this</span>.queryThreadPoolQueue,</span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">ThreadFactoryImpl</span>(<span class="string">&quot;QueryMessageThread_&quot;</span>));</span><br><span class="line"></span><br><span class="line">        <span class="built_in">this</span>.adminBrokerExecutor =</span><br><span class="line">            Executors.newFixedThreadPool(<span class="built_in">this</span>.brokerConfig.getAdminBrokerThreadPoolNums(), <span class="keyword">new</span> <span class="title class_">ThreadFactoryImpl</span>(</span><br><span class="line">                <span class="string">&quot;AdminBrokerThread_&quot;</span>));</span><br><span class="line"></span><br><span class="line">        <span class="built_in">this</span>.clientManageExecutor = <span class="keyword">new</span> <span class="title class_">ThreadPoolExecutor</span>(</span><br><span class="line">            <span class="built_in">this</span>.brokerConfig.getClientManageThreadPoolNums(),</span><br><span class="line">            <span class="built_in">this</span>.brokerConfig.getClientManageThreadPoolNums(),</span><br><span class="line">            <span class="number">1000</span> * <span class="number">60</span>,</span><br><span class="line">            TimeUnit.MILLISECONDS,</span><br><span class="line">            <span class="built_in">this</span>.clientManagerThreadPoolQueue,</span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">ThreadFactoryImpl</span>(<span class="string">&quot;ClientManageThread_&quot;</span>));</span><br><span class="line"></span><br><span class="line">        <span class="built_in">this</span>.consumerManageExecutor =</span><br><span class="line">            Executors.newFixedThreadPool(<span class="built_in">this</span>.brokerConfig.getConsumerManageThreadPoolNums(), <span class="keyword">new</span> <span class="title class_">ThreadFactoryImpl</span>(</span><br><span class="line">                <span class="string">&quot;ConsumerManageThread_&quot;</span>));</span><br><span class="line">        <span class="comment">//注册消息处理器，针对客户端发过来的消息code，会有针对的处理器进行处理</span></span><br><span class="line">        <span class="built_in">this</span>.registerProcessor();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">final</span> <span class="type">long</span> <span class="variable">initialDelay</span> <span class="operator">=</span> UtilAll.computNextMorningTimeMillis() - System.currentTimeMillis();</span><br><span class="line">        <span class="keyword">final</span> <span class="type">long</span> <span class="variable">period</span> <span class="operator">=</span> <span class="number">1000</span> * <span class="number">60</span> * <span class="number">60</span> * <span class="number">24</span>;</span><br><span class="line">        <span class="comment">//执行定定时任务</span></span><br><span class="line">        <span class="built_in">this</span>.scheduledExecutorService.scheduleAtFixedRate(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    BrokerController.<span class="built_in">this</span>.getBrokerStats().record();</span><br><span class="line">                &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                    log.error(<span class="string">&quot;schedule record error.&quot;</span>, e);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;, initialDelay, period, TimeUnit.MILLISECONDS);</span><br><span class="line"></span><br><span class="line">       <span class="comment">//定时 保存consumerOffset.json 文件</span></span><br><span class="line">        <span class="built_in">this</span>.scheduledExecutorService.scheduleAtFixedRate(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    BrokerController.<span class="built_in">this</span>.consumerOffsetManager.persist();</span><br><span class="line">                &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                    log.error(<span class="string">&quot;schedule persist consumerOffset error.&quot;</span>, e);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;, <span class="number">1000</span> * <span class="number">10</span>, <span class="built_in">this</span>.brokerConfig.getFlushConsumerOffsetInterval(), TimeUnit.MILLISECONDS);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//定时保存 consumerfilter.json 文件</span></span><br><span class="line">        <span class="built_in">this</span>.scheduledExecutorService.scheduleAtFixedRate(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    BrokerController.<span class="built_in">this</span>.consumerFilterManager.persist();</span><br><span class="line">                &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                    log.error(<span class="string">&quot;schedule persist consumer filter error.&quot;</span>, e);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;, <span class="number">1000</span> * <span class="number">10</span>, <span class="number">1000</span> * <span class="number">10</span>, TimeUnit.MILLISECONDS);</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line"></span><br><span class="line">        <span class="built_in">this</span>.scheduledExecutorService.scheduleAtFixedRate(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    BrokerController.<span class="built_in">this</span>.protectBroker();</span><br><span class="line">                &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                    log.error(<span class="string">&quot;protectBroker error.&quot;</span>, e);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;, <span class="number">3</span>, <span class="number">3</span>, TimeUnit.MINUTES);</span><br><span class="line">        <span class="comment">//打印水印日志</span></span><br><span class="line"></span><br><span class="line">        <span class="built_in">this</span>.scheduledExecutorService.scheduleAtFixedRate(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    BrokerController.<span class="built_in">this</span>.printWaterMark();</span><br><span class="line">                &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                    log.error(<span class="string">&quot;printWaterMark error.&quot;</span>, e);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;, <span class="number">10</span>, <span class="number">1</span>, TimeUnit.SECONDS);</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line"></span><br><span class="line">        <span class="built_in">this</span>.scheduledExecutorService.scheduleAtFixedRate(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    log.info(<span class="string">&quot;dispatch behind commit log &#123;&#125; bytes&quot;</span>, BrokerController.<span class="built_in">this</span>.getMessageStore().dispatchBehindBytes());</span><br><span class="line">                &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                    log.error(<span class="string">&quot;schedule dispatchBehindBytes error.&quot;</span>, e);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;, <span class="number">1000</span> * <span class="number">10</span>, <span class="number">1000</span> * <span class="number">60</span>, TimeUnit.MILLISECONDS);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">this</span>.brokerConfig.getNamesrvAddr() != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="built_in">this</span>.brokerOuterAPI.updateNameServerAddressList(<span class="built_in">this</span>.brokerConfig.getNamesrvAddr());</span><br><span class="line">            log.info(<span class="string">&quot;Set user specified name server address: &#123;&#125;&quot;</span>, <span class="built_in">this</span>.brokerConfig.getNamesrvAddr());</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="built_in">this</span>.brokerConfig.isFetchNamesrvAddrByAddressServer()) &#123;</span><br><span class="line">            <span class="built_in">this</span>.scheduledExecutorService.scheduleAtFixedRate(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line"></span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                    <span class="keyword">try</span> &#123;</span><br><span class="line">                        BrokerController.<span class="built_in">this</span>.brokerOuterAPI.fetchNameServerAddr();</span><br><span class="line">                    &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                        log.error(<span class="string">&quot;ScheduledTask fetchNameServerAddr exception&quot;</span>, e);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;, <span class="number">1000</span> * <span class="number">10</span>, <span class="number">1000</span> * <span class="number">60</span> * <span class="number">2</span>, TimeUnit.MILLISECONDS);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (BrokerRole.SLAVE == <span class="built_in">this</span>.messageStoreConfig.getBrokerRole()) &#123;</span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">this</span>.messageStoreConfig.getHaMasterAddress() != <span class="literal">null</span> &amp;&amp; <span class="built_in">this</span>.messageStoreConfig.getHaMasterAddress().length() &gt;= <span class="number">6</span>) &#123;</span><br><span class="line">                <span class="built_in">this</span>.messageStore.updateHaMasterAddress(<span class="built_in">this</span>.messageStoreConfig.getHaMasterAddress());</span><br><span class="line">                <span class="built_in">this</span>.updateMasterHAServerAddrPeriodically = <span class="literal">false</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="built_in">this</span>.updateMasterHAServerAddrPeriodically = <span class="literal">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="built_in">this</span>.scheduledExecutorService.scheduleAtFixedRate(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line"></span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                    <span class="keyword">try</span> &#123;</span><br><span class="line">                        BrokerController.<span class="built_in">this</span>.slaveSynchronize.syncAll();</span><br><span class="line">                    &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                        log.error(<span class="string">&quot;ScheduledTask syncAll slave exception&quot;</span>, e);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;, <span class="number">1000</span> * <span class="number">10</span>, <span class="number">1000</span> * <span class="number">60</span>, TimeUnit.MILLISECONDS);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="built_in">this</span>.scheduledExecutorService.scheduleAtFixedRate(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line"></span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                    <span class="keyword">try</span> &#123;</span><br><span class="line">                        BrokerController.<span class="built_in">this</span>.printMasterAndSlaveDiff();</span><br><span class="line">                    &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                        log.error(<span class="string">&quot;schedule printMasterAndSlaveDiff error.&quot;</span>, e);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;, <span class="number">1000</span> * <span class="number">10</span>, <span class="number">1000</span> * <span class="number">60</span>, TimeUnit.MILLISECONDS);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-1-1、第1步：初始化messageStore消息存储器"><a href="#4-1-1、第1步：初始化messageStore消息存储器" class="headerlink" title="4.1.1、第1步：初始化messageStore消息存储器"></a>4.1.1、第1步：初始化messageStore消息存储器</h3><p>消息存储实现类为：org.apache.rocketmq.store.DefaultMessageStore，在borker启动创建BrokerController实例时，会创建DefaultMessageStore用于消息存储。</p>
+<blockquote>
+<p>具体内容：查看后续文章“Broker的内部核心组件”</p>
+</blockquote>
+<h3 id="4-1-2、第2步：初始化网络通信模块"><a href="#4-1-2、第2步：初始化网络通信模块" class="headerlink" title="4.1.2、第2步：初始化网络通信模块"></a>4.1.2、第2步：初始化网络通信模块</h3><p>RemotingServer负责处理网络通信的核心组件。负责与客户端（Producer和Consumer）进行通信，处理消息的发送、拉取、查询等请求。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 初始化网络通信模块</span></span><br><span class="line"><span class="built_in">this</span>.remotingServer = <span class="keyword">new</span> <span class="title class_">NettyRemotingServer</span>(<span class="built_in">this</span>.nettyServerConfig);</span><br><span class="line"><span class="built_in">this</span>.fastRemotingServer = <span class="keyword">new</span> <span class="title class_">NettyRemotingServer</span>(<span class="built_in">this</span>.nettyServerConfig);</span><br></pre></td></tr></table></figure>
+
+<h4 id="4-1-2-1、RemotingServer的工作流程"><a href="#4-1-2-1、RemotingServer的工作流程" class="headerlink" title="4.1.2.1、RemotingServer的工作流程"></a>4.1.2.1、RemotingServer的工作流程</h4><ol>
+<li>初始化Netty服务器</li>
+<li>注册请求处理器<ol>
+<li>this.registerProcessor();根据请求类型（如消息发送、消息拉取），注册相应的处理器</li>
+</ol>
+</li>
+<li>启动Netty服务器</li>
+<li>处理客户端请求</li>
+<li>管理连接</li>
+</ol>
+<h4 id="4-1-2-2、注册请求处理器-this-registerProcessor"><a href="#4-1-2-2、注册请求处理器-this-registerProcessor" class="headerlink" title="4.1.2.2、注册请求处理器 this.registerProcessor()"></a>4.1.2.2、注册请求处理器 this.registerProcessor()</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">registerProcessor</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * SendMessageProcessor</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">SendMessageProcessor</span> <span class="variable">sendProcessor</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SendMessageProcessor</span>(<span class="built_in">this</span>);</span><br><span class="line">    sendProcessor.registerSendMessageHook(sendMessageHookList);</span><br><span class="line">    sendProcessor.registerConsumeMessageHook(consumeMessageHookList);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.SEND_MESSAGE, sendProcessor, <span class="built_in">this</span>.sendMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.SEND_MESSAGE_V2, sendProcessor, <span class="built_in">this</span>.sendMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.SEND_BATCH_MESSAGE, sendProcessor, <span class="built_in">this</span>.sendMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.CONSUMER_SEND_MSG_BACK, sendProcessor, <span class="built_in">this</span>.sendMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.SEND_MESSAGE, sendProcessor, <span class="built_in">this</span>.sendMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.SEND_MESSAGE_V2, sendProcessor, <span class="built_in">this</span>.sendMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.SEND_BATCH_MESSAGE, sendProcessor, <span class="built_in">this</span>.sendMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.CONSUMER_SEND_MSG_BACK, sendProcessor, <span class="built_in">this</span>.sendMessageExecutor);</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * PullMessageProcessor</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.PULL_MESSAGE, <span class="built_in">this</span>.pullMessageProcessor, <span class="built_in">this</span>.pullMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.pullMessageProcessor.registerConsumeMessageHook(consumeMessageHookList);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * ReplyMessageProcessor</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">ReplyMessageProcessor</span> <span class="variable">replyMessageProcessor</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReplyMessageProcessor</span>(<span class="built_in">this</span>);</span><br><span class="line">    replyMessageProcessor.registerSendMessageHook(sendMessageHookList);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE, replyMessageProcessor, replyMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE_V2, replyMessageProcessor, replyMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE, replyMessageProcessor, replyMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE_V2, replyMessageProcessor, replyMessageExecutor);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * QueryMessageProcessor</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">NettyRequestProcessor</span> <span class="variable">queryProcessor</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">QueryMessageProcessor</span>(<span class="built_in">this</span>);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.QUERY_MESSAGE, queryProcessor, <span class="built_in">this</span>.queryMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.VIEW_MESSAGE_BY_ID, queryProcessor, <span class="built_in">this</span>.queryMessageExecutor);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.QUERY_MESSAGE, queryProcessor, <span class="built_in">this</span>.queryMessageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.VIEW_MESSAGE_BY_ID, queryProcessor, <span class="built_in">this</span>.queryMessageExecutor);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * ClientManageProcessor</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">ClientManageProcessor</span> <span class="variable">clientProcessor</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ClientManageProcessor</span>(<span class="built_in">this</span>);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.HEART_BEAT, clientProcessor, <span class="built_in">this</span>.heartbeatExecutor);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.UNREGISTER_CLIENT, clientProcessor, <span class="built_in">this</span>.clientManageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.CHECK_CLIENT_CONFIG, clientProcessor, <span class="built_in">this</span>.clientManageExecutor);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.HEART_BEAT, clientProcessor, <span class="built_in">this</span>.heartbeatExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.UNREGISTER_CLIENT, clientProcessor, <span class="built_in">this</span>.clientManageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.CHECK_CLIENT_CONFIG, clientProcessor, <span class="built_in">this</span>.clientManageExecutor);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * ConsumerManageProcessor</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">ConsumerManageProcessor</span> <span class="variable">consumerManageProcessor</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ConsumerManageProcessor</span>(<span class="built_in">this</span>);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.GET_CONSUMER_LIST_BY_GROUP, consumerManageProcessor, <span class="built_in">this</span>.consumerManageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.UPDATE_CONSUMER_OFFSET, consumerManageProcessor, <span class="built_in">this</span>.consumerManageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.QUERY_CONSUMER_OFFSET, consumerManageProcessor, <span class="built_in">this</span>.consumerManageExecutor);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.GET_CONSUMER_LIST_BY_GROUP, consumerManageProcessor, <span class="built_in">this</span>.consumerManageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.UPDATE_CONSUMER_OFFSET, consumerManageProcessor, <span class="built_in">this</span>.consumerManageExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.QUERY_CONSUMER_OFFSET, consumerManageProcessor, <span class="built_in">this</span>.consumerManageExecutor);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * EndTransactionProcessor</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerProcessor(RequestCode.END_TRANSACTION, <span class="keyword">new</span> <span class="title class_">EndTransactionProcessor</span>(<span class="built_in">this</span>), <span class="built_in">this</span>.endTransactionExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerProcessor(RequestCode.END_TRANSACTION, <span class="keyword">new</span> <span class="title class_">EndTransactionProcessor</span>(<span class="built_in">this</span>), <span class="built_in">this</span>.endTransactionExecutor);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Default</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">AdminBrokerProcessor</span> <span class="variable">adminProcessor</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">AdminBrokerProcessor</span>(<span class="built_in">this</span>);</span><br><span class="line">    <span class="built_in">this</span>.remotingServer.registerDefaultProcessor(adminProcessor, <span class="built_in">this</span>.adminBrokerExecutor);</span><br><span class="line">    <span class="built_in">this</span>.fastRemotingServer.registerDefaultProcessor(adminProcessor, <span class="built_in">this</span>.adminBrokerExecutor);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>例如重要的请求处理器：<code class="my-code">SendMessageProcessor</code></p>
+<blockquote>
+<p>具体内容：查看后续文章“Broker的内部核心组件”</p>
+</blockquote>
+<h3 id="4-1-3、第3步：初始化定时任务"><a href="#4-1-3、第3步：初始化定时任务" class="headerlink" title="4.1.3、第3步：初始化定时任务"></a>4.1.3、第3步：初始化定时任务</h3><p>会初始化多个定时任务，这些定时任务用于执行一些周期性的操作，例如清理过期消息、持久化消费进度、同步Broker状态等。</p>
+<p>以下是 Broker 启动过程中初始化的主要定时任务：</p>
+<h4 id="1-清理过期消息"><a href="#1-清理过期消息" class="headerlink" title="1. 清理过期消息"></a>1. <strong>清理过期消息</strong></h4><ul>
+<li><strong>任务名称</strong>：<code>CleanExpiredMessageTask</code></li>
+<li><strong>作用</strong>：定期检查并清理过期的消息。</li>
+<li><strong>触发间隔</strong>：默认 10 分钟。</li>
+<li><strong>配置参数</strong>：<code>fileReservedTime</code>（消息保留时间）。</li>
+</ul>
+<h4 id="2-持久化消费进度"><a href="#2-持久化消费进度" class="headerlink" title="2. 持久化消费进度"></a>2. <strong>持久化消费进度</strong></h4><ul>
+<li><strong>任务名称</strong>：<code>PersistConsumerOffsetTask</code></li>
+<li><strong>作用</strong>：定期将消费者的消费进度（Offset）持久化到磁盘。</li>
+<li><strong>触发间隔</strong>：默认 5 秒。</li>
+<li><strong>配置参数</strong>：<code>flushConsumerOffsetInterval</code>（持久化间隔）。</li>
+</ul>
+<h4 id="3-同步-Broker-状态"><a href="#3-同步-Broker-状态" class="headerlink" title="3. 同步 Broker 状态"></a>3. <strong>同步 Broker 状态</strong></h4><ul>
+<li><strong>任务名称</strong>：<code>BrokerStatsManager</code></li>
+<li><strong>作用</strong>：定期向 NameServer 同步 Broker 的状态信息。</li>
+<li><strong>触发间隔</strong>：默认 10 秒。</li>
+<li><strong>配置参数</strong>：<code>brokerNotActiveTimeout</code>（Broker 不活跃超时时间）。</li>
+</ul>
+<h4 id="4-统计和监控"><a href="#4-统计和监控" class="headerlink" title="4. 统计和监控"></a>4. <strong>统计和监控</strong></h4><ul>
+<li><strong>任务名称</strong>：<code>BrokerStatsManager</code></li>
+<li><strong>作用</strong>：定期收集和上报 Broker 的运行状态和性能指标。</li>
+<li><strong>触发间隔</strong>：默认 1 分钟。</li>
+<li><strong>配置参数</strong>：<code>brokerStatsInterval</code>（统计间隔）。</li>
+</ul>
+<h4 id="5-检查-HA-状态"><a href="#5-检查-HA-状态" class="headerlink" title="5. 检查 HA 状态"></a>5. <strong>检查 HA 状态</strong></h4><ul>
+<li><strong>任务名称</strong>：<code>HAService</code></li>
+<li><strong>作用</strong>：在主从模式下，定期检查主从同步状态。</li>
+<li><strong>触发间隔</strong>：默认 5 秒。</li>
+<li><strong>配置参数</strong>：<code>haSendHeartbeatInterval</code>（心跳间隔）。</li>
+</ul>
+<h1 id="五、Broker启动【第2步】BrokerController的启动"><a href="#五、Broker启动【第2步】BrokerController的启动" class="headerlink" title="五、Broker启动【第2步】BrokerController的启动"></a>五、Broker启动【第2步】BrokerController的启动</h1><p>BrokerController#start方法。主要是启动各种服务和组件，例如messageStore、remotingServer、fastRemotingServer等等。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">start</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="comment">//刷盘，同步，高可用开启</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.messageStore != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="built_in">this</span>.messageStore.start();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//10911 NettyServer 端口绑定 ，开始服务</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.remotingServer != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="built_in">this</span>.remotingServer.start();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//VIP 10911 -2 NettyServer 端口绑定 ，开始服务</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.fastRemotingServer != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="built_in">this</span>.fastRemotingServer.start();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//初始化组装NettyClient bootstrap 信息</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.brokerOuterAPI != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="built_in">this</span>.brokerOuterAPI.start();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.pullRequestHoldService != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="built_in">this</span>.pullRequestHoldService.start();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//开启检测不活动连接的服务，定时任务，每10s运行一次</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.clientHousekeepingService != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="built_in">this</span>.clientHousekeepingService.start();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.filterServerManager != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="built_in">this</span>.filterServerManager.start();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//向nameServer 注册broker topic 信息</span></span><br><span class="line">    <span class="built_in">this</span>.registerBrokerAll(<span class="literal">true</span>, <span class="literal">false</span>);</span><br><span class="line">    <span class="comment">//每30s 向 每个nameServer 注册broker topic 信息</span></span><br><span class="line">    <span class="built_in">this</span>.scheduledExecutorService.scheduleAtFixedRate(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line"></span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                BrokerController.<span class="built_in">this</span>.registerBrokerAll(<span class="literal">true</span>, <span class="literal">false</span>);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                log.error(<span class="string">&quot;registerBrokerAll Exception&quot;</span>, e);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;, <span class="number">1000</span> * <span class="number">10</span>, <span class="number">1000</span> * <span class="number">30</span>, TimeUnit.MILLISECONDS);</span><br><span class="line">    <span class="comment">//</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.brokerStatsManager != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="built_in">this</span>.brokerStatsManager.start();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.brokerFastFailure != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="built_in">this</span>.brokerFastFailure.start();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>主要是启动各种服务和组件，例如messageStore、remotingServer、fastRemotingServer等等。</p>
+<h2 id="5-1、启动小结"><a href="#5-1、启动小结" class="headerlink" title="5.1、启动小结"></a>5.1、启动小结</h2><p><img src="/2020/09/10/2020-09-10-rocketmq-Broker-%E5%90%AF%E5%8A%A8/Broker%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B.png" alt="Broker启动过程"></p>
+<p>参考文章：<br><a href="https://juejin.cn/post/7250374485568503867">https://juejin.cn/post/7250374485568503867</a><br><a href="https://juejin.cn/post/7031701457086709796">https://juejin.cn/post/7031701457086709796</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/09/08/2020-09-08-rocketmq-Broker/" rel="prev" title="《rocketmq》Broker原理">
+      <i class="fa fa-chevron-left"></i> 《rocketmq》Broker原理
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/09/13/2020-09-13-rocketmq-Broker-%E5%86%85%E9%83%A8%E7%BB%84%E4%BB%B6/" rel="next" title="《rocketmq》Broker的内部核心组件">
+      《rocketmq》Broker的内部核心组件 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6%E2%80%93Broker"><span class="nav-text">一、核心组件–Broker</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Broker%E5%90%AF%E5%8A%A8"><span class="nav-text">二、Broker启动</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6-BrokerController"><span class="nav-text">三、核心组件-BrokerController</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81Broker%E5%90%AF%E5%8A%A8%E3%80%90%E7%AC%AC1%E6%AD%A5%E3%80%91BrokerController%E7%9A%84%E5%88%9B%E5%BB%BA%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-text">四、Broker启动【第1步】BrokerController的创建与初始化</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81BrokerController%E5%88%9D%E5%A7%8B%E5%8C%96%E6%B5%81%E7%A8%8B"><span class="nav-text">4.1、BrokerController初始化流程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-1%E3%80%81%E7%AC%AC1%E6%AD%A5%EF%BC%9A%E5%88%9D%E5%A7%8B%E5%8C%96messageStore%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8%E5%99%A8"><span class="nav-text">4.1.1、第1步：初始化messageStore消息存储器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-2%E3%80%81%E7%AC%AC2%E6%AD%A5%EF%BC%9A%E5%88%9D%E5%A7%8B%E5%8C%96%E7%BD%91%E7%BB%9C%E9%80%9A%E4%BF%A1%E6%A8%A1%E5%9D%97"><span class="nav-text">4.1.2、第2步：初始化网络通信模块</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-1%E3%80%81RemotingServer%E7%9A%84%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B"><span class="nav-text">4.1.2.1、RemotingServer的工作流程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-2%E3%80%81%E6%B3%A8%E5%86%8C%E8%AF%B7%E6%B1%82%E5%A4%84%E7%90%86%E5%99%A8-this-registerProcessor"><span class="nav-text">4.1.2.2、注册请求处理器 this.registerProcessor()</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-3%E3%80%81%E7%AC%AC3%E6%AD%A5%EF%BC%9A%E5%88%9D%E5%A7%8B%E5%8C%96%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1"><span class="nav-text">4.1.3、第3步：初始化定时任务</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-%E6%B8%85%E7%90%86%E8%BF%87%E6%9C%9F%E6%B6%88%E6%81%AF"><span class="nav-text">1. 清理过期消息</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-%E6%8C%81%E4%B9%85%E5%8C%96%E6%B6%88%E8%B4%B9%E8%BF%9B%E5%BA%A6"><span class="nav-text">2. 持久化消费进度</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-%E5%90%8C%E6%AD%A5-Broker-%E7%8A%B6%E6%80%81"><span class="nav-text">3. 同步 Broker 状态</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-%E7%BB%9F%E8%AE%A1%E5%92%8C%E7%9B%91%E6%8E%A7"><span class="nav-text">4. 统计和监控</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-%E6%A3%80%E6%9F%A5-HA-%E7%8A%B6%E6%80%81"><span class="nav-text">5. 检查 HA 状态</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81Broker%E5%90%AF%E5%8A%A8%E3%80%90%E7%AC%AC2%E6%AD%A5%E3%80%91BrokerController%E7%9A%84%E5%90%AF%E5%8A%A8"><span class="nav-text">五、Broker启动【第2步】BrokerController的启动</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1%E3%80%81%E5%90%AF%E5%8A%A8%E5%B0%8F%E7%BB%93"><span class="nav-text">5.1、启动小结</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">139</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">120</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
