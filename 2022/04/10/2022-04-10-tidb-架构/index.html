@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".my-code {    color: green; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #6260ff; }   一、tidb传统的单机数据库已经在很多场景下表现的力不从心，为了解决海量数据平台的扩展性的问题，TiDB 分布式数据库应运而生">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《TIDB》架构">
+<meta property="og:url" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".my-code {    color: green; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #6260ff; }   一、tidb传统的单机数据库已经在很多场景下表现的力不从心，为了解决海量数据平台的扩展性的问题，TiDB 分布式数据库应运而生">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/%E4%B8%89%E5%A4%A7%E6%A8%A1%E5%9D%971.png">
+<meta property="og:image" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/%E4%B8%89%E5%A4%A7%E6%A8%A1%E5%9D%97_tidb.png">
+<meta property="og:image" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/%E6%9E%B6%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/%E6%9E%B6%E6%9E%84_%E7%AE%80%E6%B4%81.png">
+<meta property="og:image" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/tikv_%E6%9E%B6%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/tikv%E5%88%86%E7%89%87.png">
+<meta property="og:image" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/tikv_mvcc.png">
+<meta property="og:image" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/rocksdb.png">
+<meta property="og:image" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/LSM-Tree.png">
+<meta property="article:published_time" content="2022-04-09T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-21T01:37:38.923Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/%E4%B8%89%E5%A4%A7%E6%A8%A1%E5%9D%971.png">
+
+<link rel="canonical" href="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《TIDB》架构 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《TIDB》架构
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-04-10 00:00:00" itemprop="dateCreated datePublished" datetime="2022-04-10T00:00:00+08:00">2022-04-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-21 09:37:38" itemprop="dateModified" datetime="2025-03-21T09:37:38+08:00">2025-03-21</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/tidb/" itemprop="url" rel="index"><span itemprop="name">tidb</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/tidb/%E6%9E%B6%E6%9E%84/" itemprop="url" rel="index"><span itemprop="name">架构</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>6k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>15 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.my-code {
+   color: green;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #6260ff;
+}
+</style>
+
+<h1 id="一、tidb"><a href="#一、tidb" class="headerlink" title="一、tidb"></a>一、tidb</h1><p>传统的单机数据库已经在很多场景下表现的力不从心，为了解决海量数据平台的扩展性的问题，TiDB 分布式数据库应运而生</p>
+<span id="more"></span>
+
+<h1 id="二、特性"><a href="#二、特性" class="headerlink" title="二、特性"></a>二、特性</h1><p>相比传统的单机数据库，TiDB 有以下的一些优势：</p>
+<ul>
+<li>纯分布式架构，拥有良好的扩展性，支持弹性的扩缩容</li>
+<li>支持 SQL，对外暴露 MySQL 的网络协议，并兼容大多数 MySQL 的语法，在大多数场景下可以直接替换 MySQL</li>
+<li>默认支持高可用，在少数副本失效的情况下，数据库本身能够自动进行数据修复和故障转移，对业务透明</li>
+<li>支持 ACID 事务，对于一些有强一致需求的场景友好，例如：银行转账</li>
+<li>具有丰富的工具链生态，覆盖数据迁移、同步、备份等多种场景</li>
+</ul>
+<h1 id="三、架构"><a href="#三、架构" class="headerlink" title="三、架构"></a>三、架构</h1><p>TiDB 分布式数据库最初的设计受到 Google 内部开发的知名分布式数据库 Spanner 和 F1 的启发，在内核设计上将整体的架构拆分成多个大的模块，大的模块之间互相通信，组成完整的 TiDB 系统。大的架构如下：<br><img src="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/%E4%B8%89%E5%A4%A7%E6%A8%A1%E5%9D%971.png" alt="三大模块1"><br>这三个大模块相互通信，每个模块都是分布式的架构，在 TiDB 中，对应的这几个模块叫做：<br><img src="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/%E4%B8%89%E5%A4%A7%E6%A8%A1%E5%9D%97_tidb.png" alt="三大模块_tidb"></p>
+<ul>
+<li><p><code>TiDB (tidb-server, https://github.com/pingcap/tidb)</code>: SQL 层，对外暴露 MySQL 协议的连接 endpoint，<strong>负责接受客户端的连接，执行 SQL 解析和优化，最终生成分布式执行计划</strong>。TiDB 层本身是无状态的，实践中可以启动多个 TiDB 实例，客户端的连接可以均匀的分摊在多个 TiDB 实例上以达到负载均衡的效果。tidb-server 本身并不存储数据，只是解析 SQL，将实际的数据读取请求转发给底层的存储层 TiKV。</p>
+</li>
+<li><p><code>TiKV (tikv-server, https://github.com/pingcap/tikv) </code>: 分布式 KV 存储，类似 NoSQL 数据库，作为 TiDB 的默认分布式存储引擎，支持完全弹性的扩容和缩容，数据分布在多个 TiKV 存储节点中，系统会动态且自动地进行均衡，绝大多数情况下不需要人工介入。与普通的 NoSQL 系统不一样的是，TiKV 的 API 能够在 KV 键值对层面提供对分布式事务的原生支持，默认提供了 SI （Snapshot Isolation）的隔离级别，这也<strong>是 TiDB 在 SQL 层面支持分布式事务的核心</strong>，上面提到的 TiDB SQL 层做完 SQL 解析后，会将 SQL 的执行计划转换为实际对 TiKV API 的调用。所以实际上数据都是存储在 TiKV 中。另外，TiKV 中的数据都会自动维护多副本（默认为 3），天然支持高可用和自动故障转移。TiFlash 是一类特殊的存储节点，和普通 TiKV 节点不一样的是，在 TiFlash 内部，数据是以列式的形式进行存储，主要的功能是为分析型的场景加速。后面的章节会详细介绍。</p>
+</li>
+<li><p><code>Placement Driver (pd-server，简称 PD，https://github.com/pingcap/pd)</code>: 整个 TiDB 集群的元信息管理模块，负责存储每个 TiKV 节点实时的数据分布情况和集群的整体拓扑结构，提供 Dashboard 管控界面，并为分布式事务分配事务 ID。PD 不仅仅是单纯的元信息存储，同时 PD 会根据 TiKV 节点实时上报的数据分布状态，下发数据调度命令给具体的 TiKV 节点，可以说是整个集群的「大脑」，另外 PD 本身也是由至少 3 个对等节点构成，拥有高可用的能力。</p>
+</li>
+</ul>
+<p>个人理解：</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>MySQL对应模块</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>tidb-server</td>
+<td>mysql server端</td>
+<td>server端，负责与客户端交互，进行SQL解析，生成执行计划</td>
+</tr>
+<tr>
+<td>tikv-server</td>
+<td>innodb</td>
+<td>负责数据的存储</td>
+</tr>
+<tr>
+<td>pd-server</td>
+<td>zookeeper</td>
+<td>元数据管理</td>
+</tr>
+</tbody></table>
+<p><img src="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/%E6%9E%B6%E6%9E%84.png" alt="架构"></p>
+<h2 id="3-1、架构小结"><a href="#3-1、架构小结" class="headerlink" title="3.1、架构小结"></a>3.1、架构小结</h2><p>如下图为<code>TIDB</code>的整体架构。<br><img src="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/%E6%9E%B6%E6%9E%84_%E7%AE%80%E6%B4%81.png" alt="架构简洁"></p>
+<ul>
+<li><code>应用层</code> 发起查询请求，通过 MySQL 协议连接到 TiDB 集群</li>
+<li><code>LVS</code> 负载均衡层 将请求分发到某个 TiDB Server 实例</li>
+<li><code>TiDB Server</code> 解析、优化查询语句，生成执行计划，向 PD Server 查询数据分布，并通过 TiKV Client 发起查询</li>
+<li><code>PD Server</code> 返回相关 Region 的分布和位置信息</li>
+<li><code>TiKV Server</code> 根据请求从对应的 Region 检索数据，并进行过滤、排序等操作，返回给 TiDB Server</li>
+<li><code>TiDB Server</code> 整合数据并将最终结果返回给应用程序</li>
+</ul>
+<h1 id="五、核心组件【PD-Server】"><a href="#五、核心组件【PD-Server】" class="headerlink" title="五、核心组件【PD Server】"></a>五、核心组件【PD Server】</h1><h2 id="5-1、PD-Server-主要工作有三个"><a href="#5-1、PD-Server-主要工作有三个" class="headerlink" title="5.1、PD Server 主要工作有三个"></a>5.1、PD Server 主要工作有三个</h2><ul>
+<li>一是存储集群的元信息（某个 Key 存储在哪个 TiKV 节点）<ul>
+<li>tikv server会心跳上报信息</li>
+</ul>
+</li>
+<li>二是对 TiKV 集群进行调度和负载均衡（如数据的迁移、Raft group leader 的迁移等）</li>
+<li>三是分配全局唯一且递增的事务 ID</li>
+</ul>
+<h2 id="5-2、PD-Server-架构"><a href="#5-2、PD-Server-架构" class="headerlink" title="5.2、PD Server 架构"></a>5.2、PD Server 架构</h2><p>PD 通过 Raft 协议保证数据的安全性。Raft 的 leader server 负责处理所有操作，其余的 PD server 仅用于保证高可用。建议部署奇数个 PD 节点。</p>
+<h1 id="六、核心组件【TIDB-Server】"><a href="#六、核心组件【TIDB-Server】" class="headerlink" title="六、核心组件【TIDB Server】"></a>六、核心组件【TIDB Server】</h1><h1 id="七、核心组件【Tikv-Server】"><a href="#七、核心组件【Tikv-Server】" class="headerlink" title="七、核心组件【Tikv Server】"></a>七、核心组件【Tikv Server】</h1><p><code>TiKV</code> 是一个分布式事务型的键值数据库，提供了满足 <code>ACID</code> 约束的分布式事务接口，并且通过 <code>Raft</code> 协议保证了多副本数据一致性以及高可用。<code>TiKV</code> 作为 <code>TiDB</code> 的存储层，为用户写入 <code>TiDB</code> 的数据提供了持久化以及读写服务，同时还存储了 <code>TiDB</code> 的统计信息数据。</p>
+<p>将数据按照 <code>key</code> 的范围划分成大致相等的切片（下文统称为 <code>Region</code>），每一个切片会有多个副本（通常是 3 个），其中一个副本是 Leader，提供读写服务。TiKV 通过 PD 对这些 Region 以及副本进行调度，以保证数据和读写负载都均匀地分散在各个 TiKV 上，这样的设计保证了整个集群资源的充分利用并且可以随着机器数量的增加水平扩展。<br><img src="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/tikv_%E6%9E%B6%E6%9E%84.png" alt="tikv_架构"></p>
+<h2 id="7-1、Region分区机制"><a href="#7-1、Region分区机制" class="headerlink" title="7.1、Region分区机制"></a>7.1、Region分区机制</h2><h3 id="7-1-1、数据分片"><a href="#7-1-1、数据分片" class="headerlink" title="7.1.1、数据分片"></a>7.1.1、数据分片</h3><p><img src="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/tikv%E5%88%86%E7%89%87.png" alt="tikv分片"></p>
+<ul>
+<li>数据按Key范围划分为多个 Region（默认大小约<code>90-120MB</code>），每个Region是独立的数据分片单元。<ul>
+<li>基于Key的字节序范围划分，tikv 启动时，整个键空间被划分为一个初始 Region，其范围是[“”,””)（即从空字符串到无穷大）</li>
+</ul>
+</li>
+<li>每个Region有多个副本（默认3个），其中一个副本作为leader，负责处理写请求，其他副本作为follower同步数据。</li>
+</ul>
+<h4 id="具体分片"><a href="#具体分片" class="headerlink" title="具体分片"></a>具体分片</h4><p>在Tikv中，每个Region的数据范围由start_key和end_key定义，这两个键值（Key）是基于数据的编码规则生成的，用于唯一标识一个Region管理的键值对范围。</p>
+<p>TIDB中的数据（表、索引等）在存储到Tikv时，会通过编码规则转换成一个全局有序的字节流（key-value）。编码规则如下：</p>
+<p><strong>表数据的Key结构：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tablePrefix + tableID + recordPrefixSep + rowID</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>tablePrefix</code>：标识表数据的固定前缀（如t）</li>
+<li><code>tableID</code>：表的唯一ID。</li>
+<li><code>recordPrefixSep</code>：分隔符（如_r）</li>
+<li><code>rowID</code>：行数据的主键值</li>
+</ul>
+<p><strong>索引数据的Key结构</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tablePrefix + tableID + indexPrefixSep + indexID + indexedColumnsValue</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>indexPrefixSep</code>：索引分隔符（如_i）</li>
+<li><code>indexID</code>：索引的唯一ID</li>
+<li><code>indexedColumnsValue</code>：索引列的值组合</li>
+</ul>
+<p>通过这种编码，所有表、索引的Key在Tikv中是全局有序的。</p>
+<h5 id="示例"><a href="#示例" class="headerlink" title="示例"></a>示例</h5><p>假设有一个表 user，其 tableID 为100，主键为 id。</p>
+<p>表结构</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE user (</span><br><span class="line">  id INT PRIMARY KEY,</span><br><span class="line">  name VARCHAR(20)</span><br></pre></td></tr></table></figure>
+<p>插入数据</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">INSERT INTO user VALUES (1, &#x27;Alice&#x27;), (2, &#x27;Bob&#x27;), (3, &#x27;Charlie&#x27;);</span><br></pre></td></tr></table></figure>
+<p>编码后的Key（简化表示）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">t100_r1 -&gt; &#123;id=1, name=&#x27;Alice&#x27;&#125;</span><br><span class="line">t100_r2 -&gt; &#123;id=2, name=&#x27;Bob&#x27;&#125;</span><br><span class="line">t100_r3 -&gt; &#123;id=3, name=&#x27;Charlie&#x27;&#125;</span><br></pre></td></tr></table></figure>
+<p>region范围：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">start_key: t100_r1</span><br><span class="line">end_key:   t100_r3</span><br></pre></td></tr></table></figure>
+<p>该<code>region</code>包含<code>id=1</code> 到 <code>id=3</code> 之间的所有数据</p>
+<h3 id="7-1-2、动态扩展"><a href="#7-1-2、动态扩展" class="headerlink" title="7.1.2、动态扩展"></a>7.1.2、动态扩展</h3><ul>
+<li><code>Region分裂</code>：当数据量超过阈值时，自动分裂为两个子Region</li>
+<li><code>Region合并</code>：当数据因删除操作变得过小，相邻Region可合并（需手动触发）。</li>
+</ul>
+<p>假设上述Region因数据量过大需要分裂，选择分裂点为 t100_r2</p>
+<p><strong>原Region</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">start_key: t100_r1</span><br><span class="line">end_key:   t100_r2</span><br></pre></td></tr></table></figure>
+<p><strong>新Region</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">start_key: t100_r2</span><br><span class="line">end_key:   t100_r3</span><br></pre></td></tr></table></figure>
+<p>分离后，原Region管理 id&#x3D;1 到 id&#x3D;2 的数据，新 region 管理 id&#x3D;2 到 id&#x3D;3 的数据</p>
+<h2 id="7-2、Raft协议与数据一致性"><a href="#7-2、Raft协议与数据一致性" class="headerlink" title="7.2、Raft协议与数据一致性"></a>7.2、Raft协议与数据一致性</h2><p>副本管理</p>
+<ul>
+<li>每个Region的副本通过<code>raft协议</code>维护数据一致性。</li>
+<li>写请求必须在leader上执行，并同步到多数分布（超过半数）后才视为成功。</li>
+<li>leader故障时，副本通过raft选举新leader，确保服务连续性</li>
+</ul>
+<h2 id="7-3、事务模型与MVCC"><a href="#7-3、事务模型与MVCC" class="headerlink" title="7.3、事务模型与MVCC"></a>7.3、事务模型与MVCC</h2><h3 id="7-3-1、percolator-事务模型"><a href="#7-3-1、percolator-事务模型" class="headerlink" title="7.3.1、percolator 事务模型"></a>7.3.1、percolator 事务模型</h3><p>依赖<code>全局唯一时间戳（TSO）</code>，由PD Server分配，保证事务的顺序性和一致性。</p>
+<p>事务流程：</p>
+<ol>
+<li>客户端向PD获取<code>StarTS</code>（事务开始时间戳）</li>
+<li>执行读写操作，最终提交时获取<code>CommitTS</code>（提交时间戳）</li>
+<li>通过<code>两阶段提交（2PC）</code>确保事务原子性。</li>
+</ol>
+<h3 id="7-3-2、MVCC（多版本并发控制）"><a href="#7-3-2、MVCC（多版本并发控制）" class="headerlink" title="7.3.2、MVCC（多版本并发控制）"></a>7.3.2、MVCC（多版本并发控制）</h3><ul>
+<li>每个键值对保存多个版本（基于时间戳），支持快照读取和历史数据查询。</li>
+<li>通过<code>RocksDB</code>的底层实现管理版本，自动清理过期数据。</li>
+</ul>
+<p><img src="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/tikv_mvcc.png" alt="tikv_mvcc"></p>
+<h2 id="7-4、存储引擎：RocksDB"><a href="#7-4、存储引擎：RocksDB" class="headerlink" title="7.4、存储引擎：RocksDB"></a>7.4、存储引擎：RocksDB</h2><p>RocksDB 是一个基于键值对存储接口的存储引擎库，其中键和值是任意字节流。RocksDB 将所有数据按排序顺序组织起来，常用的操作有Get(key), NewIterator(), Put(key, val), Delete(key), 和SingleDelete(key)。</p>
+<h3 id="7-4-1、RocksDB的核心架构"><a href="#7-4-1、RocksDB的核心架构" class="headerlink" title="7.4.1、RocksDB的核心架构"></a>7.4.1、RocksDB的核心架构</h3><p>RocksDB 基于 <strong>LSM-Tree（Log-Structured Merge Tree）</strong> 设计，核心组件包括：</p>
+<ul>
+<li><strong>MemTable</strong>：内存中的可变数据结构（如跳表），用于缓存写入的键值对。</li>
+<li><strong>Immutable MemTable</strong>：当 MemTable 写满后变为只读状态，等待刷入磁盘。</li>
+<li><strong>SSTable（Sorted String Table）</strong>：磁盘上的不可变有序文件，分为多个层级（Level 0 到 Level N）。</li>
+<li>**Write-Ahead Log (WAL)**：持久化写入日志，防止数据丢失。</li>
+<li><strong>Compaction</strong>：后台进程合并和整理 SSTable 文件，删除过期数据，优化读取性能。<br><img src="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/rocksdb.png" alt="rocksdb"></li>
+</ul>
+<h4 id="LSM-Tree"><a href="#LSM-Tree" class="headerlink" title="LSM-Tree"></a>LSM-Tree</h4><p>LSM树，即日志结构合并树(Log-Structured Merge-Tree)。其实它并不属于一个具体的数据结构，它更多是一种数据结构的设计思想。大多NoSQL数据库核心思想都是基于LSM来做的，只是具体的实现不同。</p>
+<p>传统关系型数据库使用btree或一些变体作为存储结构，能高效进行查找。但保存在磁盘中时它也有一个明显的缺陷，那就是逻辑上相离很近但物理却可能相隔很远，这就可能造成大量的磁盘随机读写。随机读写比顺序读写慢很多，为了提升IO性能，我们需要一种能将随机操作变为顺序操作的机制，于是便有了LSM树。</p>
+<p>TiKV的存储数据结构是基于<a href="https://github.com/facebook/rocksdb"><code>rocksdb</code></a> 的 LSM-Tree (全称是 <em>Log-Structured Merge</em>-<em>tree</em>)，存储的格式是KV键值对，通过分块 + 二分查找的方式找到对应的记录。</p>
+<p>LSM-Tree会在内存中分配1个<code>MemTable</code>块和若干个 <code>immutable MemTable</code>，这些块以链表的形式连接在一起；同理磁盘中的 <code>SSTable</code> 也会按照层级串联起来且大小不断递增；需要注意的是 <code>Level 0</code> 的 SSTable 数据是 <code>immutable MemTable</code> 数据的复刻 (rocksdb会尽可能块地将 immutable MemTables 刷盘到 L0的SSTable中)。</p>
+<blockquote>
+<p>内存中的<code>immutable MemTable</code> &#x3D; 磁盘中的 <code>Level 0 SSTable</code></p>
+</blockquote>
+<p>当 <code>MemTable</code> 填满时，会刷盘到<code>immutable MemTable</code>，后台进程会将<code>immutable MemTable</code> 的数据刷新到磁盘中Level 0 的 SSTable ，当Level 0 的SSTABLE文件达到4个时，会进行压缩并存储到Level 1，以此类推。</p>
+<p>写操作时，直接将写请求记录在内存的<code>MemTable</code> 和磁盘的 <code>WAL</code> 日志即可</p>
+<p>读操作时，TiKV在 MemTable 上有提供了一个<code>Block Cache</code> 的缓存，用于缓存最近最常读取的数据，<code>Block Cache</code> 中没有再依次读取<code>MemTable</code>、<code>immutable MemTable</code>、<code>SSTable</code></p>
+<p>还需要注意一点数据写入都是到内存的MemTable，那么如何保证一致性？</p>
+<p>答案是：WAL —— <code>Write Ahead Log</code><br><img src="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/LSM-Tree.png" alt="LSM-Tree"></p>
+<h3 id="7-4-2、RocksDB-的写入流程"><a href="#7-4-2、RocksDB-的写入流程" class="headerlink" title="7.4.2、RocksDB 的写入流程"></a>7.4.2、RocksDB 的写入流程</h3><ol>
+<li><strong>写入 WAL</strong>：所有写入操作首先追加到 WAL 文件，确保数据持久性。</li>
+<li><strong>更新 MemTable</strong>：数据写入内存中的 MemTable（跳表结构保证有序性）。</li>
+<li><strong>MemTable 切换</strong>：当 MemTable 写满后，转为 Immutable MemTable，并创建新的 MemTable。</li>
+<li><strong>刷盘（Flush）</strong>：后台线程将 Immutable MemTable 刷入磁盘，生成 Level 0 的 SSTable 文件。</li>
+</ol>
+<h3 id="7-4-3、RocksDB-的读取流程"><a href="#7-4-3、RocksDB-的读取流程" class="headerlink" title="7.4.3、RocksDB 的读取流程"></a>7.4.3、RocksDB 的读取流程</h3><ol>
+<li><strong>查询 MemTable</strong>：优先从内存中的 MemTable 查找数据。</li>
+<li><strong>查询 Immutable MemTable</strong>：若未找到，检查待刷盘的 Immutable MemTable。</li>
+<li><strong>查询 SSTable</strong>：逐层查询磁盘上的 SSTable 文件（从 Level 0 到最高层），利用布隆过滤器（Bloom Filter）加速查找。</li>
+</ol>
+<p>参考文章：<br><a href="https://book.tidb.io/SUMMARY.html">https://book.tidb.io/SUMMARY.html</a><br><a href="http://v5blog.cn/pages/ff1759/#_2%E3%80%81tidb-server%E6%A0%B8%E5%BF%83%E8%83%BD%E5%8A%9B">http://v5blog.cn/pages/ff1759/#_2%E3%80%81tidb-server%E6%A0%B8%E5%BF%83%E8%83%BD%E5%8A%9B</a><br><a href="https://www.cnblogs.com/luohaixian/p/18303793">https://www.cnblogs.com/luohaixian/p/18303793</a><br><a href="https://www.qtmuniao.com/2023/06/05/how-rocksdb-works/">https://www.qtmuniao.com/2023/06/05/how-rocksdb-works/</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/10/2021-01-10-Mybatis/" rel="prev" title="Mybatis">
+      <i class="fa fa-chevron-left"></i> Mybatis
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2022/04/13/2022-04-13-tidb-sql%E8%BF%90%E7%AE%97/" rel="next" title="《TIDB》SQL运算">
+      《TIDB》SQL运算 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81tidb"><span class="nav-text">一、tidb</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E7%89%B9%E6%80%A7"><span class="nav-text">二、特性</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%9E%B6%E6%9E%84"><span class="nav-text">三、架构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E6%9E%B6%E6%9E%84%E5%B0%8F%E7%BB%93"><span class="nav-text">3.1、架构小结</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6%E3%80%90PD-Server%E3%80%91"><span class="nav-text">五、核心组件【PD Server】</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1%E3%80%81PD-Server-%E4%B8%BB%E8%A6%81%E5%B7%A5%E4%BD%9C%E6%9C%89%E4%B8%89%E4%B8%AA"><span class="nav-text">5.1、PD Server 主要工作有三个</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-2%E3%80%81PD-Server-%E6%9E%B6%E6%9E%84"><span class="nav-text">5.2、PD Server 架构</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6%E3%80%90TIDB-Server%E3%80%91"><span class="nav-text">六、核心组件【TIDB Server】</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6%E3%80%90Tikv-Server%E3%80%91"><span class="nav-text">七、核心组件【Tikv Server】</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#7-1%E3%80%81Region%E5%88%86%E5%8C%BA%E6%9C%BA%E5%88%B6"><span class="nav-text">7.1、Region分区机制</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-1%E3%80%81%E6%95%B0%E6%8D%AE%E5%88%86%E7%89%87"><span class="nav-text">7.1.1、数据分片</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%85%B7%E4%BD%93%E5%88%86%E7%89%87"><span class="nav-text">具体分片</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E7%A4%BA%E4%BE%8B"><span class="nav-text">示例</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-2%E3%80%81%E5%8A%A8%E6%80%81%E6%89%A9%E5%B1%95"><span class="nav-text">7.1.2、动态扩展</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-2%E3%80%81Raft%E5%8D%8F%E8%AE%AE%E4%B8%8E%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7"><span class="nav-text">7.2、Raft协议与数据一致性</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-3%E3%80%81%E4%BA%8B%E5%8A%A1%E6%A8%A1%E5%9E%8B%E4%B8%8EMVCC"><span class="nav-text">7.3、事务模型与MVCC</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-3-1%E3%80%81percolator-%E4%BA%8B%E5%8A%A1%E6%A8%A1%E5%9E%8B"><span class="nav-text">7.3.1、percolator 事务模型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-3-2%E3%80%81MVCC%EF%BC%88%E5%A4%9A%E7%89%88%E6%9C%AC%E5%B9%B6%E5%8F%91%E6%8E%A7%E5%88%B6%EF%BC%89"><span class="nav-text">7.3.2、MVCC（多版本并发控制）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-4%E3%80%81%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E%EF%BC%9ARocksDB"><span class="nav-text">7.4、存储引擎：RocksDB</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-4-1%E3%80%81RocksDB%E7%9A%84%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84"><span class="nav-text">7.4.1、RocksDB的核心架构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#LSM-Tree"><span class="nav-text">LSM-Tree</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-4-2%E3%80%81RocksDB-%E7%9A%84%E5%86%99%E5%85%A5%E6%B5%81%E7%A8%8B"><span class="nav-text">7.4.2、RocksDB 的写入流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-4-3%E3%80%81RocksDB-%E7%9A%84%E8%AF%BB%E5%8F%96%E6%B5%81%E7%A8%8B"><span class="nav-text">7.4.3、RocksDB 的读取流程</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">146</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">127</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
