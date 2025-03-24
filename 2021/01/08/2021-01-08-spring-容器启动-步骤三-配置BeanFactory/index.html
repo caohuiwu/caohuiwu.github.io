@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是spring系列的第三篇文章，主要介绍的是容器启动中的第3个步骤，prepareBeanFactory。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #6260ff; }   一、Springspring框架是Java">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《spring》容器启动 -step3- 配置BeanFactory">
+<meta property="og:url" content="http://yoursite.com/2021/01/08/2021-01-08-spring-%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8-%E6%AD%A5%E9%AA%A4%E4%B8%89-%E9%85%8D%E7%BD%AEBeanFactory/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是spring系列的第三篇文章，主要介绍的是容器启动中的第3个步骤，prepareBeanFactory。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #6260ff; }   一、Springspring框架是Java">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-01-07T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-24T06:58:49.190Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2021/01/08/2021-01-08-spring-%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8-%E6%AD%A5%E9%AA%A4%E4%B8%89-%E9%85%8D%E7%BD%AEBeanFactory/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《spring》容器启动 -step3- 配置BeanFactory | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/01/08/2021-01-08-spring-%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8-%E6%AD%A5%E9%AA%A4%E4%B8%89-%E9%85%8D%E7%BD%AEBeanFactory/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《spring》容器启动 -step3- 配置BeanFactory
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-01-08 00:00:00" itemprop="dateCreated datePublished" datetime="2021-01-08T00:00:00+08:00">2021-01-08</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-24 14:58:49" itemprop="dateModified" datetime="2025-03-24T14:58:49+08:00">2025-03-24</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/" itemprop="url" rel="index"><span itemprop="name">spring</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/%E5%AE%B9%E5%99%A8/" itemprop="url" rel="index"><span itemprop="name">容器</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/%E5%AE%B9%E5%99%A8/%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8/" itemprop="url" rel="index"><span itemprop="name">容器启动</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>4.9k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>12 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是spring系列的第三篇文章，主要介绍的是容器启动中的第3个步骤，prepareBeanFactory。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #6260ff;
+}
+</style>
+
+<h1 id="一、Spring"><a href="#一、Spring" class="headerlink" title="一、Spring"></a>一、Spring</h1><p><code>spring框架</code>是Java生态中最主流的轻量级开源应用框架，其核心目标是简化企业级应用开发，通过<code>IOC（控制反转）</code>和<code>AOP（面向切面编程）</code>两大核心机制实现解耦、模块化和可维护性。</p>
+<span id="more"></span>
+
+<h1 id="二、prepareBeanFactory-beanFactory"><a href="#二、prepareBeanFactory-beanFactory" class="headerlink" title="二、prepareBeanFactory(beanFactory);"></a>二、prepareBeanFactory(beanFactory);</h1><p>主要职责是为BeanFactory设置必要的上下文环境，包括类加载器、表达式解析器、后置处理器等，确保后续 Bean 的正确实例化和初始化。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">prepareBeanFactory</span><span class="params">(ConfigurableListableBeanFactory beanFactory)</span> &#123;</span><br><span class="line">    <span class="comment">// 设置类加载器（ClassLoader）</span></span><br><span class="line">    beanFactory.setBeanClassLoader(getClassLoader());</span><br><span class="line">    <span class="comment">//配置表达式解析器（BeanExpressionResolver）</span></span><br><span class="line">    <span class="comment">//支持SpELl表达式解析，用于@Value注解、XML配置中的#&#123;...&#125;表达式    </span></span><br><span class="line">    beanFactory.setBeanExpressionResolver(<span class="keyword">new</span> <span class="title class_">StandardBeanExpressionResolver</span>(beanFactory.getBeanClassLoader()));</span><br><span class="line">    <span class="comment">//注册属性编辑器（PropertyEditorRegistrar)</span></span><br><span class="line">    beanFactory.addPropertyEditorRegistrar(<span class="keyword">new</span> <span class="title class_">ResourceEditorRegistrar</span>(<span class="built_in">this</span>, getEnvironment()));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 添加ApplicationContextAwareProcessor，</span></span><br><span class="line">    <span class="comment">//作用：处理实现了Aware接口（如ApplicationContextAware、EnvironmentAware）的Bean</span></span><br><span class="line">    <span class="comment">//流程：在postProcessBeforeInitialization阶段调用 invokeAwareInterfaces()，注入 ApplicationContext等对象</span></span><br><span class="line">    beanFactory.addBeanPostProcessor(<span class="keyword">new</span> <span class="title class_">ApplicationContextAwareProcessor</span>(<span class="built_in">this</span>));</span><br><span class="line">    beanFactory.ignoreDependencyInterface(EnvironmentAware.class);</span><br><span class="line">    beanFactory.ignoreDependencyInterface(EmbeddedValueResolverAware.class);</span><br><span class="line">    beanFactory.ignoreDependencyInterface(ResourceLoaderAware.class);</span><br><span class="line">    beanFactory.ignoreDependencyInterface(ApplicationEventPublisherAware.class);</span><br><span class="line">    beanFactory.ignoreDependencyInterface(MessageSourceAware.class);</span><br><span class="line">    beanFactory.ignoreDependencyInterface(ApplicationContextAware.class);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// BeanFactory interface not registered as resolvable type in a plain factory.</span></span><br><span class="line">    <span class="comment">// MessageSource registered (and found for autowiring) as a bean.</span></span><br><span class="line">    beanFactory.registerResolvableDependency(BeanFactory.class, beanFactory);</span><br><span class="line">    beanFactory.registerResolvableDependency(ResourceLoader.class, <span class="built_in">this</span>);</span><br><span class="line">    beanFactory.registerResolvableDependency(ApplicationEventPublisher.class, <span class="built_in">this</span>);</span><br><span class="line">    beanFactory.registerResolvableDependency(ApplicationContext.class, <span class="built_in">this</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 注册ApplicationListenerDetector</span></span><br><span class="line">    <span class="comment">// 作用：检测实现了 ApplicationListener 接口的Bean，并将其注册到上下文的事件广播器中。</span></span><br><span class="line">    beanFactory.addBeanPostProcessor(<span class="keyword">new</span> <span class="title class_">ApplicationListenerDetector</span>(<span class="built_in">this</span>));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Detect a LoadTimeWeaver and prepare for weaving, if found.</span></span><br><span class="line">    <span class="keyword">if</span> (beanFactory.containsBean(LOAD_TIME_WEAVER_BEAN_NAME)) &#123;</span><br><span class="line">        beanFactory.addBeanPostProcessor(<span class="keyword">new</span> <span class="title class_">LoadTimeWeaverAwareProcessor</span>(beanFactory));</span><br><span class="line">        <span class="comment">// Set a temporary ClassLoader for type matching.</span></span><br><span class="line">        beanFactory.setTempClassLoader(<span class="keyword">new</span> <span class="title class_">ContextTypeMatchClassLoader</span>(beanFactory.getBeanClassLoader()));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 在工厂中提前注册一些单例Bean</span></span><br><span class="line">    <span class="keyword">if</span> (!beanFactory.containsLocalBean(ENVIRONMENT_BEAN_NAME)) &#123;</span><br><span class="line">        beanFactory.registerSingleton(ENVIRONMENT_BEAN_NAME, getEnvironment());</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!beanFactory.containsLocalBean(SYSTEM_PROPERTIES_BEAN_NAME)) &#123;</span><br><span class="line">        beanFactory.registerSingleton(SYSTEM_PROPERTIES_BEAN_NAME, getEnvironment().getSystemProperties());</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!beanFactory.containsLocalBean(SYSTEM_ENVIRONMENT_BEAN_NAME)) &#123;</span><br><span class="line">        beanFactory.registerSingleton(SYSTEM_ENVIRONMENT_BEAN_NAME, getEnvironment().getSystemEnvironment());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-1、核心步骤解析"><a href="#2-1、核心步骤解析" class="headerlink" title="2.1、核心步骤解析"></a>2.1、核心步骤解析</h2><ol>
+<li><strong>设置类加载器（ClassLoader）</strong><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">beanFactory.setBeanClassLoader(getClassLoader());</span><br></pre></td></tr></table></figure></li>
+</ol>
+<ul>
+<li><strong>作用</strong>：指定BeanFactory加载Bean类时使用的类加载器，通常为当前应用上下文的类加载器。</li>
+<li><strong>必要性</strong>：确保Bean类能够正确加载，特别是在模块化环境（如OSGi）或自定义类加载场景中。</li>
+</ul>
+<ol start="2">
+<li><strong>配置表达式解析器（BeanExpressionResolver）</strong><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">beanFactory.setBeanExpressionResolver(<span class="keyword">new</span> <span class="title class_">StandardBeanExpressionResolver</span>(beanFactory.getBeanClassLoader()));</span><br></pre></td></tr></table></figure></li>
+</ol>
+<ul>
+<li><strong>作用</strong>：支持SpEL（Spring Expression Language）表达式的解析，用于<code>@Value</code>注解、XML配置中的<code>#&#123;...&#125;</code>表达式等。</li>
+<li><strong>示例</strong>：在Bean属性中注入动态值：<code>&lt;property name=&quot;timeout&quot; value=&quot;#&#123;systemProperties[&#39;default.timeout&#39;]&#125;&quot;/&gt;</code></li>
+</ul>
+<ol start="3">
+<li><strong>注册属性编辑器（PropertyEditorRegistrar）</strong><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">beanFactory.addPropertyEditorRegistrar(<span class="keyword">new</span> <span class="title class_">ResourceEditorRegistrar</span>(<span class="built_in">this</span>, getEnvironment()));</span><br></pre></td></tr></table></figure></li>
+</ol>
+<ul>
+<li><strong>作用</strong>：注册自定义<code>PropertyEditor</code>，将字符串值转换为复杂类型（如<code>Resource</code>、<code>Environment</code>）。</li>
+<li><strong>示例</strong>：XML中的<code>classpath:config.xml</code>字符串被转换为<code>ClassPathResource</code>对象。</li>
+</ul>
+<ol start="4">
+<li><strong>添加ApplicationContextAwareProcessor</strong><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">beanFactory.addBeanPostProcessor(<span class="keyword">new</span> <span class="title class_">ApplicationContextAwareProcessor</span>(<span class="built_in">this</span>));</span><br></pre></td></tr></table></figure></li>
+</ol>
+<ul>
+<li><strong>作用</strong>：处理实现了<code>Aware</code>接口（如<code>ApplicationContextAware</code>、<code>EnvironmentAware</code>）的Bean，在初始化阶段注入依赖。</li>
+<li><strong>流程</strong>：在<code>postProcessBeforeInitialization</code>阶段调用<code>invokeAwareInterfaces()</code>，注入<code>ApplicationContext</code>等对象。</li>
+</ul>
+<ol start="5">
+<li><strong>忽略自动装配的接口</strong><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">beanFactory.ignoreDependencyInterface(EnvironmentAware.class);</span><br><span class="line">beanFactory.ignoreDependencyInterface(EmbeddedValueResolverAware.class);</span><br><span class="line"><span class="comment">// ... 其他如ResourceLoaderAware, ApplicationEventPublisherAware等</span></span><br></pre></td></tr></table></figure></li>
+</ol>
+<ul>
+<li><strong>原因</strong>：避免这些接口被自动装配机制处理，因为它们已由<code>ApplicationContextAwareProcessor</code>手动注入。</li>
+</ul>
+<ol start="6">
+<li><strong>注册可解析依赖（Resolvable Dependencies）</strong><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">beanFactory.registerResolvableDependency(BeanFactory.class, beanFactory);</span><br><span class="line">beanFactory.registerResolvableDependency(ResourceLoader.class, <span class="built_in">this</span>);</span><br><span class="line">beanFactory.registerResolvableDependency(ApplicationEventPublisher.class, <span class="built_in">this</span>);</span><br><span class="line">beanFactory.registerResolvableDependency(ApplicationContext.class, <span class="built_in">this</span>);</span><br></pre></td></tr></table></figure></li>
+</ol>
+<ul>
+<li><strong>作用</strong>：当Bean需要注入<code>BeanFactory</code>、<code>ApplicationContext</code>等依赖时，直接返回预设实例，无需查找。</li>
+</ul>
+<ol start="7">
+<li><strong>注册ApplicationListenerDetector</strong><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">beanFactory.addBeanPostProcessor(<span class="keyword">new</span> <span class="title class_">ApplicationListenerDetector</span>(<span class="built_in">this</span>));</span><br></pre></td></tr></table></figure></li>
+</ol>
+<ul>
+<li><strong>职责</strong>：检测实现了<code>ApplicationListener</code>接口的Bean，并将其注册到上下文的事件广播器中。</li>
+<li><strong>注意</strong>：确保监听器在上下文事件发布时能够接收通知。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/04/2021-01-04-springmvc/" rel="prev" title="springmvc">
+      <i class="fa fa-chevron-left"></i> springmvc
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/01/09/2021-01-09-spring-%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8-%E6%AD%A5%E9%AA%A4%E5%9B%9B-%E5%90%8E%E7%BD%AE%E5%A4%84%E7%90%86%E5%99%A8/" rel="next" title="《spring》容器启动 -step4- 后置处理器">
+      《spring》容器启动 -step4- 后置处理器 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Spring"><span class="nav-text">一、Spring</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81prepareBeanFactory-beanFactory"><span class="nav-text">二、prepareBeanFactory(beanFactory);</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E6%A0%B8%E5%BF%83%E6%AD%A5%E9%AA%A4%E8%A7%A3%E6%9E%90"><span class="nav-text">2.1、核心步骤解析</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">153</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">131</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
