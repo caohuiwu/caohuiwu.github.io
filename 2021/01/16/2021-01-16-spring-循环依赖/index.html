@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是spring系列的第九篇文章，主要介绍的是循环依赖及三级缓存。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、Springspring框架是Java生态中最主流的轻量级开源应用框架，其核心目">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《spring》循环依赖">
+<meta property="og:url" content="http://yoursite.com/2021/01/16/2021-01-16-spring-%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是spring系列的第九篇文章，主要介绍的是循环依赖及三级缓存。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、Springspring框架是Java生态中最主流的轻量级开源应用框架，其核心目">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/01/16/2021-01-16-spring-%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96.png">
+<meta property="article:published_time" content="2021-01-15T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-26T07:43:50.355Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/01/16/2021-01-16-spring-%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/01/16/2021-01-16-spring-%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《spring》循环依赖 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/01/16/2021-01-16-spring-%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《spring》循环依赖
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-01-16 00:00:00" itemprop="dateCreated datePublished" datetime="2021-01-16T00:00:00+08:00">2021-01-16</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-26 15:43:50" itemprop="dateModified" datetime="2025-03-26T15:43:50+08:00">2025-03-26</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/" itemprop="url" rel="index"><span itemprop="name">spring</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/" itemprop="url" rel="index"><span itemprop="name">循环依赖</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/%E4%B8%89%E7%BA%A7%E7%BC%93%E5%AD%98/" itemprop="url" rel="index"><span itemprop="name">三级缓存</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>3.7k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>9 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是spring系列的第九篇文章，主要介绍的是循环依赖及三级缓存。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、Spring"><a href="#一、Spring" class="headerlink" title="一、Spring"></a>一、Spring</h1><p><code>spring框架</code>是Java生态中最主流的轻量级开源应用框架，其核心目标是简化企业级应用开发，通过<code>IOC（控制反转）</code>和<code>AOP（面向切面编程）</code>两大核心机制实现解耦、模块化和可维护性。</p>
+<span id="more"></span>
+
+<h1 id="二、三级缓存"><a href="#二、三级缓存" class="headerlink" title="二、三级缓存"></a>二、三级缓存</h1><p>在解析循环依赖之前，先了解一下三级缓存。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DefaultSingletonBeanRegistry</span> <span class="keyword">extends</span> <span class="title class_">SimpleAliasRegistry</span> <span class="keyword">implements</span> <span class="title class_">SingletonBeanRegistry</span> &#123;</span><br><span class="line">	...</span><br><span class="line">	<span class="comment">// 从上至下 分表代表这“三级缓存”</span></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">final</span> Map&lt;String, Object&gt; singletonObjects = <span class="keyword">new</span> <span class="title class_">ConcurrentHashMap</span>&lt;&gt;(<span class="number">256</span>); <span class="comment">//一级缓存</span></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">final</span> Map&lt;String, Object&gt; earlySingletonObjects = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;(<span class="number">16</span>); <span class="comment">// 二级缓存</span></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">final</span> Map&lt;String, ObjectFactory&lt;?&gt;&gt; singletonFactories = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;(<span class="number">16</span>); <span class="comment">// 三级缓存</span></span><br><span class="line">	...</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/** Names of beans that are currently in creation. */</span></span><br><span class="line">	<span class="comment">// 这个缓存也十分重要：它表示bean创建过程中都会在里面呆着~</span></span><br><span class="line">	<span class="comment">// 它在Bean开始创建时放值，创建完成时会将其移出~</span></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">final</span> Set&lt;String&gt; singletonsCurrentlyInCreation = Collections.newSetFromMap(<span class="keyword">new</span> <span class="title class_">ConcurrentHashMap</span>&lt;&gt;(<span class="number">16</span>));</span><br><span class="line"></span><br><span class="line">	<span class="comment">/** Names of beans that have already been created at least once. */</span></span><br><span class="line">	<span class="comment">// 当这个Bean被创建完成后，会标记为这个 注意：这里是set集合 不会重复</span></span><br><span class="line">	<span class="comment">// 至少被创建了一次的  都会放进这里~~~~</span></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">final</span> Set&lt;String&gt; alreadyCreated = Collections.newSetFromMap(<span class="keyword">new</span> <span class="title class_">ConcurrentHashMap</span>&lt;&gt;(<span class="number">256</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li><code>singletonObjects</code>：用于存放完全初始化好的 bean，<strong>从该缓存中取出的 bean 可以直接使用</strong></li>
+<li><code>earlySingletonObjects</code>：提前曝光的单例对象的cache，存放原始的 bean 对象（尚未填充属性），用于解决循环依赖</li>
+<li><code>singletonFactories</code>：单例对象工厂的cache，存放 bean 工厂对象，用于解决循环依赖</li>
+</ol>
+<h1 id="三、循环依赖"><a href="#三、循环依赖" class="headerlink" title="三、循环依赖"></a>三、循环依赖</h1><p>先了解一下是如何从缓存中获取数据的</p>
+<ol>
+<li>先从一级缓存<code>singletonObjects</code>中去获取。（如果获取到就直接return）</li>
+<li>如果获取不到或者对象正在创建中（<code>isSingletonCurrentlyInCreation()</code>），那就再从二级缓存<code>earlySingletonObjects</code>中获取。（如果获取到就直接return）</li>
+<li>如果还是获取不到，且允许<code>singletonFactories（allowEarlyReference=true）</code>通过<code>getObject()</code>获取。就从三级缓存<code>singletonFactory.getObject()</code>获取。（如果获取到了就从<code>singletonFactories</code>中移除，并且放进<code>earlySingletonObjects</code>。其实也就是从三级缓存移动（是剪切、不是复制哦~）到了二级缓存）</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DefaultSingletonBeanRegistry</span> <span class="keyword">extends</span> <span class="title class_">SimpleAliasRegistry</span> <span class="keyword">implements</span> <span class="title class_">SingletonBeanRegistry</span> &#123;</span><br><span class="line">	...</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="meta">@Nullable</span></span><br><span class="line">	<span class="keyword">public</span> Object <span class="title function_">getSingleton</span><span class="params">(String beanName)</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> getSingleton(beanName, <span class="literal">true</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="meta">@Nullable</span></span><br><span class="line">	<span class="keyword">protected</span> Object <span class="title function_">getSingleton</span><span class="params">(String beanName, <span class="type">boolean</span> allowEarlyReference)</span> &#123;</span><br><span class="line">		<span class="type">Object</span> <span class="variable">singletonObject</span> <span class="operator">=</span> <span class="built_in">this</span>.singletonObjects.get(beanName);</span><br><span class="line">		<span class="keyword">if</span> (singletonObject == <span class="literal">null</span> &amp;&amp; isSingletonCurrentlyInCreation(beanName)) &#123;</span><br><span class="line">			<span class="keyword">synchronized</span> (<span class="built_in">this</span>.singletonObjects) &#123;</span><br><span class="line">				singletonObject = <span class="built_in">this</span>.earlySingletonObjects.get(beanName);</span><br><span class="line">				<span class="keyword">if</span> (singletonObject == <span class="literal">null</span> &amp;&amp; allowEarlyReference) &#123;</span><br><span class="line">					ObjectFactory&lt;?&gt; singletonFactory = <span class="built_in">this</span>.singletonFactories.get(beanName);</span><br><span class="line">					<span class="keyword">if</span> (singletonFactory != <span class="literal">null</span>) &#123;</span><br><span class="line">						singletonObject = singletonFactory.getObject();</span><br><span class="line">						<span class="built_in">this</span>.earlySingletonObjects.put(beanName, singletonObject);</span><br><span class="line">						<span class="built_in">this</span>.singletonFactories.remove(beanName);</span><br><span class="line">					&#125;</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> singletonObject;</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">isSingletonCurrentlyInCreation</span><span class="params">(String beanName)</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">this</span>.singletonsCurrentlyInCreation.contains(beanName);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">protected</span> <span class="type">boolean</span> <span class="title function_">isActuallyInCreation</span><span class="params">(String beanName)</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> isSingletonCurrentlyInCreation(beanName);</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-1、流程总结"><a href="#3-1、流程总结" class="headerlink" title="3.1、流程总结"></a>3.1、流程总结</h2><p><img src="/2021/01/16/2021-01-16-spring-%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96.png" alt="循环依赖"></p>
+<h1 id="四、相关问题"><a href="#四、相关问题" class="headerlink" title="四、相关问题"></a>四、相关问题</h1><h2 id="4-1、只需要一级和三级缓存也可以做到解决循环依赖的问题？"><a href="#4-1、只需要一级和三级缓存也可以做到解决循环依赖的问题？" class="headerlink" title="4.1、只需要一级和三级缓存也可以做到解决循环依赖的问题？"></a>4.1、只需要一级和三级缓存也可以做到解决循环依赖的问题？</h2><p>严格来讲，<code>第三级缓存</code>并非缺它不可，因为可以提前创建代理对象</p>
+<p>提前创建代理对象只是会节省那么一丢丢内存空间，并不会带来性能上的提升，但是会破环 Spring 的设计原则</p>
+<blockquote>
+<p>Spring 的设计原则是尽可能保证普通对象创建完成之后，再生成其 AOP 代理（尽可能延迟代理对象的生成<br>所以 Spring 用了第三级缓存，既维持了设计原则，又处理了循环依赖；牺牲那么一丢丢内存空间是愿意接受的</p>
+</blockquote>
+<h2 id="4-2、为什么还要存一个ObjectFactory对象到第三级缓存中"><a href="#4-2、为什么还要存一个ObjectFactory对象到第三级缓存中" class="headerlink" title="4.2、为什么还要存一个ObjectFactory对象到第三级缓存中?"></a>4.2、为什么还要存一个ObjectFactory对象到第三级缓存中?</h2><ul>
+<li>一个是因为不是每个Bean都会出现循环依赖，所以三级缓存只存了一个工厂对象</li>
+<li>二是我们在@Autowired对象时，想要注入的不一定是Bean本身，而是想要注入一个修改过后的对象，如代理对象<blockquote>
+<p>在AbstractAutowireCapableBeanFactory.getEarlyBeanReference方法中循环调用了SmartInstantiationAwareBeanPostProcessor.getEarlyBeanReference方法，AbstractAutoProxyCreator对象就实现了该方法：</p>
+</blockquote>
+</li>
+</ul>
+<h2 id="4-3、三级缓存的意义"><a href="#4-3、三级缓存的意义" class="headerlink" title="4.3、三级缓存的意义"></a>4.3、三级缓存的意义</h2><p>测试证明，二级缓存也是可以解决循环依赖的。为什么 Spring 不选择二级缓存，而要额外多添加一层缓存，使用三级缓存呢？</p>
+<ul>
+<li>如果 Spring 选择二级缓存来解决循环依赖的话，那么就意味着所有 Bean 都需要在实例化完成之后就立马为其创建代理，而 Spring 的设计原则是在 Bean 初始化完成之后才为其创建代理。</li>
+<li>使用三级缓存而非二级缓存并不是因为只有三级缓存才能解决循环引用问题，其实二级缓存同样也能很好解决循环引用问题。使用三级而非二级缓存并非出于 IOC 的考虑，而是<code>出于 AOP 的考虑</code>，即若使用二级缓存，在 AOP 情形注入到其他 Bean的，不是最终的代理对象，而是原始对象。</li>
+</ul>
+<p>参考文章：<br><a href="https://cloud.tencent.com/developer/article/1497692">如何利用”三级缓存”巧妙解决Bean的循环依赖问题</a><br><a href="https://www.shouxicto.com/article/2791.html">https://www.shouxicto.com/article/2791.html</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/14/2021-01-14-spring-%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8-%E6%AD%A5%E9%AA%A411-%E5%88%9D%E5%A7%8B%E5%8C%96Bean/" rel="prev" title="《spring》容器启动 -step11- 初始化Bean">
+      <i class="fa fa-chevron-left"></i> 《spring》容器启动 -step11- 初始化Bean
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/" rel="next" title="《TIDB》架构">
+      《TIDB》架构 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Spring"><span class="nav-text">一、Spring</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E4%B8%89%E7%BA%A7%E7%BC%93%E5%AD%98"><span class="nav-text">二、三级缓存</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96"><span class="nav-text">三、循环依赖</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E6%B5%81%E7%A8%8B%E6%80%BB%E7%BB%93"><span class="nav-text">3.1、流程总结</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98"><span class="nav-text">四、相关问题</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E5%8F%AA%E9%9C%80%E8%A6%81%E4%B8%80%E7%BA%A7%E5%92%8C%E4%B8%89%E7%BA%A7%E7%BC%93%E5%AD%98%E4%B9%9F%E5%8F%AF%E4%BB%A5%E5%81%9A%E5%88%B0%E8%A7%A3%E5%86%B3%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96%E7%9A%84%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="nav-text">4.1、只需要一级和三级缓存也可以做到解决循环依赖的问题？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BF%98%E8%A6%81%E5%AD%98%E4%B8%80%E4%B8%AAObjectFactory%E5%AF%B9%E8%B1%A1%E5%88%B0%E7%AC%AC%E4%B8%89%E7%BA%A7%E7%BC%93%E5%AD%98%E4%B8%AD"><span class="nav-text">4.2、为什么还要存一个ObjectFactory对象到第三级缓存中?</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81%E4%B8%89%E7%BA%A7%E7%BC%93%E5%AD%98%E7%9A%84%E6%84%8F%E4%B9%89"><span class="nav-text">4.3、三级缓存的意义</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">157</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">133</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
