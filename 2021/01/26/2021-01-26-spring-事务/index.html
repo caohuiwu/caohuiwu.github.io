@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是spring系列的第11篇文章，主要介绍的是事务管理。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、Springspring框架是Java生态中最主流的轻量级开源应用框架，其核心目标是简化">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《spring》事务">
+<meta property="og:url" content="http://yoursite.com/2021/01/26/2021-01-26-spring-%E4%BA%8B%E5%8A%A1/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是spring系列的第11篇文章，主要介绍的是事务管理。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、Springspring框架是Java生态中最主流的轻量级开源应用框架，其核心目标是简化">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/01/26/2021-01-26-spring-%E4%BA%8B%E5%8A%A1/AnnotationTransactionAttributeSource.png">
+<meta property="og:image" content="http://yoursite.com/2021/01/26/2021-01-26-spring-%E4%BA%8B%E5%8A%A1/InfrastructureAdvisorAutoProxyCreator.png">
+<meta property="article:published_time" content="2021-01-25T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-31T07:37:26.523Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/01/26/2021-01-26-spring-%E4%BA%8B%E5%8A%A1/AnnotationTransactionAttributeSource.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/01/26/2021-01-26-spring-%E4%BA%8B%E5%8A%A1/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《spring》事务 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/01/26/2021-01-26-spring-%E4%BA%8B%E5%8A%A1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《spring》事务
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-01-26 00:00:00" itemprop="dateCreated datePublished" datetime="2021-01-26T00:00:00+08:00">2021-01-26</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-31 15:37:26" itemprop="dateModified" datetime="2025-03-31T15:37:26+08:00">2025-03-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/" itemprop="url" rel="index"><span itemprop="name">spring</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/%E4%BA%8B%E5%8A%A1/" itemprop="url" rel="index"><span itemprop="name">事务</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>28k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>1:11</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是spring系列的第11篇文章，主要介绍的是事务管理。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、Spring"><a href="#一、Spring" class="headerlink" title="一、Spring"></a>一、Spring</h1><p><code>spring框架</code>是Java生态中最主流的轻量级开源应用框架，其核心目标是简化企业级应用开发，通过<code>IOC（控制反转）</code>和<code>AOP（面向切面编程）</code>两大核心机制实现解耦、模块化和可维护性。</p>
+<span id="more"></span>
+
+<h1 id="二、事务管理类型"><a href="#二、事务管理类型" class="headerlink" title="二、事务管理类型"></a>二、事务管理类型</h1><p>两种实现方式</p>
+<ol>
+<li>声明式事务管理：<code>@Transactional</code></li>
+<li>编程式事务管理：<code>TransactionTemplate</code></li>
+</ol>
+<h2 id="方式1：声明式事务管理"><a href="#方式1：声明式事务管理" class="headerlink" title="方式1：声明式事务管理"></a>方式1：声明式事务管理</h2><p>通过<code>@Transactional</code>就可以进行事务操作，基于<code>Spring AOP</code>实现，有三种配置方式</p>
+<ol>
+<li>XML文件配置方式 </li>
+<li>config配置文件方式</li>
+<li>springboot配置方式</li>
+</ol>
+<h3 id="2-1-1、XML文件配置方式"><a href="#2-1-1、XML文件配置方式" class="headerlink" title="2.1.1、XML文件配置方式"></a>2.1.1、XML文件配置方式</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">&lt;!-- 配置数据源 --&gt;</span><br><span class="line">&lt;bean id=&quot;dataSource&quot; class=&quot;com.alibaba.druid.pool.DruidDataSource&quot;&gt;</span><br><span class="line">    &lt;property name=&quot;url&quot; value=&quot;jdbc:mysql://localhost:3306/mydb&quot; /&gt;</span><br><span class="line">    &lt;property name=&quot;username&quot; value=&quot;username&quot; /&gt;</span><br><span class="line">    &lt;property name=&quot;password&quot; value=&quot;password&quot; /&gt;</span><br><span class="line">    &lt;property name=&quot;driverClassName&quot; value=&quot;com.mysql.jdbc.Driver&quot;/&gt;</span><br><span class="line">&lt;/bean&gt;</span><br><span class="line">&lt;!-- 配置 SqlSessionFactory --&gt;</span><br><span class="line">&lt;bean id=&quot;sqlSessionFactory&quot; class=&quot;org.mybatis.spring.SqlSessionFactoryBean&quot;&gt;</span><br><span class="line">    &lt;property name=&quot;configLocation&quot; value=&quot;classpath:/mybatis/mybatis-config.xml&quot;/&gt;</span><br><span class="line">    &lt;property name=&quot;dataSource&quot; ref=&quot;dataSource&quot;/&gt;</span><br><span class="line">    &lt;property name=&quot;mapperLocations&quot; value=&quot;classpath:/mybatis/com.chw/*.xml&quot;/&gt;</span><br><span class="line">&lt;/bean&gt;</span><br><span class="line">&lt;!-- 配置事务管理器 --&gt;</span><br><span class="line">&lt;bean id=&quot;transactionManager&quot; class=&quot;org.springframework.jdbc.datasource.DataSourceTransactionManager&quot;&gt;</span><br><span class="line">    &lt;property name=&quot;dataSource&quot; ref=&quot;dataSource&quot;/&gt;</span><br><span class="line">&lt;/bean&gt;</span><br><span class="line">&lt;!-- 启用基于注解的事务管理 --&gt;</span><br><span class="line">&lt;tx:annotation-driven transaction-manager=&quot;transactionManager&quot;/&gt;</span><br></pre></td></tr></table></figure>
+<p><code>&lt;tx:annotation-driven&gt;</code>标签用于启用基于注解的事务管理</p>
+<ul>
+<li><code>transaction-manager属性</code>： 指定用于事务管理的事务管理器 bean 的名称</li>
+</ul>
+<h4 id="2-1-1-1、标签的解析"><a href="#2-1-1-1、标签的解析" class="headerlink" title="2.1.1.1、&lt;tx&gt;标签的解析"></a>2.1.1.1、<code>&lt;tx&gt;</code>标签的解析</h4><p>tx命名空间，通过 <code>TxNamespaceHandler</code>处理，会注册<code>AnnotationDrivenBeanDefinitionParser</code>，然后执行<code>AnnotationDrivenBeanDefinitionParser.parser()</code>方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> BeanDefinition <span class="title function_">parse</span><span class="params">(Element element, ParserContext parserContext)</span> &#123;</span><br><span class="line">    registerTransactionalEventListenerFactory(parserContext);</span><br><span class="line">    <span class="type">String</span> <span class="variable">mode</span> <span class="operator">=</span> element.getAttribute(<span class="string">&quot;mode&quot;</span>);</span><br><span class="line">    <span class="keyword">if</span> (<span class="string">&quot;aspectj&quot;</span>.equals(mode)) &#123;</span><br><span class="line">        <span class="comment">// mode=&quot;aspectj&quot;</span></span><br><span class="line">        registerTransactionAspect(element, parserContext);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// mode=&quot;proxy&quot;</span></span><br><span class="line">        AopAutoProxyConfigurer.configureAutoProxyCreator(element, parserContext);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后进入<code>AopAutoProxyConfigurer.configureAutoProxyCreator(element, parserContext);</code>，主要有5个步骤</p>
+<ol>
+<li>注册事务AOP的入口类：<code>InfrastructureAdvisorAutoProxyCreator</code></li>
+<li>注册事务属性源：<code>AnnotationTransactionAttributeSource</code></li>
+<li>创建事务拦截器：<code>TransactionInterceptor</code></li>
+<li>拿到<code>transaction-manager</code>属性的值</li>
+<li>创建<code>advisor</code>【增强器】<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">private static class AopAutoProxyConfigurer &#123;</span><br><span class="line">    public static void configureAutoProxyCreator(Element element, ParserContext parserContext) &#123;</span><br><span class="line">        //0. 注册事务AOP的入口类：InfrastructureAdvisorAutoProxyCreator</span><br><span class="line">        AopNamespaceUtils.registerAutoProxyCreatorIfNecessary(parserContext, element);</span><br><span class="line">        String txAdvisorBeanName = TransactionManagementConfigUtils.TRANSACTION_ADVISOR_BEAN_NAME;</span><br><span class="line">        //注册事务 Advisor 和属性源</span><br><span class="line">        if (!parserContext.getRegistry().containsBeanDefinition(txAdvisorBeanName)) &#123;</span><br><span class="line">            Object eleSource = parserContext.extractSource(element);</span><br><span class="line"></span><br><span class="line">            // 1. 注册事务属性源</span><br><span class="line">            RootBeanDefinition sourceDef = new RootBeanDefinition(</span><br><span class="line">                    &quot;org.springframework.transaction.annotation.AnnotationTransactionAttributeSource&quot;);</span><br><span class="line">            sourceDef.setSource(eleSource);</span><br><span class="line">            .....</span><br><span class="line">            // 2. 创建事务拦截器</span><br><span class="line">            RootBeanDefinition interceptorDef = new RootBeanDefinition(TransactionInterceptor.class);</span><br><span class="line">            interceptorDef.setSource(eleSource);</span><br><span class="line">            interceptorDef.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);</span><br><span class="line">            // 3. 拿到transaction-manager属性的值</span><br><span class="line">            registerTransactionManager(element, interceptorDef);</span><br><span class="line">            interceptorDef.getPropertyValues().add(&quot;transactionAttributeSource&quot;, new RuntimeBeanReference(sourceName));</span><br><span class="line">            // 4. 创建advisor【增强器】</span><br><span class="line">            RootBeanDefinition advisorDef = new RootBeanDefinition(BeanFactoryTransactionAttributeSourceAdvisor.class);</span><br><span class="line">            advisorDef.setSource(eleSource);</span><br><span class="line">            advisorDef.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);</span><br><span class="line">            advisorDef.getPropertyValues().add(&quot;transactionAttributeSource&quot;, new RuntimeBeanReference(sourceName));</span><br><span class="line">            advisorDef.getPropertyValues().add(&quot;adviceBeanName&quot;, interceptorName);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h4 id="2-1-1-2、注册事务AOP的入口类：InfrastructureAdvisorAutoProxyCreator"><a href="#2-1-1-2、注册事务AOP的入口类：InfrastructureAdvisorAutoProxyCreator" class="headerlink" title="2.1.1.2、注册事务AOP的入口类：InfrastructureAdvisorAutoProxyCreator"></a>2.1.1.2、注册事务AOP的入口类：<code>InfrastructureAdvisorAutoProxyCreator</code></h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">InfrastructureAdvisorAutoProxyCreator</span> <span class="keyword">extends</span> <span class="title class_">AbstractAdvisorAutoProxyCreator</span> &#123;</span><br><span class="line">	<span class="keyword">private</span> ConfigurableListableBeanFactory beanFactory;</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initBeanFactory</span><span class="params">(ConfigurableListableBeanFactory beanFactory)</span> &#123;</span><br><span class="line">		<span class="built_in">super</span>.initBeanFactory(beanFactory);</span><br><span class="line">		<span class="built_in">this</span>.beanFactory = beanFactory;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">protected</span> <span class="type">boolean</span> <span class="title function_">isEligibleAdvisorBean</span><span class="params">(String beanName)</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> (<span class="built_in">this</span>.beanFactory.containsBeanDefinition(beanName) &amp;&amp;</span><br><span class="line">				<span class="built_in">this</span>.beanFactory.getBeanDefinition(beanName).getRole() == BeanDefinition.ROLE_INFRASTRUCTURE);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>InfrastructureAdvisorAutoProxyCreator</code>继承了<code>AbstractAdvisorAutoProxyCreator</code>，优先级最低的，基本上不会起作用</p>
+<h4 id="2-1-1-3、注册事务属性源：AnnotationTransactionAttributeSource"><a href="#2-1-1-3、注册事务属性源：AnnotationTransactionAttributeSource" class="headerlink" title="2.1.1.3、注册事务属性源：AnnotationTransactionAttributeSource"></a>2.1.1.3、注册事务属性源：<code>AnnotationTransactionAttributeSource</code></h4><p><code>AnnotationTransactionAttributeSource</code>类的作用就是封装事务注解<code>@Transactional</code>的属性（<strong>解析@Transactional注解的元数据</strong>），这里需要记住其继承体系以及熟悉该类和其父类的属性和方法，对后面分析事物切面执行原理有帮助：<br><img src="/2021/01/26/2021-01-26-spring-%E4%BA%8B%E5%8A%A1/AnnotationTransactionAttributeSource.png" alt="AnnotationTransactionAttributeSource"></p>
+<h4 id="2-1-1-4、创建事务拦截器：TransactionInterceptor"><a href="#2-1-1-4、创建事务拦截器：TransactionInterceptor" class="headerlink" title="2.1.1.4、创建事务拦截器：TransactionInterceptor"></a>2.1.1.4、创建事务拦截器：<code>TransactionInterceptor</code></h4><p>紧接着就是创建了<code>TransactionInterceptor</code>对象，专门的事务拦截器，并且该类是<code>MethodInterceptor</code>的子类，看到这个应该不陌生了，我们知道AOP调用链在执行过程中主要就是调用该类的invoke的方法，因此它是事务切面执行的入口。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TransactionInterceptor</span> <span class="keyword">extends</span> <span class="title class_">TransactionAspectSupport</span> <span class="keyword">implements</span> <span class="title class_">MethodInterceptor</span>, Serializable &#123;</span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="keyword">public</span> Object <span class="title function_">invoke</span><span class="params">(<span class="keyword">final</span> MethodInvocation invocation)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">    Class&lt;?&gt; targetClass = (invocation.getThis() != <span class="literal">null</span> ? AopUtils.getTargetClass(invocation.getThis()) : <span class="literal">null</span>);</span><br><span class="line">    <span class="comment">// 执行 TransactionAspectSupport的 invokeWithinTransaction方法</span></span><br><span class="line">    <span class="keyword">return</span> invokeWithinTransaction(invocation.getMethod(), targetClass, <span class="keyword">new</span> <span class="title class_">InvocationCallback</span>() &#123;</span><br><span class="line">      <span class="meta">@Override</span></span><br><span class="line">      <span class="keyword">public</span> Object <span class="title function_">proceedWithInvocation</span><span class="params">()</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">        <span class="keyword">return</span> invocation.proceed();</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-1-1-5、拿到transaction-manager属性的值"><a href="#2-1-1-5、拿到transaction-manager属性的值" class="headerlink" title="2.1.1.5、拿到transaction-manager属性的值"></a>2.1.1.5、拿到<code>transaction-manager</code>属性的值</h4><h4 id="2-1-1-6、创建advisor【增强器】"><a href="#2-1-1-6、创建advisor【增强器】" class="headerlink" title="2.1.1.6、创建advisor【增强器】"></a>2.1.1.6、创建<code>advisor</code>【增强器】</h4><p>既然有了<code>Interceptor</code>，那么必不可少的还应该有<code>Advisor</code>，而<code>Advisor</code>又是<strong>由Advice和Pointcut组成</strong>的，这样才能构成一个完整的切面，所以该方法后面就是创建这两个对象。</p>
+<h3 id="2-1-2、config配置文件方式"><a href="#2-1-2、config配置文件方式" class="headerlink" title="2.1.2、config配置文件方式"></a>2.1.2、config配置文件方式</h3><h3 id="2-1-3、springboot配置方式"><a href="#2-1-3、springboot配置方式" class="headerlink" title="2.1.3、springboot配置方式"></a>2.1.3、springboot配置方式</h3><h2 id="方式2：编程式事务管理"><a href="#方式2：编程式事务管理" class="headerlink" title="方式2：编程式事务管理"></a>方式2：编程式事务管理</h2><p>编程式事务管理使用<code>TransactionTemplate</code>可实现更细粒度的事务控制。</p>
+<h1 id="三、-Transactional注解怎么解析的？"><a href="#三、-Transactional注解怎么解析的？" class="headerlink" title="三、@Transactional注解怎么解析的？"></a>三、@Transactional注解怎么解析的？</h1><p>以下面的示例来解析<code>@Transactional</code>注解怎么解析的:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> OrderMapper orderMapper;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Transactional</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">saa</span><span class="params">()</span> &#123;</span><br><span class="line">        orderMapper.selectByPrimaryKey(<span class="number">0L</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-1、解析流程"><a href="#3-1、解析流程" class="headerlink" title="3.1、解析流程"></a>3.1、解析流程</h2><p>上文中我们讲解了<code>&lt;tx&gt;</code>标签的解析，解析过程中添加了<code>InfrastructureAdvisorAutoProxyCreator</code>这个Bean的后置处理器，在<code class="red">OrderService Bean</code>初始化后执行<code>postProcessAfterInitialization</code>方法</p>
+<p><code>InfrastructureAdvisorAutoProxyCreator</code>类图<br><img src="/2021/01/26/2021-01-26-spring-%E4%BA%8B%E5%8A%A1/InfrastructureAdvisorAutoProxyCreator.png" alt="InfrastructureAdvisorAutoProxyCreator"><br><code>InfrastructureAdvisorAutoProxyCreator</code>继承了<code>AbstractAutoProxyCreator</code>，上一篇文章中解析了该抽象类，作为AOP的核心实现类，执行堆栈如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">AbstractAutoProxyCreator.wrapIfNecessary()</span><br><span class="line">-&gt; AbstractAdvisorAutoProxyCreator.getAdvicesAndAdvisorsForBean()</span><br><span class="line">--&gt; AbstractAdvisorAutoProxyCreator.findEligibleAdvisors()</span><br><span class="line">---&gt; AbstractAdvisorAutoProxyCreator.findCandidateAdvisors()</span><br><span class="line">---&gt; AbstractAdvisorAutoProxyCreator.findAdvisorsThatCanApply()</span><br><span class="line">----&gt; AopUtils.findAdvisorsThatCanApply()</span><br><span class="line">-----&gt; AopUtils.canApply()：判断 advisor 是否支持</span><br><span class="line">------&gt; TransactionAttributeSourcePointcut.matches()</span><br><span class="line">-------&gt; BeanFactoryTransactionAttributeSourceAdvisor.getTransactionAttributeSource()</span><br><span class="line">--------&gt; AbstractFallbackTransactionAttributeSource.getTransactionAttribute()</span><br><span class="line">---------&gt; AbstractFallbackTransactionAttributeSource.computeTransactionAttribute()</span><br><span class="line">----------&gt; AnnotationTransactionAttributeSource.findTransactionAttribute()</span><br><span class="line">-----------&gt; AnnotationTransactionAttributeSource.determineTransactionAttribute()</span><br><span class="line">------------&gt; SpringTransactionAnnotationParser.parseTransactionAnnotation()</span><br><span class="line">-------------&gt; AnnotatedElementUtils.getMergedAnnotationAttributes()：**解析transactional注解**</span><br></pre></td></tr></table></figure>
+<p>解析完成后，最终返回一个<code>TransactionAttribute</code>对象（<code>RuleBasedTransactionAttribute</code>），</p>
+<h3 id="3-1-1、核心方法解析流程"><a href="#3-1-1、核心方法解析流程" class="headerlink" title="3.1.1、核心方法解析流程"></a>3.1.1、核心方法解析流程</h3><h4 id="3-1-1-1、computeTransactionAttribute-方法"><a href="#3-1-1-1、computeTransactionAttribute-方法" class="headerlink" title="3.1.1.1、computeTransactionAttribute()方法"></a>3.1.1.1、computeTransactionAttribute()方法</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> TransactionAttribute <span class="title function_">computeTransactionAttribute</span><span class="params">(Method method, Class&lt;?&gt; targetClass)</span> &#123;</span><br><span class="line">    <span class="comment">// Don&#x27;t allow no-public methods as required.</span></span><br><span class="line">    <span class="comment">//检查是否为非public方法（默认跳过）</span></span><br><span class="line">    <span class="keyword">if</span> (allowPublicMethodsOnly() &amp;&amp; !Modifier.isPublic(method.getModifiers())) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 查找方法上的@Transactional注解</span></span><br><span class="line">    <span class="type">TransactionAttribute</span> <span class="variable">txAttr</span> <span class="operator">=</span> findTransactionAttribute(specificMethod);</span><br><span class="line">    <span class="keyword">if</span> (txAttr != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> txAttr;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 查找类上的@Transactional注解</span></span><br><span class="line">    txAttr = findTransactionAttribute(specificMethod.getDeclaringClass());</span><br><span class="line">    <span class="keyword">if</span> (txAttr != <span class="literal">null</span> &amp;&amp; ClassUtils.isUserLevelMethod(method)) &#123;</span><br><span class="line">        <span class="keyword">return</span> txAttr;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 其他逻辑（如接口或父类注解）</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-1-1-2、findTransactionAttribute-方法"><a href="#3-1-1-2、findTransactionAttribute-方法" class="headerlink" title="3.1.1.2、findTransactionAttribute()方法"></a>3.1.1.2、findTransactionAttribute()方法</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> TransactionAttribute <span class="title function_">findTransactionAttribute</span><span class="params">(AnnotatedElement element)</span> &#123;</span><br><span class="line">    <span class="comment">// 遍历所有注册的TransactionAnnotationParser</span></span><br><span class="line">    <span class="keyword">for</span> (TransactionAnnotationParser parser : <span class="built_in">this</span>.annotationParsers) &#123;</span><br><span class="line">        <span class="type">TransactionAttribute</span> <span class="variable">attr</span> <span class="operator">=</span> parser.parseTransactionAnnotation(element);</span><br><span class="line">        <span class="keyword">if</span> (attr != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> attr;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="3-1-2、事务注解解析器（TransactionAnnotationParser）"><a href="#3-1-2、事务注解解析器（TransactionAnnotationParser）" class="headerlink" title="3.1.2、事务注解解析器（TransactionAnnotationParser）"></a>3.1.2、事务注解解析器（TransactionAnnotationParser）</h3><p>默认使用<code>SpringTransactionAnnotationParser</code>，核心逻辑如下：</p>
+<h4 id="3-1-2-1、解析方法或类上的注解"><a href="#3-1-2-1、解析方法或类上的注解" class="headerlink" title="3.1.2.1、解析方法或类上的注解"></a>3.1.2.1、解析方法或类上的注解</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SpringTransactionAnnotationParser</span> <span class="keyword">implements</span> <span class="title class_">TransactionAnnotationParser</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> TransactionAttribute <span class="title function_">parseTransactionAnnotation</span><span class="params">(AnnotatedElement element)</span> &#123;</span><br><span class="line">        <span class="comment">// 使用AnnotatedElementUtils获取合并后的注解属性</span></span><br><span class="line">        <span class="type">AnnotationAttributes</span> <span class="variable">attributes</span> <span class="operator">=</span> AnnotatedElementUtils.findMergedAnnotationAttributes(</span><br><span class="line">            element, Transactional.class, <span class="literal">false</span>, <span class="literal">false</span>);</span><br><span class="line">        <span class="keyword">if</span> (attributes != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> parseTransactionAnnotation(attributes);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-1-2-2、转换为-RuleBasedTransactionAttribute"><a href="#3-1-2-2、转换为-RuleBasedTransactionAttribute" class="headerlink" title="3.1.2.2、转换为 RuleBasedTransactionAttribute"></a>3.1.2.2、转换为 RuleBasedTransactionAttribute</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> TransactionAttribute <span class="title function_">parseTransactionAnnotation</span><span class="params">(AnnotationAttributes attributes)</span> &#123;</span><br><span class="line">    <span class="type">RuleBasedTransactionAttribute</span> <span class="variable">rbta</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">RuleBasedTransactionAttribute</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 解析传播行为</span></span><br><span class="line">    <span class="type">Propagation</span> <span class="variable">propagation</span> <span class="operator">=</span> attributes.getEnum(<span class="string">&quot;propagation&quot;</span>);</span><br><span class="line">    rbta.setPropagationBehavior(propagation.value());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 解析隔离级别</span></span><br><span class="line">    <span class="type">Isolation</span> <span class="variable">isolation</span> <span class="operator">=</span> attributes.getEnum(<span class="string">&quot;isolation&quot;</span>);</span><br><span class="line">    rbta.setIsolationLevel(isolation.value());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 解析超时时间</span></span><br><span class="line">    <span class="type">int</span> <span class="variable">timeout</span> <span class="operator">=</span> attributes.getNumber(<span class="string">&quot;timeout&quot;</span>);</span><br><span class="line">    <span class="keyword">if</span> (timeout &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">        rbta.setTimeout(timeout);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 解析只读标志</span></span><br><span class="line">    rbta.setReadOnly(attributes.getBoolean(<span class="string">&quot;readOnly&quot;</span>));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 解析回滚规则</span></span><br><span class="line">    List&lt;RollbackRuleAttribute&gt; rollbackRules = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">    Class&lt;?&gt;[] rollbackFor = attributes.getClassArray(<span class="string">&quot;rollbackFor&quot;</span>);</span><br><span class="line">    <span class="keyword">for</span> (Class&lt;?&gt; rbRule : rollbackFor) &#123;</span><br><span class="line">        rollbackRules.add(<span class="keyword">new</span> <span class="title class_">RollbackRuleAttribute</span>(rbRule));</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 处理其他回滚规则（如rollbackForClassName、noRollbackFor等）</span></span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line">    rbta.setRollbackRules(rollbackRules);</span><br><span class="line">    <span class="keyword">return</span> rbta;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-1-3、组件的协作"><a href="#3-1-3、组件的协作" class="headerlink" title="3.1.3、组件的协作"></a>3.1.3、组件的协作</h3><ul>
+<li><code>TransactionInterceptor</code>：使用解析后的<code>TransactionAttribute</code>决定事务行为。</li>
+</ul>
+<h1 id="四、事务代理对象的生成"><a href="#四、事务代理对象的生成" class="headerlink" title="四、事务代理对象的生成"></a>四、事务代理对象的生成</h1><h2 id="4-1、wrapIfNecessary"><a href="#4-1、wrapIfNecessary" class="headerlink" title="4.1、wrapIfNecessary"></a>4.1、wrapIfNecessary</h2><p>用于决定是否为Bean创建代理对象。</p>
+<ul>
+<li>判断当前Bean是否需要被代理</li>
+<li>创建代理对象<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> Object <span class="title function_">wrapIfNecessary</span><span class="params">(Object bean, String beanName, Object cacheKey)</span> &#123;</span><br><span class="line">    <span class="comment">// Create proxy if we have advice.</span></span><br><span class="line">    Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, <span class="literal">null</span>);</span><br><span class="line">    <span class="keyword">if</span> (specificInterceptors != DO_NOT_PROXY) &#123;</span><br><span class="line">        <span class="built_in">this</span>.advisedBeans.put(cacheKey, Boolean.TRUE);</span><br><span class="line">        <span class="type">Object</span> <span class="variable">proxy</span> <span class="operator">=</span> createProxy(</span><br><span class="line">                bean.getClass(), beanName, specificInterceptors, <span class="keyword">new</span> <span class="title class_">SingletonTargetSource</span>(bean));</span><br><span class="line">        <span class="built_in">this</span>.proxyTypes.put(cacheKey, proxy.getClass());</span><br><span class="line">        <span class="keyword">return</span> proxy;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">this</span>.advisedBeans.put(cacheKey, Boolean.FALSE);</span><br><span class="line">    <span class="keyword">return</span> bean;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="4-2、getAdvicesAndAdvisorsForBean"><a href="#4-2、getAdvicesAndAdvisorsForBean" class="headerlink" title="4.2、getAdvicesAndAdvisorsForBean"></a>4.2、getAdvicesAndAdvisorsForBean</h2><p>根据当前Bean的类和名称，从系统中所有候选的<code>Advisor</code>(包含通知、切点等)中筛选出<strong>适用于当前Bean的增强器</strong>。</p>
+<p>此时返回的拦截器是<code>BeanFactoryTransactionAttributeSourceAdvisor</code></p>
+<h2 id="4-3、createProxy创建代理对象"><a href="#4-3、createProxy创建代理对象" class="headerlink" title="4.3、createProxy创建代理对象"></a>4.3、createProxy创建代理对象</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> Object <span class="title function_">createProxy</span><span class="params">(Class&lt;?&gt; beanClass, <span class="meta">@Nullable</span> String beanName,</span></span><br><span class="line"><span class="params">                             <span class="meta">@Nullable</span> Object[] specificInterceptors, TargetSource targetSource)</span> &#123;</span><br><span class="line">    <span class="comment">//通过 CglibAopProxy创建代理对象</span></span><br><span class="line">    <span class="keyword">return</span> proxyFactory.getProxy(classLoader);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-3-1、创建代理【AopProxy-getProxy-classLoader-】"><a href="#4-3-1、创建代理【AopProxy-getProxy-classLoader-】" class="headerlink" title="4.3.1、创建代理【AopProxy.getProxy(classLoader)】"></a>4.3.1、创建代理【AopProxy.getProxy(classLoader)】</h3><p>CglibAopProxy创建代理对象，内部执行<code>getProxy(classLoader)</code>方法创建代理对象。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">CglibAopProxy</span> <span class="keyword">implements</span> <span class="title class_">AopProxy</span>, Serializable &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Object <span class="title function_">getProxy</span><span class="params">(ClassLoader classLoader)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 创建并配置 Enhancer</span></span><br><span class="line">            <span class="type">Enhancer</span> <span class="variable">enhancer</span> <span class="operator">=</span> createEnhancer();</span><br><span class="line">            <span class="keyword">if</span> (classLoader != <span class="literal">null</span>) &#123;</span><br><span class="line">                enhancer.setClassLoader(classLoader);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">//设置代理类的父类（即目标类）</span></span><br><span class="line">            enhancer.setSuperclass(proxySuperClass);</span><br><span class="line">            enhancer.setInterfaces(AopProxyUtils.completeProxiedInterfaces(<span class="built_in">this</span>.advised));</span><br><span class="line">            enhancer.setNamingPolicy(SpringNamingPolicy.INSTANCE);</span><br><span class="line">            enhancer.setStrategy(<span class="keyword">new</span> <span class="title class_">ClassLoaderAwareUndeclaredThrowableStrategy</span>(classLoader));</span><br><span class="line">            <span class="comment">//设置回调过滤器和方法拦截器</span></span><br><span class="line">            Callback[] callbacks = getCallbacks(rootClass);</span><br><span class="line">            <span class="comment">// fixedInterceptorMap only populated at this point, after getCallbacks call above</span></span><br><span class="line">            enhancer.setCallbackFilter(<span class="keyword">new</span> <span class="title class_">ProxyCallbackFilter</span>(</span><br><span class="line">                    <span class="built_in">this</span>.advised.getConfigurationOnlyCopy(), <span class="built_in">this</span>.fixedInterceptorMap, <span class="built_in">this</span>.fixedInterceptorOffset));</span><br><span class="line">            enhancer.setCallbackTypes(types);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 创建代理类并实例化</span></span><br><span class="line">            <span class="keyword">return</span> createProxyClassAndInstance(enhancer, callbacks);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="4-3-1-1、设置回调（callbacks）"><a href="#4-3-1-1、设置回调（callbacks）" class="headerlink" title="4.3.1.1、设置回调（callbacks）"></a>4.3.1.1、设置回调（callbacks）</h4><p>通过<code>getCallbacks()</code>生成回调数组，包含不同类型的拦截器</p>
+<ul>
+<li><code>DynamicAdvisedInterceptor</code>：核心拦截器，处理AOP拦截器</li>
+<li><code>StaticUnadvisedInterceptor</code>：处理未增强的方法调用</li>
+</ul>
+<h5 id="核心回调器：DynamicAdvisedInterceptor"><a href="#核心回调器：DynamicAdvisedInterceptor" class="headerlink" title="核心回调器：DynamicAdvisedInterceptor"></a>核心回调器：<code>DynamicAdvisedInterceptor</code></h5><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">DynamicAdvisedInterceptor</span> <span class="keyword">implements</span> <span class="title class_">MethodInterceptor</span>, Serializable &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> AdvisedSupport advised;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> Object <span class="title function_">intercept</span><span class="params">(Object proxy, Method method, Object[] args, MethodProxy methodProxy)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">        <span class="comment">// 获取目标对象（原始Bean）</span></span><br><span class="line">        <span class="type">Object</span> <span class="variable">target</span> <span class="operator">=</span> <span class="built_in">this</span>.advised.getTargetSource().getTarget();</span><br><span class="line">        <span class="comment">// 创建方法调用链</span></span><br><span class="line">        List&lt;Object&gt; chain = <span class="built_in">this</span>.advised.getInterceptorsAndDynamicInterceptionAdvice(method, target.getClass());</span><br><span class="line">        <span class="comment">// 构造CglibMethodInvocation</span></span><br><span class="line">        <span class="type">CglibMethodInvocation</span> <span class="variable">invocation</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">CglibMethodInvocation</span>(proxy, target, method, args, targetClass, chain, methodProxy);</span><br><span class="line">        <span class="comment">// 执行拦截器链</span></span><br><span class="line">        <span class="keyword">return</span> invocation.proceed();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>org.springframework.cglib.proxy.MethodInterceptor</code>是<code>Callback</code>的子接口，用于<code>Cglib</code>生成代理类时被动态织入代理类中【<code>enhancer.setCallbacks(callbacks)</code>】，在每次执行代理对象的方法时，都会执行<code>DynamicAdvisedInterceptor#intercept</code>方法，然后执行<code>aopalliance</code>包下的<code>MethodInterceptor</code></p>
+<h4 id="4-3-1-2、代理对象生成示例"><a href="#4-3-1-2、代理对象生成示例" class="headerlink" title="4.3.1.2、代理对象生成示例"></a>4.3.1.2、代理对象生成示例</h4><p>假设目标类为<code>OrderService</code>（未实现接口），生成的代理类结构如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> OrderMapper orderMapper;</span><br><span class="line">    <span class="meta">@Transactional</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">selectById</span><span class="params">()</span> &#123;</span><br><span class="line">        orderMapper.selectByPrimaryKey(<span class="number">0L</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">find</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.selectById();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//代理对象</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService$$EnhancerBySpringCGLIB$$f4ad334b</span> <span class="keyword">extends</span> <span class="title class_">OrderService</span> <span class="keyword">implements</span> <span class="title class_">SpringProxy</span>, Advised, Factory &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">boolean</span> CGLIB$BOUND;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Object CGLIB$FACTORY_DATA;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ThreadLocal CGLIB$THREAD_CALLBACKS;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Callback[] CGLIB$STATIC_CALLBACKS;<span class="comment">//通过enhancer.setCallbacks(callbacks)设置的回调</span></span><br><span class="line">    <span class="keyword">private</span> MethodInterceptor CGLIB$CALLBACK_0;<span class="comment">//DynamicAdvisedInterceptor</span></span><br><span class="line">    <span class="keyword">private</span> MethodInterceptor CGLIB$CALLBACK_1;<span class="comment">//StaticUnadvisedInterceptor</span></span><br><span class="line">    <span class="keyword">private</span> NoOp CGLIB$CALLBACK_2;<span class="comment">//SerializableNoOp</span></span><br><span class="line">    <span class="keyword">private</span> Dispatcher CGLIB$CALLBACK_3;<span class="comment">//StaticDispatcher</span></span><br><span class="line">    <span class="keyword">private</span> Dispatcher CGLIB$CALLBACK_4;<span class="comment">//AdvisedDispatcher</span></span><br><span class="line">    <span class="keyword">private</span> MethodInterceptor CGLIB$CALLBACK_5;<span class="comment">//EqualsInterceptor</span></span><br><span class="line">    <span class="keyword">private</span> MethodInterceptor CGLIB$CALLBACK_6;<span class="comment">//HashCodeInterceptor</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Object CGLIB$CALLBACK_FILTER;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Method CGLIB$selectById$<span class="number">0</span>$Method;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> MethodProxy CGLIB$selectById$<span class="number">0</span>$Proxy;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Object[] CGLIB$emptyArgs;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Method CGLIB$find$<span class="number">1</span>$Method;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> MethodProxy CGLIB$find$<span class="number">1</span>$Proxy;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Method CGLIB$equals$<span class="number">2</span>$Method;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> MethodProxy CGLIB$equals$<span class="number">2</span>$Proxy;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Method CGLIB$toString$<span class="number">3</span>$Method;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> MethodProxy CGLIB$toString$<span class="number">3</span>$Proxy;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Method CGLIB$hashCode$<span class="number">4</span>$Method;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> MethodProxy CGLIB$hashCode$<span class="number">4</span>$Proxy;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Method CGLIB$clone$<span class="number">5</span>$Method;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> MethodProxy CGLIB$clone$<span class="number">5</span>$Proxy;</span><br><span class="line">    <span class="comment">//静态代码块</span></span><br><span class="line">    <span class="keyword">static</span> &#123;</span><br><span class="line">        CGLIB$STATICHOOK1();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">void</span> CGLIB$STATICHOOK1() &#123;</span><br><span class="line">        CGLIB$THREAD_CALLBACKS = <span class="keyword">new</span> <span class="title class_">ThreadLocal</span>();</span><br><span class="line">        CGLIB$emptyArgs = <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>];</span><br><span class="line">        <span class="type">Class</span> <span class="variable">var0</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;com.chw.service.OrderService$$EnhancerBySpringCGLIB$$f4ad334b&quot;</span>);</span><br><span class="line">        Class var1;</span><br><span class="line">        Method[] var10000 = ReflectUtils.findMethods(<span class="keyword">new</span> <span class="title class_">String</span>[]&#123;<span class="string">&quot;equals&quot;</span>, <span class="string">&quot;(Ljava/lang/Object;)Z&quot;</span>, <span class="string">&quot;toString&quot;</span>, <span class="string">&quot;()Ljava/lang/String;&quot;</span>, <span class="string">&quot;hashCode&quot;</span>, <span class="string">&quot;()I&quot;</span>, <span class="string">&quot;clone&quot;</span>, <span class="string">&quot;()Ljava/lang/Object;&quot;</span>&#125;, (var1 = Class.forName(<span class="string">&quot;java.lang.Object&quot;</span>)).getDeclaredMethods());</span><br><span class="line">        CGLIB$equals$<span class="number">2</span>$Method = var10000[<span class="number">0</span>];</span><br><span class="line">        CGLIB$equals$<span class="number">2</span>$Proxy = MethodProxy.create(var1, var0, <span class="string">&quot;(Ljava/lang/Object;)Z&quot;</span>, <span class="string">&quot;equals&quot;</span>, <span class="string">&quot;CGLIB$equals$2&quot;</span>);</span><br><span class="line">        CGLIB$toString$<span class="number">3</span>$Method = var10000[<span class="number">1</span>];</span><br><span class="line">        CGLIB$toString$<span class="number">3</span>$Proxy = MethodProxy.create(var1, var0, <span class="string">&quot;()Ljava/lang/String;&quot;</span>, <span class="string">&quot;toString&quot;</span>, <span class="string">&quot;CGLIB$toString$3&quot;</span>);</span><br><span class="line">        CGLIB$hashCode$<span class="number">4</span>$Method = var10000[<span class="number">2</span>];</span><br><span class="line">        CGLIB$hashCode$<span class="number">4</span>$Proxy = MethodProxy.create(var1, var0, <span class="string">&quot;()I&quot;</span>, <span class="string">&quot;hashCode&quot;</span>, <span class="string">&quot;CGLIB$hashCode$4&quot;</span>);</span><br><span class="line">        CGLIB$clone$<span class="number">5</span>$Method = var10000[<span class="number">3</span>];</span><br><span class="line">        CGLIB$clone$<span class="number">5</span>$Proxy = MethodProxy.create(var1, var0, <span class="string">&quot;()Ljava/lang/Object;&quot;</span>, <span class="string">&quot;clone&quot;</span>, <span class="string">&quot;CGLIB$clone$5&quot;</span>);</span><br><span class="line">        var10000 = ReflectUtils.findMethods(<span class="keyword">new</span> <span class="title class_">String</span>[]&#123;<span class="string">&quot;selectById&quot;</span>, <span class="string">&quot;()V&quot;</span>, <span class="string">&quot;find&quot;</span>, <span class="string">&quot;()V&quot;</span>&#125;, (var1 = Class.forName(<span class="string">&quot;com.chw.service.OrderService&quot;</span>)).getDeclaredMethods());</span><br><span class="line">        CGLIB$selectById$<span class="number">0</span>$Method = var10000[<span class="number">0</span>];</span><br><span class="line">        CGLIB$selectById$<span class="number">0</span>$Proxy = MethodProxy.create(var1, var0, <span class="string">&quot;()V&quot;</span>, <span class="string">&quot;selectById&quot;</span>, <span class="string">&quot;CGLIB$selectById$0&quot;</span>);</span><br><span class="line">        CGLIB$find$<span class="number">1</span>$Method = var10000[<span class="number">1</span>];</span><br><span class="line">        CGLIB$find$<span class="number">1</span>$Proxy = MethodProxy.create(var1, var0, <span class="string">&quot;()V&quot;</span>, <span class="string">&quot;find&quot;</span>, <span class="string">&quot;CGLIB$find$1&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> OrderService$$EnhancerBySpringCGLIB$$f4ad334b() &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="built_in">super</span>();</span><br><span class="line">            CGLIB$BIND_CALLBACKS(<span class="built_in">this</span>);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Error | RuntimeException var1) &#123;</span><br><span class="line">            <span class="keyword">throw</span> var1;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Throwable var2) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">UndeclaredThrowableException</span>(var2);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">void</span> CGLIB$BIND_CALLBACKS(Object var0) &#123;</span><br><span class="line">        <span class="type">OrderService$$EnhancerBySpringCGLIB$$f4ad334b</span> <span class="variable">var1</span> <span class="operator">=</span> (OrderService$$EnhancerBySpringCGLIB$$f4ad334b)var0;</span><br><span class="line">        <span class="keyword">if</span> (!var1.CGLIB$BOUND) &#123;</span><br><span class="line">            var1.CGLIB$BOUND = <span class="literal">true</span>;</span><br><span class="line">            <span class="type">Object</span> <span class="variable">var10000</span> <span class="operator">=</span> CGLIB$THREAD_CALLBACKS.get();</span><br><span class="line">            <span class="keyword">if</span> (var10000 == <span class="literal">null</span>) &#123;</span><br><span class="line">                var10000 = CGLIB$STATIC_CALLBACKS;</span><br><span class="line">                <span class="keyword">if</span> (var10000 == <span class="literal">null</span>) &#123;</span><br><span class="line">                    <span class="keyword">return</span>;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            Callback[] var10001 = (Callback[])var10000;</span><br><span class="line">            var1.CGLIB$CALLBACK_6 = HashCodeInterceptor;</span><br><span class="line">            var1.CGLIB$CALLBACK_5 = EqualsInterceptor;</span><br><span class="line">            var1.CGLIB$CALLBACK_4 = AdvisedDispatcher;</span><br><span class="line">            var1.CGLIB$CALLBACK_3 = StaticDispatcher;</span><br><span class="line">            var1.CGLIB$CALLBACK_2 = SerializableNoOp;</span><br><span class="line">            var1.CGLIB$CALLBACK_1 = StaticUnadvisedInterceptor;</span><br><span class="line">            var1.CGLIB$CALLBACK_0 = DynamicAdvisedInterceptor;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">void</span> CGLIB$selectById$<span class="number">0</span>() &#123;</span><br><span class="line">        <span class="built_in">super</span>.selectById();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">selectById</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">MethodInterceptor</span> <span class="variable">var10000</span> <span class="operator">=</span> <span class="built_in">this</span>.CGLIB$CALLBACK_0;</span><br><span class="line">            <span class="keyword">if</span> (var10000 == <span class="literal">null</span>) &#123;</span><br><span class="line">                CGLIB$BIND_CALLBACKS(<span class="built_in">this</span>);</span><br><span class="line">                var10000 = <span class="built_in">this</span>.CGLIB$CALLBACK_0;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (var10000 != <span class="literal">null</span>) &#123;</span><br><span class="line">                var10000.intercept(<span class="built_in">this</span>, CGLIB$selectById$<span class="number">0</span>$Method, CGLIB$emptyArgs, CGLIB$selectById$<span class="number">0</span>$Proxy);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="built_in">super</span>.selectById();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Error | RuntimeException var1) &#123;</span><br><span class="line">            <span class="keyword">throw</span> var1;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Throwable var2) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">UndeclaredThrowableException</span>(var2);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">void</span> CGLIB$find$<span class="number">1</span>() &#123;</span><br><span class="line">        <span class="built_in">super</span>.find();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">find</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">MethodInterceptor</span> <span class="variable">var10000</span> <span class="operator">=</span> <span class="built_in">this</span>.CGLIB$CALLBACK_0;</span><br><span class="line">            <span class="keyword">if</span> (var10000 == <span class="literal">null</span>) &#123;</span><br><span class="line">                CGLIB$BIND_CALLBACKS(<span class="built_in">this</span>);</span><br><span class="line">                var10000 = <span class="built_in">this</span>.CGLIB$CALLBACK_0;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (var10000 != <span class="literal">null</span>) &#123;</span><br><span class="line">                var10000.intercept(<span class="built_in">this</span>, CGLIB$find$<span class="number">1</span>$Method, CGLIB$emptyArgs, CGLIB$find$<span class="number">1</span>$Proxy);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="built_in">super</span>.find();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Error | RuntimeException var1) &#123;</span><br><span class="line">            <span class="keyword">throw</span> var1;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Throwable var2) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">UndeclaredThrowableException</span>(var2);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>如何生成字节码文件？</p>
+<p>添加vm参数：-Dcglib.debugLocation&#x3D;&#x2F;Users&#x2F;learn&#x2F;springdemo2024&#x2F;target&#x2F;classes</p>
+</blockquote>
+<h1 id="五、代理对象的执行"><a href="#五、代理对象的执行" class="headerlink" title="五、代理对象的执行"></a>五、代理对象的执行</h1><p>代理对象执行，例如执行<code>orderService.selectById()</code>方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">selectById</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="type">MethodInterceptor</span> <span class="variable">var10000</span> <span class="operator">=</span> <span class="built_in">this</span>.CGLIB$CALLBACK_0;</span><br><span class="line">        <span class="keyword">if</span> (var10000 == <span class="literal">null</span>) &#123;</span><br><span class="line">            CGLIB$BIND_CALLBACKS(<span class="built_in">this</span>);</span><br><span class="line">            var10000 = <span class="built_in">this</span>.CGLIB$CALLBACK_0;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (var10000 != <span class="literal">null</span>) &#123;</span><br><span class="line">            var10000.intercept(<span class="built_in">this</span>, CGLIB$selectById$<span class="number">0</span>$Method, CGLIB$emptyArgs, CGLIB$selectById$<span class="number">0</span>$Proxy);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="built_in">super</span>.selectById();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Error | RuntimeException var1) &#123;</span><br><span class="line">        <span class="keyword">throw</span> var1;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Throwable var2) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">UndeclaredThrowableException</span>(var2);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>会执行<code>this.CGLIB$CALLBACK_0.intercept()</code>方法，因为<code>this.CGLIB$CALLBACK_0 = DynamicAdvisedInterceptor</code>，实际调用<code>DynamicAdvisedInterceptor.intercept()</code>方法</p>
+<h2 id="5-1、DynamicAdvisedInterceptor-intercept"><a href="#5-1、DynamicAdvisedInterceptor-intercept" class="headerlink" title="5.1、DynamicAdvisedInterceptor.intercept()"></a>5.1、DynamicAdvisedInterceptor.intercept()</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">DynamicAdvisedInterceptor</span> <span class="keyword">implements</span> <span class="title class_">MethodInterceptor</span>, Serializable &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> AdvisedSupport advised;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">DynamicAdvisedInterceptor</span><span class="params">(AdvisedSupport advised)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.advised = advised;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> Object <span class="title function_">intercept</span><span class="params">(Object proxy, Method method, Object[] args, MethodProxy methodProxy)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">target</span> <span class="operator">=</span> <span class="built_in">this</span>.advised.getTargetSource().getTarget(); <span class="comment">// 获取目标对象</span></span><br><span class="line">        Class&lt;?&gt; targetClass = (target != <span class="literal">null</span> ? target.getClass() : <span class="literal">null</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 获取匹配当前方法的拦截器链</span></span><br><span class="line">        List&lt;Object&gt; chain = <span class="built_in">this</span>.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 创建方法调用对象</span></span><br><span class="line">        <span class="type">CglibMethodInvocation</span> <span class="variable">invocation</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">CglibMethodInvocation</span>(</span><br><span class="line">                proxy, target, method, args, targetClass, chain, methodProxy);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 执行拦截器链及目标方法</span></span><br><span class="line">        <span class="keyword">return</span> invocation.proceed();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-1-1、内部流程1：List-chain-this-advised-getInterceptorsAndDynamicInterceptionAdvice-method-targetClass"><a href="#5-1-1、内部流程1：List-chain-this-advised-getInterceptorsAndDynamicInterceptionAdvice-method-targetClass" class="headerlink" title="5.1.1、内部流程1：List chain &#x3D; this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass)"></a>5.1.1、内部流程1：List<Object> chain &#x3D; this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass)</Object></h3><p>获取匹配当前方法的拦截器链，此时返回的是<code>TransactionInterceptor</code></p>
+<h4 id="TransactionInterceptor"><a href="#TransactionInterceptor" class="headerlink" title="TransactionInterceptor"></a><code>TransactionInterceptor</code></h4><p>第六章节详细说明。</p>
+<h3 id="5-1-2、内部流程2：new-CglibMethodInvocation-proceed"><a href="#5-1-2、内部流程2：new-CglibMethodInvocation-proceed" class="headerlink" title="5.1.2、内部流程2：new CglibMethodInvocation().proceed()"></a>5.1.2、内部流程2：new CglibMethodInvocation().proceed()</h3><p><code>CglibMethodInvocation</code>是用于<strong>CGLIB代理</strong>场景下的方法调用上下文对象，其<code>proceed()</code>方法负责驱动拦截器链（<code>Advice chain</code>）的执行，并最终调用目标方法。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">new</span> <span class="title class_">CglibMethodInvocation</span>(proxy, target, method, args, targetClass, chain, methodProxy).proceed()</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReflectiveMethodInvocation</span> <span class="keyword">implements</span> <span class="title class_">ProxyMethodInvocation</span>, Cloneable &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Object <span class="title function_">proceed</span><span class="params">()</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">        <span class="comment">//	We start with an index of -1 and increment early.</span></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">this</span>.currentInterceptorIndex == <span class="built_in">this</span>.interceptorsAndDynamicMethodMatchers.size() - <span class="number">1</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> invokeJoinpoint();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="type">Object</span> <span class="variable">interceptorOrInterceptionAdvice</span> <span class="operator">=</span></span><br><span class="line">                <span class="built_in">this</span>.interceptorsAndDynamicMethodMatchers.get(++<span class="built_in">this</span>.currentInterceptorIndex);</span><br><span class="line">        <span class="keyword">if</span> (interceptorOrInterceptionAdvice <span class="keyword">instanceof</span> InterceptorAndDynamicMethodMatcher) &#123;</span><br><span class="line">            <span class="comment">// Evaluate dynamic method matcher here: static part will already have</span></span><br><span class="line">            <span class="comment">// been evaluated and found to match.</span></span><br><span class="line">            <span class="type">InterceptorAndDynamicMethodMatcher</span> <span class="variable">dm</span> <span class="operator">=</span></span><br><span class="line">                    (InterceptorAndDynamicMethodMatcher) interceptorOrInterceptionAdvice;</span><br><span class="line">            <span class="keyword">if</span> (dm.methodMatcher.matches(<span class="built_in">this</span>.method, <span class="built_in">this</span>.targetClass, <span class="built_in">this</span>.arguments)) &#123;</span><br><span class="line">                <span class="keyword">return</span> dm.interceptor.invoke(<span class="built_in">this</span>);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">// Dynamic matching failed.</span></span><br><span class="line">                <span class="comment">// Skip this interceptor and invoke the next in the chain.</span></span><br><span class="line">                <span class="keyword">return</span> proceed();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>重要的点</strong>：<code>++this.currentInterceptorIndex</code>，去chain list中获取<code>interceptor</code>，然后执行<code>TransactionInterceptor</code>的invoke()方法</p>
+<h1 id="六、TransactionInterceptor解析"><a href="#六、TransactionInterceptor解析" class="headerlink" title="六、TransactionInterceptor解析"></a>六、TransactionInterceptor解析</h1><p><code>TransactionInterceptor</code>属于spring事务模块，用于在方法调用前后关管理事务。<code>invoke</code>方法是拦截器的核心，负责启动、提交或回滚事务。</p>
+<h2 id="6-1、TransactionInterceptor的注册"><a href="#6-1、TransactionInterceptor的注册" class="headerlink" title="6.1、TransactionInterceptor的注册"></a>6.1、TransactionInterceptor的注册</h2><p>BeanDefinition的创建时间，会在解析<code>&lt;tx&gt;</code>标签时创建。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">AnnotationDrivenBeanDefinitionParser</span> <span class="keyword">implements</span> <span class="title class_">BeanDefinitionParser</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">AopAutoProxyConfigurer</span> &#123;</span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">configureAutoProxyCreator</span><span class="params">(Element element, ParserContext parserContext)</span> &#123;</span><br><span class="line">            AopNamespaceUtils.registerAutoProxyCreatorIfNecessary(parserContext, element);</span><br><span class="line"></span><br><span class="line">            <span class="type">String</span> <span class="variable">txAdvisorBeanName</span> <span class="operator">=</span> TransactionManagementConfigUtils.TRANSACTION_ADVISOR_BEAN_NAME;</span><br><span class="line">            <span class="keyword">if</span> (!parserContext.getRegistry().containsBeanDefinition(txAdvisorBeanName)) &#123;</span><br><span class="line">                <span class="type">Object</span> <span class="variable">eleSource</span> <span class="operator">=</span> parserContext.extractSource(element);</span><br><span class="line">                <span class="comment">// 创建 TransactionInterceptor definition.</span></span><br><span class="line">                <span class="type">RootBeanDefinition</span> <span class="variable">interceptorDef</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">RootBeanDefinition</span>(TransactionInterceptor.class);</span><br><span class="line">                interceptorDef.setSource(eleSource);</span><br><span class="line">                interceptorDef.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);</span><br><span class="line">                registerTransactionManager(element, interceptorDef);</span><br><span class="line">                interceptorDef.getPropertyValues().add(<span class="string">&quot;transactionAttributeSource&quot;</span>, <span class="keyword">new</span> <span class="title class_">RuntimeBeanReference</span>(sourceName));</span><br><span class="line">                <span class="type">String</span> <span class="variable">interceptorName</span> <span class="operator">=</span> parserContext.getReaderContext().registerWithGeneratedName(interceptorDef);</span><br><span class="line"></span><br><span class="line">                <span class="comment">// 注册Advisor并绑定Interceptor</span></span><br><span class="line">                <span class="type">RootBeanDefinition</span> <span class="variable">advisorDef</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">RootBeanDefinition</span>(BeanFactoryTransactionAttributeSourceAdvisor.class);</span><br><span class="line">                advisorDef.setSource(eleSource);</span><br><span class="line">                advisorDef.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);</span><br><span class="line">                advisorDef.getPropertyValues().add(<span class="string">&quot;transactionAttributeSource&quot;</span>, <span class="keyword">new</span> <span class="title class_">RuntimeBeanReference</span>(sourceName));</span><br><span class="line">                advisorDef.getPropertyValues().add(<span class="string">&quot;adviceBeanName&quot;</span>, interceptorName);</span><br><span class="line">                <span class="keyword">if</span> (element.hasAttribute(<span class="string">&quot;order&quot;</span>)) &#123;</span><br><span class="line">                    advisorDef.getPropertyValues().add(<span class="string">&quot;order&quot;</span>, element.getAttribute(<span class="string">&quot;order&quot;</span>));</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="6-2、TransactionInterceptor执行"><a href="#6-2、TransactionInterceptor执行" class="headerlink" title="6.2、TransactionInterceptor执行"></a>6.2、TransactionInterceptor执行</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TransactionInterceptor</span> <span class="keyword">extends</span> <span class="title class_">TransactionAspectSupport</span> <span class="keyword">implements</span> <span class="title class_">MethodInterceptor</span>, Serializable &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Object <span class="title function_">invoke</span><span class="params">(<span class="keyword">final</span> MethodInvocation invocation)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">        <span class="comment">// Work out the target class: may be &#123;@code null&#125;.</span></span><br><span class="line">        <span class="comment">// The TransactionAttributeSource should be passed the target class</span></span><br><span class="line">        <span class="comment">// as well as the method, which may be from an interface.</span></span><br><span class="line">        Class&lt;?&gt; targetClass = (invocation.getThis() != <span class="literal">null</span> ? AopUtils.getTargetClass(invocation.getThis()) : <span class="literal">null</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Adapt to TransactionAspectSupport&#x27;s invokeWithinTransaction...</span></span><br><span class="line">        <span class="keyword">return</span> invokeWithinTransaction(invocation.getMethod(), targetClass, <span class="keyword">new</span> <span class="title class_">InvocationCallback</span>() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> Object <span class="title function_">proceedWithInvocation</span><span class="params">()</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">                <span class="comment">//继续执行拦截器链或目标方法</span></span><br><span class="line">                <span class="keyword">return</span> invocation.proceed();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>org.aopalliance.intercept.MethodInterceptor</code>接口:</p>
+<ul>
+<li><strong>基本概念</strong>：这是AOP联盟包中的一个核心接口，用于拦截方法调用。它继承自Interceptor接口，而Interceptor接口又继承自Advice接口。MethodInterceptor接口定义了一个invoke方法，该方法会在目标方法执行时被调用，允许在方法执行前后添加自定义逻辑。</li>
+<li><strong>应用场景</strong>：Spring AOP中许多通知（），如@Befor、@After、@Around等，最终都会被包装成MethodInterceptor类型。这些通知会在方法执行的不同阶段执行相应的逻辑。<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> org.aopalliance.intercept;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">MethodInterceptor</span> <span class="keyword">extends</span> <span class="title class_">Interceptor</span> &#123;</span><br><span class="line">    Object <span class="title function_">invoke</span><span class="params">(MethodInvocation invocation)</span> <span class="keyword">throws</span> Throwable;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="事务处理核心流程：invokeWithinTransaction"><a href="#事务处理核心流程：invokeWithinTransaction" class="headerlink" title="事务处理核心流程：invokeWithinTransaction"></a>事务处理核心流程：invokeWithinTransaction</h2><p>实际<code class="red"><strong>事务处理逻辑</strong></code>在该方法中完成。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> Object <span class="title function_">invokeWithinTransaction</span><span class="params">(Method method, Class&lt;?&gt; targetClass, <span class="keyword">final</span> InvocationCallback invocation)</span></span><br><span class="line">			<span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">    <span class="comment">// 获取@Tranactional注解上的属性（在上文中有解析是如何封装的）</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">TransactionAttribute</span> <span class="variable">txAttr</span> <span class="operator">=</span> getTransactionAttributeSource().getTransactionAttribute(method, targetClass);</span><br><span class="line">    <span class="comment">//获取事务管理器：若@Transactional制定了transactionManager，则按名称从容器获取。否则使用默认事务管理器（默认名称为transactionManager）</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">PlatformTransactionManager</span> <span class="variable">tm</span> <span class="operator">=</span> determineTransactionManager(txAttr);</span><br><span class="line">    <span class="keyword">final</span> <span class="type">String</span> <span class="variable">joinpointIdentification</span> <span class="operator">=</span> methodIdentification(method, targetClass, txAttr);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (txAttr == <span class="literal">null</span> || !(tm <span class="keyword">instanceof</span> CallbackPreferringPlatformTransactionManager)) &#123;</span><br><span class="line">        <span class="comment">//创建事务</span></span><br><span class="line">        <span class="type">TransactionInfo</span> <span class="variable">txInfo</span> <span class="operator">=</span> createTransactionIfNecessary(tm, txAttr, joinpointIdentification);</span><br><span class="line">        <span class="type">Object</span> <span class="variable">retVal</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//执行后续拦截器或目标方法</span></span><br><span class="line">            retVal = invocation.proceedWithInvocation();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">catch</span> (Throwable ex) &#123;</span><br><span class="line">            <span class="comment">// 异常处理</span></span><br><span class="line">            completeTransactionAfterThrowing(txInfo, ex);</span><br><span class="line">            <span class="keyword">throw</span> ex;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">finally</span> &#123;</span><br><span class="line">            cleanupTransactionInfo(txInfo);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//提交事务</span></span><br><span class="line">        commitTransactionAfterReturning(txInfo);</span><br><span class="line">        <span class="keyword">return</span> retVal;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>文章篇幅较长，将在下一篇文章进行解析。</p>
+<h1 id="七、MethodInterceptor"><a href="#七、MethodInterceptor" class="headerlink" title="七、MethodInterceptor"></a>七、MethodInterceptor</h1><p>本文中有两个<code>MethodInterceptor</code></p>
+<ul>
+<li><code>org.springframework.cglib.proxy.MethodInterceptor</code></li>
+<li><code>org.aopalliance.intercept.MethodInterceptor</code></li>
+</ul>
+<h2 id="7-1、org-springframework-cglib-proxy-MethodInterceptor"><a href="#7-1、org-springframework-cglib-proxy-MethodInterceptor" class="headerlink" title="7.1、org.springframework.cglib.proxy.MethodInterceptor"></a>7.1、<code>org.springframework.cglib.proxy.MethodInterceptor</code></h2><p>属于Spring对CGLIB库的封装接口，专用于CGLIB动态代理。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> org.springframework.cglib.proxy;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">MethodInterceptor</span> <span class="keyword">extends</span> <span class="title class_">Callback</span> &#123;</span><br><span class="line">    Object <span class="title function_">intercept</span><span class="params">(Object obj, Method method, Object[] args, MethodProxy proxy)</span> <span class="keyword">throws</span> Throwable;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>用于在CGLIB生成的代理类中拦截方法调用，执行自定义逻辑（如方法增强）</p>
+<h2 id="7-2、org-aopalliance-intercept-MethodInterceptor"><a href="#7-2、org-aopalliance-intercept-MethodInterceptor" class="headerlink" title="7.2、org.aopalliance.intercept.MethodInterceptor"></a>7.2、<code>org.aopalliance.intercept.MethodInterceptor</code></h2><p>AOP联盟标准，是AOP联盟定义的接口，是AOP的通用标准。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> org.aopalliance.intercept;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">MethodInterceptor</span> <span class="keyword">extends</span> <span class="title class_">Interceptor</span> &#123;</span><br><span class="line">    Object <span class="title function_">invoke</span><span class="params">(MethodInvocation invocation)</span> <span class="keyword">throws</span> Throwable;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>用于在方法调用前后执行增强逻辑（如事务、日志），是Spring AOP的通用拦截器接口</p>
+<h2 id="7-3、核心区别"><a href="#7-3、核心区别" class="headerlink" title="7.3、核心区别"></a>7.3、核心区别</h2><table>
+<thead>
+<tr>
+<th>特性</th>
+<th><code>org.aopalliance.intercept.MethodInterceptor</code></th>
+<th><code>org.springframework.cglib.proxy.MethodInterceptor</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>所属包</strong></td>
+<td><code>org.aopalliance.intercept</code>（标准接口）</td>
+<td><code>org.springframework.cglib.proxy</code>（Spring 封装）</td>
+</tr>
+<tr>
+<td><strong>应用场景</strong></td>
+<td>通用的 AOP 拦截器，适用于 JDK 代理和 CGLIB 代理</td>
+<td>专用于 CGLIB 动态代理</td>
+</tr>
+<tr>
+<td><strong>方法参数</strong></td>
+<td><code>MethodInvocation</code>（封装方法调用上下文）</td>
+<td><code>Object obj, Method method, Object[] args, MethodProxy proxy</code></td>
+</tr>
+<tr>
+<td><strong>调用原始方法的方式</strong></td>
+<td>通过 <code>MethodInvocation.proceed()</code></td>
+<td>通过 <code>MethodProxy.invokeSuper(obj, args)</code></td>
+</tr>
+</tbody></table>
+<h2 id="7-4、关联与协作"><a href="#7-4、关联与协作" class="headerlink" title="7.4、关联与协作"></a>7.4、关联与协作</h2><p>尽管两者名称相似，但 <strong>它们属于不同的层次和用途</strong>。在 Spring AOP 中，二者的协作流程如下：</p>
+<h3 id="1-Spring-AOP-对两种代理的统一处理"><a href="#1-Spring-AOP-对两种代理的统一处理" class="headerlink" title="(1) Spring AOP 对两种代理的统一处理"></a><strong>(1) Spring AOP 对两种代理的统一处理</strong></h3><p>Spring AOP 的代理工厂（<code>ProxyFactory</code>）会根据目标对象是否实现接口，选择 JDK 动态代理或 CGLIB 代理。无论使用哪种代理，最终都会将 AOP 联盟的 <code>MethodInterceptor</code> 适配到代理机制中。</p>
+<h3 id="2-CGLIB-代理如何整合-AOP-联盟接口"><a href="#2-CGLIB-代理如何整合-AOP-联盟接口" class="headerlink" title="(2) CGLIB 代理如何整合 AOP 联盟接口"></a><strong>(2) CGLIB 代理如何整合 AOP 联盟接口</strong></h3><p>当使用 CGLIB 代理时，Spring 通过 <code>CglibAopProxy</code> 将 AOP 联盟的 <code>MethodInterceptor</code> 适配到 CGLIB 的 <code>MethodInterceptor</code> 接口：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CglibAopProxy</span> <span class="keyword">implements</span> <span class="title class_">AopProxy</span> &#123;</span><br><span class="line">    <span class="comment">// 将 AOP 联盟的 MethodInterceptor 适配为 CGLIB 的 MethodInterceptor</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">DynamicAdvisedInterceptor</span> <span class="keyword">implements</span> <span class="title class_">MethodInterceptor</span> &#123;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> AdvisedSupport advised;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">public</span> Object <span class="title function_">intercept</span><span class="params">(Object proxy, Method method, Object[] args, MethodProxy methodProxy)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">            <span class="comment">// 创建 AOP 联盟的 MethodInvocation</span></span><br><span class="line">            <span class="type">MethodInvocation</span> <span class="variable">invocation</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">CglibMethodInvocation</span>(...);</span><br><span class="line">            <span class="comment">// 执行 AOP 联盟的拦截器链</span></span><br><span class="line">            <span class="keyword">return</span> invocation.proceed();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-调用流程示例"><a href="#3-调用流程示例" class="headerlink" title="(3) 调用流程示例"></a><strong>(3) 调用流程示例</strong></h3><p>以事务管理为例：</p>
+<ol>
+<li>CGLIB 代理对象的方法调用被 <code>DynamicAdvisedInterceptor.intercept()</code> 拦截。</li>
+<li>Spring 创建 AOP 联盟的 <code>MethodInvocation</code>，并执行拦截器链（包含 <code>TransactionInterceptor</code>）。</li>
+<li><code>TransactionInterceptor</code>（AOP 联盟的 <code>MethodInterceptor</code>）负责事务管理。</li>
+</ol>
+<p>参考文章：<br><a href="https://zhuanlan.zhihu.com/p/41785457">Spring Transactional源码阅读笔记（二）</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/20/2021-01-20-spring-AOP/" rel="prev" title="《spring》AOP">
+      <i class="fa fa-chevron-left"></i> 《spring》AOP
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/01/28/2021-01-28-spring-%E4%BA%8B%E5%8A%A1%E5%A4%84%E7%90%86%E9%80%BB%E8%BE%91/" rel="next" title="《spring》事务处理逻辑">
+      《spring》事务处理逻辑 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Spring"><span class="nav-text">一、Spring</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86%E7%B1%BB%E5%9E%8B"><span class="nav-text">二、事务管理类型</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%B9%E5%BC%8F1%EF%BC%9A%E5%A3%B0%E6%98%8E%E5%BC%8F%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86"><span class="nav-text">方式1：声明式事务管理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-1%E3%80%81XML%E6%96%87%E4%BB%B6%E9%85%8D%E7%BD%AE%E6%96%B9%E5%BC%8F"><span class="nav-text">2.1.1、XML文件配置方式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-1-1%E3%80%81%E6%A0%87%E7%AD%BE%E7%9A%84%E8%A7%A3%E6%9E%90"><span class="nav-text">2.1.1.1、&lt;tx&gt;标签的解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-1-2%E3%80%81%E6%B3%A8%E5%86%8C%E4%BA%8B%E5%8A%A1AOP%E7%9A%84%E5%85%A5%E5%8F%A3%E7%B1%BB%EF%BC%9AInfrastructureAdvisorAutoProxyCreator"><span class="nav-text">2.1.1.2、注册事务AOP的入口类：InfrastructureAdvisorAutoProxyCreator</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-1-3%E3%80%81%E6%B3%A8%E5%86%8C%E4%BA%8B%E5%8A%A1%E5%B1%9E%E6%80%A7%E6%BA%90%EF%BC%9AAnnotationTransactionAttributeSource"><span class="nav-text">2.1.1.3、注册事务属性源：AnnotationTransactionAttributeSource</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-1-4%E3%80%81%E5%88%9B%E5%BB%BA%E4%BA%8B%E5%8A%A1%E6%8B%A6%E6%88%AA%E5%99%A8%EF%BC%9ATransactionInterceptor"><span class="nav-text">2.1.1.4、创建事务拦截器：TransactionInterceptor</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-1-5%E3%80%81%E6%8B%BF%E5%88%B0transaction-manager%E5%B1%9E%E6%80%A7%E7%9A%84%E5%80%BC"><span class="nav-text">2.1.1.5、拿到transaction-manager属性的值</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-1-6%E3%80%81%E5%88%9B%E5%BB%BAadvisor%E3%80%90%E5%A2%9E%E5%BC%BA%E5%99%A8%E3%80%91"><span class="nav-text">2.1.1.6、创建advisor【增强器】</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-2%E3%80%81config%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E6%96%B9%E5%BC%8F"><span class="nav-text">2.1.2、config配置文件方式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-3%E3%80%81springboot%E9%85%8D%E7%BD%AE%E6%96%B9%E5%BC%8F"><span class="nav-text">2.1.3、springboot配置方式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%B9%E5%BC%8F2%EF%BC%9A%E7%BC%96%E7%A8%8B%E5%BC%8F%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86"><span class="nav-text">方式2：编程式事务管理</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81-Transactional%E6%B3%A8%E8%A7%A3%E6%80%8E%E4%B9%88%E8%A7%A3%E6%9E%90%E7%9A%84%EF%BC%9F"><span class="nav-text">三、@Transactional注解怎么解析的？</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E8%A7%A3%E6%9E%90%E6%B5%81%E7%A8%8B"><span class="nav-text">3.1、解析流程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E6%A0%B8%E5%BF%83%E6%96%B9%E6%B3%95%E8%A7%A3%E6%9E%90%E6%B5%81%E7%A8%8B"><span class="nav-text">3.1.1、核心方法解析流程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-1%E3%80%81computeTransactionAttribute-%E6%96%B9%E6%B3%95"><span class="nav-text">3.1.1.1、computeTransactionAttribute()方法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-2%E3%80%81findTransactionAttribute-%E6%96%B9%E6%B3%95"><span class="nav-text">3.1.1.2、findTransactionAttribute()方法</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-2%E3%80%81%E4%BA%8B%E5%8A%A1%E6%B3%A8%E8%A7%A3%E8%A7%A3%E6%9E%90%E5%99%A8%EF%BC%88TransactionAnnotationParser%EF%BC%89"><span class="nav-text">3.1.2、事务注解解析器（TransactionAnnotationParser）</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-2-1%E3%80%81%E8%A7%A3%E6%9E%90%E6%96%B9%E6%B3%95%E6%88%96%E7%B1%BB%E4%B8%8A%E7%9A%84%E6%B3%A8%E8%A7%A3"><span class="nav-text">3.1.2.1、解析方法或类上的注解</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-2-2%E3%80%81%E8%BD%AC%E6%8D%A2%E4%B8%BA-RuleBasedTransactionAttribute"><span class="nav-text">3.1.2.2、转换为 RuleBasedTransactionAttribute</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-3%E3%80%81%E7%BB%84%E4%BB%B6%E7%9A%84%E5%8D%8F%E4%BD%9C"><span class="nav-text">3.1.3、组件的协作</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E4%BA%8B%E5%8A%A1%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1%E7%9A%84%E7%94%9F%E6%88%90"><span class="nav-text">四、事务代理对象的生成</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81wrapIfNecessary"><span class="nav-text">4.1、wrapIfNecessary</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81getAdvicesAndAdvisorsForBean"><span class="nav-text">4.2、getAdvicesAndAdvisorsForBean</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81createProxy%E5%88%9B%E5%BB%BA%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1"><span class="nav-text">4.3、createProxy创建代理对象</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-1%E3%80%81%E5%88%9B%E5%BB%BA%E4%BB%A3%E7%90%86%E3%80%90AopProxy-getProxy-classLoader-%E3%80%91"><span class="nav-text">4.3.1、创建代理【AopProxy.getProxy(classLoader)】</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-1-1%E3%80%81%E8%AE%BE%E7%BD%AE%E5%9B%9E%E8%B0%83%EF%BC%88callbacks%EF%BC%89"><span class="nav-text">4.3.1.1、设置回调（callbacks）</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E5%9B%9E%E8%B0%83%E5%99%A8%EF%BC%9ADynamicAdvisedInterceptor"><span class="nav-text">核心回调器：DynamicAdvisedInterceptor</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-1-2%E3%80%81%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1%E7%94%9F%E6%88%90%E7%A4%BA%E4%BE%8B"><span class="nav-text">4.3.1.2、代理对象生成示例</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1%E7%9A%84%E6%89%A7%E8%A1%8C"><span class="nav-text">五、代理对象的执行</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1%E3%80%81DynamicAdvisedInterceptor-intercept"><span class="nav-text">5.1、DynamicAdvisedInterceptor.intercept()</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-1%E3%80%81%E5%86%85%E9%83%A8%E6%B5%81%E7%A8%8B1%EF%BC%9AList-chain-this-advised-getInterceptorsAndDynamicInterceptionAdvice-method-targetClass"><span class="nav-text">5.1.1、内部流程1：List chain &#x3D; this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass)</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#TransactionInterceptor"><span class="nav-text">TransactionInterceptor</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-2%E3%80%81%E5%86%85%E9%83%A8%E6%B5%81%E7%A8%8B2%EF%BC%9Anew-CglibMethodInvocation-proceed"><span class="nav-text">5.1.2、内部流程2：new CglibMethodInvocation().proceed()</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%AD%E3%80%81TransactionInterceptor%E8%A7%A3%E6%9E%90"><span class="nav-text">六、TransactionInterceptor解析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#6-1%E3%80%81TransactionInterceptor%E7%9A%84%E6%B3%A8%E5%86%8C"><span class="nav-text">6.1、TransactionInterceptor的注册</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-2%E3%80%81TransactionInterceptor%E6%89%A7%E8%A1%8C"><span class="nav-text">6.2、TransactionInterceptor执行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8B%E5%8A%A1%E5%A4%84%E7%90%86%E6%A0%B8%E5%BF%83%E6%B5%81%E7%A8%8B%EF%BC%9AinvokeWithinTransaction"><span class="nav-text">事务处理核心流程：invokeWithinTransaction</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%83%E3%80%81MethodInterceptor"><span class="nav-text">七、MethodInterceptor</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#7-1%E3%80%81org-springframework-cglib-proxy-MethodInterceptor"><span class="nav-text">7.1、org.springframework.cglib.proxy.MethodInterceptor</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-2%E3%80%81org-aopalliance-intercept-MethodInterceptor"><span class="nav-text">7.2、org.aopalliance.intercept.MethodInterceptor</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-3%E3%80%81%E6%A0%B8%E5%BF%83%E5%8C%BA%E5%88%AB"><span class="nav-text">7.3、核心区别</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-4%E3%80%81%E5%85%B3%E8%81%94%E4%B8%8E%E5%8D%8F%E4%BD%9C"><span class="nav-text">7.4、关联与协作</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Spring-AOP-%E5%AF%B9%E4%B8%A4%E7%A7%8D%E4%BB%A3%E7%90%86%E7%9A%84%E7%BB%9F%E4%B8%80%E5%A4%84%E7%90%86"><span class="nav-text">(1) Spring AOP 对两种代理的统一处理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-CGLIB-%E4%BB%A3%E7%90%86%E5%A6%82%E4%BD%95%E6%95%B4%E5%90%88-AOP-%E8%81%94%E7%9B%9F%E6%8E%A5%E5%8F%A3"><span class="nav-text">(2) CGLIB 代理如何整合 AOP 联盟接口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E8%B0%83%E7%94%A8%E6%B5%81%E7%A8%8B%E7%A4%BA%E4%BE%8B"><span class="nav-text">(3) 调用流程示例</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">162</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">135</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

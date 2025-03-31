@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是spring系列的第13篇文章，主要介绍的是事务的传播特性及失效场景。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、Springspring框架是Java生态中最主流的轻量级开源应用框架，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《spring》事务传播特性">
+<meta property="og:url" content="http://yoursite.com/2021/01/30/2021-01-30-spring-%E4%BA%8B%E5%8A%A1%E4%BC%A0%E6%92%AD%E7%89%B9%E6%80%A7/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是spring系列的第13篇文章，主要介绍的是事务的传播特性及失效场景。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、Springspring框架是Java生态中最主流的轻量级开源应用框架，">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-01-29T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-31T08:02:53.514Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2021/01/30/2021-01-30-spring-%E4%BA%8B%E5%8A%A1%E4%BC%A0%E6%92%AD%E7%89%B9%E6%80%A7/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《spring》事务传播特性 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/01/30/2021-01-30-spring-%E4%BA%8B%E5%8A%A1%E4%BC%A0%E6%92%AD%E7%89%B9%E6%80%A7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《spring》事务传播特性
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-01-30 00:00:00" itemprop="dateCreated datePublished" datetime="2021-01-30T00:00:00+08:00">2021-01-30</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-03-31 16:02:53" itemprop="dateModified" datetime="2025-03-31T16:02:53+08:00">2025-03-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/" itemprop="url" rel="index"><span itemprop="name">spring</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/spring/%E4%BA%8B%E5%8A%A1/" itemprop="url" rel="index"><span itemprop="name">事务</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.5k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>14 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是spring系列的第13篇文章，主要介绍的是事务的传播特性及失效场景。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、Spring"><a href="#一、Spring" class="headerlink" title="一、Spring"></a>一、Spring</h1><p><code>spring框架</code>是Java生态中最主流的轻量级开源应用框架，其核心目标是简化企业级应用开发，通过<code>IOC（控制反转）</code>和<code>AOP（面向切面编程）</code>两大核心机制实现解耦、模块化和可维护性。</p>
+<span id="more"></span>
+
+<h1 id="二、事务传播机制"><a href="#二、事务传播机制" class="headerlink" title="二、事务传播机制"></a>二、事务传播机制</h1><p>事务传播特性（）定义了多个事务方法相互调用时，事务应该如何传播和协作。通过合理配置传播行为，可以处理嵌套事务、事务独立性等复杂场景。</p>
+<h2 id="2-1、传播类型"><a href="#2-1、传播类型" class="headerlink" title="2.1、传播类型"></a>2.1、传播类型</h2><p>在<code>TransactionDefinition</code>类中，定义了各种传播类型</p>
+<table>
+<thead>
+<tr>
+<th>传播行为</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PROPAGATION_REQUIRED</td>
+<td>支持当前事务，如果当前没有事务，则新建一个事务，这是最常见的选择，也是 Spring 默认的一个事务传播属性</td>
+</tr>
+<tr>
+<td>PROPAGATION_SUPPORTS</td>
+<td>支持当前事务，如果当前没有事务，则以非事务方式执行</td>
+</tr>
+<tr>
+<td>PROPAGATION_MANDATORY</td>
+<td>支持当前事务，如果当前没有事务，则抛出异常</td>
+</tr>
+<tr>
+<td>PROPAGATION_REQUIRES_NEW</td>
+<td>新建事务，如果当前存在事务，把当前事务挂起</td>
+</tr>
+<tr>
+<td>PROPAGATION_NOT_SUPPORTED</td>
+<td>以非事务方式执行操作，如果当前存在事务，就把当前事务挂起</td>
+</tr>
+<tr>
+<td>PROPAGATION_NEVER</td>
+<td>以非事务方式执行，如果当前存在事务，则抛出异常</td>
+</tr>
+<tr>
+<td>PROPAGATION_NESTED</td>
+<td>Nested的事务和它的父事务是相依的，它的提交是要等和它的父事务一块提交的</td>
+</tr>
+</tbody></table>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (definition.getPropagationBehavior() == TransactionDefinition.PROPAGATION_REQUIRED ||</span><br><span class="line">    definition.getPropagationBehavior() == TransactionDefinition.PROPAGATION_REQUIRES_NEW ||</span><br><span class="line">    definition.getPropagationBehavior() == TransactionDefinition.PROPAGATION_NESTED) &#123;</span><br><span class="line">    <span class="type">SuspendedResourcesHolder</span> <span class="variable">suspendedResources</span> <span class="operator">=</span> suspend(<span class="literal">null</span>);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="type">boolean</span> <span class="variable">newSynchronization</span> <span class="operator">=</span> (getTransactionSynchronization() != SYNCHRONIZATION_NEVER);</span><br><span class="line">        <span class="type">DefaultTransactionStatus</span> <span class="variable">status</span> <span class="operator">=</span> newTransactionStatus(</span><br><span class="line">                definition, transaction, <span class="literal">true</span>, newSynchronization, debugEnabled, suspendedResources);</span><br><span class="line">        doBegin(transaction, definition);</span><br><span class="line">        prepareSynchronization(status, definition);</span><br><span class="line">        <span class="keyword">return</span> status;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;    </span><br></pre></td></tr></table></figure>
+
+<h3 id="2-1-1、PROPAGATION-REQUIRED（默认传播行为）"><a href="#2-1-1、PROPAGATION-REQUIRED（默认传播行为）" class="headerlink" title="2.1.1、PROPAGATION_REQUIRED（默认传播行为）"></a>2.1.1、PROPAGATION_REQUIRED（默认传播行为）</h3><ul>
+<li>如果当前存在事务，则加入该事务</li>
+<li>如果不存在，则新建一个事务<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional(propagation = Propagation.REQUIRED)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">methodA</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 操作 1</span></span><br><span class="line">    methodB(); <span class="comment">// methodB 加入 methodA 的事务</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Transactional(propagation = Propagation.REQUIRED)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">methodB</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 操作 2</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="2-1-2、PROPAGATION-REQUIRED-NEW（新建独立事务）"><a href="#2-1-2、PROPAGATION-REQUIRED-NEW（新建独立事务）" class="headerlink" title="2.1.2、PROPAGATION_REQUIRED_NEW（新建独立事务）"></a>2.1.2、PROPAGATION_REQUIRED_NEW（新建独立事务）</h3><ul>
+<li>无论当前是否存在事务，都新建一个独立事务</li>
+<li>当前事务（如果有）会被挂起，新事务提交或回滚后恢复原事务<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional(propagation = Propagation.REQUIRED)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">methodA</span><span class="params">()</span> &#123;</span><br><span class="line">  <span class="comment">// 操作 1（属于事务A）</span></span><br><span class="line">  methodB(); <span class="comment">// 开启新事务B，事务A被挂起</span></span><br><span class="line">  <span class="comment">// 操作 3（属于事务A，若此处抛出异常，事务A回滚，但事务B已提交）</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Transactional(propagation = Propagation.REQUIRES_NEW)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">methodB</span><span class="params">()</span> &#123;</span><br><span class="line">  <span class="comment">// 操作 2（属于独立事务B）</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h1 id="三、事务失效"><a href="#三、事务失效" class="headerlink" title="三、事务失效"></a>三、事务失效</h1><h2 id="3-1、自调用"><a href="#3-1、自调用" class="headerlink" title="3.1、自调用"></a>3.1、自调用</h2><p>在同一个类中，方法A调用方法B（B有@Transactional），由于spring AOP基于代理实现，自调用会绕过代理，导致事务注解失效，示例如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderController</span> &#123;</span><br><span class="line">    <span class="meta">@Resource</span></span><br><span class="line">    <span class="keyword">private</span> OrderService orderService;</span><br><span class="line">    <span class="meta">@RequestMapping()</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">test</span><span class="params">()</span> &#123;</span><br><span class="line">        orderService.createOrder();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">createOrder</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 自调用事务方法 → 事务失效！</span></span><br><span class="line">        <span class="built_in">this</span>.insertOrder();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="meta">@Transactional</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">insertOrder</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 数据库操作</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在创建<code>OrderService</code>实例时，<code>InfrastructureAdvisorAutoProxyCreator</code>执行<code>postProcessAfterInitialization</code>方法，内部核心方法<code>AbstractAutoProxyCreator.wrapIfNecessary()</code>，会解析<code>@Transactional</code>注解并生成<code>OrderService</code>的代理对象</p>
+<blockquote>
+<p>此时注入到OrderController的OrderService是一个代理对象。</p>
+</blockquote>
+<h3 id="3-1-1、代理对象执行"><a href="#3-1-1、代理对象执行" class="headerlink" title="3.1.1、代理对象执行"></a>3.1.1、代理对象执行</h3><p>执行<code>DynamicAdvisedInterceptor</code>的<code>intercept</code>方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">DynamicAdvisedInterceptor</span> <span class="keyword">implements</span> <span class="title class_">MethodInterceptor</span>, Serializable &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Object <span class="title function_">intercept</span><span class="params">(Object proxy, Method method, Object[] args, MethodProxy methodProxy)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">target</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//被代理对象</span></span><br><span class="line">            target = getTarget();</span><br><span class="line">            <span class="comment">//判断当前调用方法是否有拦截器链</span></span><br><span class="line">            List&lt;Object&gt; chain = <span class="built_in">this</span>.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass);</span><br><span class="line">            Object retVal;</span><br><span class="line">            <span class="comment">//拦截器链空</span></span><br><span class="line">            <span class="keyword">if</span> (chain.isEmpty() &amp;&amp; Modifier.isPublic(method.getModifiers())) &#123;</span><br><span class="line">                <span class="comment">//直接调用被代理对象的目标方法</span></span><br><span class="line">                Object[] argsToUse = AopProxyUtils.adaptArgumentsIfNecessary(method, args);</span><br><span class="line">                retVal = methodProxy.invoke(target, argsToUse);</span><br><span class="line">            &#125;</span><br><span class="line">            retVal = processReturnType(proxy, target, method, retVal);</span><br><span class="line">            <span class="keyword">return</span> retVal;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>通过分析代理对象的执行流程，执行的method的拦截器链为空，直接调用被代理对象的方法。</p>
+<blockquote>
+<p>自调用会导致事务失效的原因分析好了。</p>
+</blockquote>
+<h2 id="3-2、非public方法导致事务失效"><a href="#3-2、非public方法导致事务失效" class="headerlink" title="3.2、非public方法导致事务失效"></a>3.2、非public方法导致事务失效</h2><p>需要回到@Transactional注解的解析流程。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">AbstractAutoProxyCreator.wrapIfNecessary()</span><br><span class="line">-&gt; AbstractAdvisorAutoProxyCreator.getAdvicesAndAdvisorsForBean()</span><br><span class="line">--&gt; AbstractAdvisorAutoProxyCreator.findEligibleAdvisors()</span><br><span class="line">---&gt; AbstractAdvisorAutoProxyCreator.findCandidateAdvisors()</span><br><span class="line">---&gt; AbstractAdvisorAutoProxyCreator.findAdvisorsThatCanApply()</span><br><span class="line">----&gt; AopUtils.findAdvisorsThatCanApply()</span><br><span class="line">-----&gt; AopUtils.canApply()：判断 advisor 是否支持</span><br><span class="line">------&gt; TransactionAttributeSourcePointcut.matches()</span><br><span class="line">-------&gt; BeanFactoryTransactionAttributeSourceAdvisor.getTransactionAttributeSource()</span><br><span class="line">--------&gt; AbstractFallbackTransactionAttributeSource.getTransactionAttribute()</span><br><span class="line">---------&gt; AbstractFallbackTransactionAttributeSource.computeTransactionAttribute()：：重点！！！判断方法是否是public</span><br></pre></td></tr></table></figure>
+<p>在解析流程的AbstractFallbackTransactionAttributeSource.computeTransactionAttribute()中，会判断方法是否public</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> TransactionAttribute <span class="title function_">computeTransactionAttribute</span><span class="params">(Method method, Class&lt;?&gt; targetClass)</span> &#123;</span><br><span class="line">    <span class="comment">// Don&#x27;t allow no-public methods as required.</span></span><br><span class="line">    <span class="comment">// 不允许非public方法</span></span><br><span class="line">    <span class="keyword">if</span> (allowPublicMethodsOnly() &amp;&amp; !Modifier.isPublic(method.getModifiers())) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-3、方法用final修饰"><a href="#3-3、方法用final修饰" class="headerlink" title="3.3、方法用final修饰"></a>3.3、方法用final修饰</h2><p>final不可被继承。</p>
+<h2 id="线程安全吗？"><a href="#线程安全吗？" class="headerlink" title="线程安全吗？"></a>线程安全吗？</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title function_">selectById</span><span class="params">()</span> &#123;</span><br><span class="line">    orderMapper.selectByPrimaryKey(<span class="number">0L</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">selectById</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="type">MethodInterceptor</span> <span class="variable">var10000</span> <span class="operator">=</span> <span class="built_in">this</span>.CGLIB$CALLBACK_0;</span><br><span class="line">        <span class="keyword">if</span> (var10000 == <span class="literal">null</span>) &#123;</span><br><span class="line">            CGLIB$BIND_CALLBACKS(<span class="built_in">this</span>);</span><br><span class="line">            var10000 = <span class="built_in">this</span>.CGLIB$CALLBACK_0;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (var10000 != <span class="literal">null</span>) &#123;</span><br><span class="line">            var10000.intercept(<span class="built_in">this</span>, CGLIB$selectById$<span class="number">0</span>$Method, CGLIB$emptyArgs, CGLIB$selectById$<span class="number">0</span>$Proxy);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="built_in">super</span>.selectById();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Error | RuntimeException var1) &#123;</span><br><span class="line">        <span class="keyword">throw</span> var1;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Throwable var2) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">UndeclaredThrowableException</span>(var2);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="线程不安全的根本原因"><a href="#线程不安全的根本原因" class="headerlink" title="线程不安全的根本原因"></a>线程不安全的根本原因</h3><h4 id="（1）代理对象与锁对象分离"><a href="#（1）代理对象与锁对象分离" class="headerlink" title="（1）代理对象与锁对象分离"></a>（1）代理对象与锁对象分离</h4><ul>
+<li><strong>动态代理机制</strong>：Spring 通过代理对象调用目标方法，而 <code>synchronized</code> 锁定的是原始对象（<code>this</code>），而非代理对象。</li>
+<li><strong>多线程绕过锁</strong>：若多个线程通过不同代理实例调用方法，<code>synchronized</code> 无法跨实例同步。</li>
+</ul>
+<h4 id="2-事务与锁的时序问题"><a href="#2-事务与锁的时序问题" class="headerlink" title="(2) 事务与锁的时序问题"></a>(2) 事务与锁的时序问题</h4><ul>
+<li><strong>事务开启在锁外</strong>：事务可能在 <code>synchronized</code> 代码块外开启，导致并发操作进入事务但未获得锁。</li>
+<li><strong>数据库隔离级别影响</strong>：即使方法同步，事务的隔离级别（如 <code>READ_UNCOMMITTED</code>）可能导致脏读。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/28/2021-01-28-spring-%E4%BA%8B%E5%8A%A1%E5%A4%84%E7%90%86%E9%80%BB%E8%BE%91/" rel="prev" title="《spring》事务处理逻辑">
+      <i class="fa fa-chevron-left"></i> 《spring》事务处理逻辑
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/02/03/2021-02-03-spring-%E7%9B%B8%E5%85%B3%E7%9F%A5%E8%AF%86%E7%82%B9/" rel="next" title="《spring》相关知识点">
+      《spring》相关知识点 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Spring"><span class="nav-text">一、Spring</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E4%BA%8B%E5%8A%A1%E4%BC%A0%E6%92%AD%E6%9C%BA%E5%88%B6"><span class="nav-text">二、事务传播机制</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E4%BC%A0%E6%92%AD%E7%B1%BB%E5%9E%8B"><span class="nav-text">2.1、传播类型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-1%E3%80%81PROPAGATION-REQUIRED%EF%BC%88%E9%BB%98%E8%AE%A4%E4%BC%A0%E6%92%AD%E8%A1%8C%E4%B8%BA%EF%BC%89"><span class="nav-text">2.1.1、PROPAGATION_REQUIRED（默认传播行为）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-2%E3%80%81PROPAGATION-REQUIRED-NEW%EF%BC%88%E6%96%B0%E5%BB%BA%E7%8B%AC%E7%AB%8B%E4%BA%8B%E5%8A%A1%EF%BC%89"><span class="nav-text">2.1.2、PROPAGATION_REQUIRED_NEW（新建独立事务）</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E4%BA%8B%E5%8A%A1%E5%A4%B1%E6%95%88"><span class="nav-text">三、事务失效</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E8%87%AA%E8%B0%83%E7%94%A8"><span class="nav-text">3.1、自调用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1%E6%89%A7%E8%A1%8C"><span class="nav-text">3.1.1、代理对象执行</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E9%9D%9Epublic%E6%96%B9%E6%B3%95%E5%AF%BC%E8%87%B4%E4%BA%8B%E5%8A%A1%E5%A4%B1%E6%95%88"><span class="nav-text">3.2、非public方法导致事务失效</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E6%96%B9%E6%B3%95%E7%94%A8final%E4%BF%AE%E9%A5%B0"><span class="nav-text">3.3、方法用final修饰</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E5%90%97%EF%BC%9F"><span class="nav-text">线程安全吗？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E4%B8%8D%E5%AE%89%E5%85%A8%E7%9A%84%E6%A0%B9%E6%9C%AC%E5%8E%9F%E5%9B%A0"><span class="nav-text">线程不安全的根本原因</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%881%EF%BC%89%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1%E4%B8%8E%E9%94%81%E5%AF%B9%E8%B1%A1%E5%88%86%E7%A6%BB"><span class="nav-text">（1）代理对象与锁对象分离</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-%E4%BA%8B%E5%8A%A1%E4%B8%8E%E9%94%81%E7%9A%84%E6%97%B6%E5%BA%8F%E9%97%AE%E9%A2%98"><span class="nav-text">(2) 事务与锁的时序问题</span></a></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">162</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">135</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
