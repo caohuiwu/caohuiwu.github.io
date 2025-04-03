@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是Mybatis系列的第4篇文章，主要介绍的是Mybatis与plugin拦截器。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、MybatisMybatis是持久层框架，通过XML或注解配置">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Mybatis》plugin">
+<meta property="og:url" content="http://yoursite.com/2021/03/02/2021-03-02-mybatis-plugin/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是Mybatis系列的第4篇文章，主要介绍的是Mybatis与plugin拦截器。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、MybatisMybatis是持久层框架，通过XML或注解配置">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/03/02/2021-03-02-mybatis-plugin/SqlSessionTest.png">
+<meta property="og:image" content="http://yoursite.com/2021/03/02/2021-03-02-mybatis-plugin/%E5%9B%9B%E5%A4%A7%E7%BB%84%E4%BB%B6.png">
+<meta property="article:published_time" content="2021-03-01T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-03T02:44:33.770Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/03/02/2021-03-02-mybatis-plugin/SqlSessionTest.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/03/02/2021-03-02-mybatis-plugin/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Mybatis》plugin | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/03/02/2021-03-02-mybatis-plugin/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Mybatis》plugin
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-03-02 00:00:00" itemprop="dateCreated datePublished" datetime="2021-03-02T00:00:00+08:00">2021-03-02</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-03 10:44:33" itemprop="dateModified" datetime="2025-04-03T10:44:33+08:00">2025-04-03</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mybatis/" itemprop="url" rel="index"><span itemprop="name">mybatis</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>10k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>26 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是Mybatis系列的第4篇文章，主要介绍的是Mybatis与plugin拦截器。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、Mybatis"><a href="#一、Mybatis" class="headerlink" title="一、Mybatis"></a>一、Mybatis</h1><p><code>Mybatis</code>是持久层框架，通过XML或注解配置SQL映射，将Java对象与数据库操作解耦。与传统的JDBC相比，Mybatis简化了数据库交互，并提供了灵活的SQL控制能力。</p>
+<span id="more"></span>
+
+
+<h1 id="二、plugin【插件】"><a href="#二、plugin【插件】" class="headerlink" title="二、plugin【插件】"></a>二、plugin【插件】</h1><p>与其称为<code>Mybatis插件</code>，不如叫<code>Mybatis拦截器</code>，更加符合其功能定位，实际上它就是一个拦截器，应用代理模式，在方法级别上进行拦截</p>
+<h2 id="2-1、Mybatis插件典型适用场景"><a href="#2-1、Mybatis插件典型适用场景" class="headerlink" title="2.1、Mybatis插件典型适用场景"></a>2.1、Mybatis插件典型适用场景</h2><ul>
+<li><code>分页功能</code><br>mybatis的分页默认是基于内存分页的（查出所有，再截取），数据量大的情况下效率较低，不过使用mybatis插件可以改变该行为，只需要拦截StatementHandler类的prepare方法，改变要执行的SQL语句为分页语句即可；</li>
+<li><code>公共字段统一赋值</code><br>一般业务系统都会有创建者，创建时间，修改者，修改时间四个字段，对于这四个字段的赋值，实际上可以在DAO层统一拦截处理，可以用mybatis插件拦截Executor类的update方法，对相关参数进行统一赋值即可；</li>
+<li><code>性能监控</code><br>对于SQL语句执行的性能监控，可以通过拦截Executor类的update, query等方法，用日志记录每个方法执行的时间；</li>
+<li><code>其它</code><br>其实mybatis扩展性还是很强的，基于插件机制，基本上可以控制SQL执行的各个阶段，如执行阶段，参数处理阶段，语法构建阶段，结果集处理阶段，具体可以根据项目业务来实现对应业务逻辑。</li>
+</ul>
+<h2 id="2-2、插件示例"><a href="#2-2、插件示例" class="headerlink" title="2.2、插件示例"></a>2.2、插件示例</h2><p>首先，在<code>mybatis-config.xml</code>文件中进行配置</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">configuration</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">properties</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;dialect&quot;</span> <span class="attr">value</span>=<span class="string">&quot;MYSQL&quot;</span> /&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;resultSetMaxSize&quot;</span> <span class="attr">value</span>=<span class="string">&quot;1000&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">properties</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">settings</span>&gt;</span></span><br><span class="line">        <span class="comment">&lt;!-- 全局延迟加载 ,在启用延迟加载的同时，需要禁用&quot;aggressiveLazyLoading&quot;项 --&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;lazyLoadingEnabled&quot;</span> <span class="attr">value</span>=<span class="string">&quot;false&quot;</span> /&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;aggressiveLazyLoading&quot;</span> <span class="attr">value</span>=<span class="string">&quot;false&quot;</span> /&gt;</span></span><br><span class="line">        <span class="comment">&lt;!-- 暂时不使用cache --&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;cacheEnabled&quot;</span> <span class="attr">value</span>=<span class="string">&quot;false&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">settings</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">plugins</span>&gt;</span></span><br><span class="line">		//分页插件</span><br><span class="line">        <span class="tag">&lt;<span class="name">plugin</span> <span class="attr">interceptor</span>=<span class="string">&quot;com.cs.common.dsfbase.mybatis.PaginationInterceptor&quot;</span> /&gt;</span></span><br><span class="line">		//</span><br><span class="line">        <span class="tag">&lt;<span class="name">plugin</span> <span class="attr">interceptor</span>=<span class="string">&quot;com.spat.dtracker.mybatis.plugin.MapperInterceptor&quot;</span> /&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">plugins</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;/<span class="name">configuration</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>实现 MyBatis 物理分页查询的插件</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.apache.ibatis.plugin.Interceptor;</span><br><span class="line"><span class="keyword">import</span> org.apache.ibatis.plugin.Intercepts;</span><br><span class="line"><span class="meta">@Intercepts(&#123; @Signature(type = StatementHandler.class, method = &quot;prepare&quot;, args = &#123; Connection.class, Integer.class &#125;) &#125;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">PaginationInterceptor</span> <span class="keyword">implements</span> <span class="title class_">Interceptor</span> &#123;</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> Object <span class="title function_">intercept</span><span class="params">(Invocation invocation)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">		<span class="type">StatementHandler</span> <span class="variable">statementHandler</span> <span class="operator">=</span> (StatementHandler) invocation.getTarget();</span><br><span class="line">		<span class="type">MetaObject</span> <span class="variable">metaStatementHandler</span> <span class="operator">=</span> MetaObject.forObject(statementHandler, <span class="keyword">new</span> <span class="title class_">DefaultObjectFactory</span>(),</span><br><span class="line">				<span class="keyword">new</span> <span class="title class_">DefaultObjectWrapperFactory</span>(), <span class="keyword">new</span> <span class="title class_">DefaultReflectorFactory</span>());</span><br><span class="line"></span><br><span class="line">		<span class="type">RowBounds</span> <span class="variable">rowBounds</span> <span class="operator">=</span> (RowBounds) metaStatementHandler.getValue(<span class="string">&quot;delegate.rowBounds&quot;</span>);</span><br><span class="line">		<span class="keyword">if</span> (rowBounds == <span class="literal">null</span> || (rowBounds.getOffset() == RowBounds.DEFAULT.getOffset()</span><br><span class="line">				&amp;&amp; rowBounds.getLimit() == RowBounds.DEFAULT.getLimit())) &#123;</span><br><span class="line">			<span class="keyword">return</span> invocation.proceed();</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="type">Configuration</span> <span class="variable">configuration</span> <span class="operator">=</span> (Configuration) metaStatementHandler.getValue(<span class="string">&quot;delegate.configuration&quot;</span>);</span><br><span class="line">		<span class="type">String</span> <span class="variable">dialectStr</span> <span class="operator">=</span> configuration.getVariables().getProperty(<span class="string">&quot;dialect&quot;</span>);</span><br><span class="line">		<span class="keyword">if</span> (StringUtils.isBlank(dialectStr)) &#123;</span><br><span class="line">			LOG.warn(</span><br><span class="line">					<span class="string">&quot;配置文件 mybatis-config.xml 中没有指定数据库方言，无法进行物理分页查询，将使用 myBatis 默认的逻辑分页。\r\n配置方言示例：&lt;property name=\&quot;dialect\&quot; value=\&quot;MYSQL\&quot;/&gt;&quot;</span>);</span><br><span class="line">			<span class="keyword">return</span> invocation.proceed();</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="type">Dialect</span> <span class="variable">dialect</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">		<span class="keyword">try</span> &#123;</span><br><span class="line">			Dialect.<span class="type">Type</span> <span class="variable">databaseType</span> <span class="operator">=</span> Dialect.Type.valueOf(dialectStr.toUpperCase());</span><br><span class="line">			<span class="keyword">switch</span> (databaseType) &#123;</span><br><span class="line">				<span class="keyword">case</span> ORACLE:</span><br><span class="line">					dialect = <span class="keyword">new</span> <span class="title class_">OracleDialect</span>();</span><br><span class="line">					<span class="keyword">break</span>;</span><br><span class="line">				<span class="keyword">case</span> MYSQL:</span><br><span class="line">					dialect = <span class="keyword">new</span> <span class="title class_">MysqlDialect</span>();</span><br><span class="line">					<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125; <span class="keyword">catch</span> (IllegalArgumentException e) &#123;</span><br><span class="line">			<span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">DsfbaseException</span>(<span class="string">&quot;方言 [&quot;</span> + dialectStr</span><br><span class="line">					+ <span class="string">&quot;] 无效，请修改配置文件 mybatis-config.xml 中 &lt;property name=\&quot;dialect\&quot; /&gt; 节点的 value 属性。&quot;</span>);</span><br><span class="line"></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="type">String</span> <span class="variable">originalSql</span> <span class="operator">=</span> (String) metaStatementHandler.getValue(<span class="string">&quot;delegate.boundSql.sql&quot;</span>);</span><br><span class="line">		<span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> dialect.getLimitString(originalSql, rowBounds.getOffset(), rowBounds.getLimit());</span><br><span class="line">		metaStatementHandler.setValue(<span class="string">&quot;delegate.boundSql.sql&quot;</span>, sql);</span><br><span class="line">		metaStatementHandler.setValue(<span class="string">&quot;delegate.rowBounds.offset&quot;</span>, RowBounds.NO_ROW_OFFSET);</span><br><span class="line">		metaStatementHandler.setValue(<span class="string">&quot;delegate.rowBounds.limit&quot;</span>, RowBounds.NO_ROW_LIMIT);</span><br><span class="line">		<span class="keyword">if</span> (LOG.isDebugEnabled()) &#123;</span><br><span class="line">			<span class="type">BoundSql</span> <span class="variable">boundSql</span> <span class="operator">=</span> statementHandler.getBoundSql();</span><br><span class="line">			LOG.debug(<span class="string">&quot;生成的分页查询 SQL： &#123;&#125;&quot;</span>, boundSql.getSql());</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> invocation.proceed();</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> Object <span class="title function_">plugin</span><span class="params">(Object target)</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> Plugin.wrap(target, <span class="built_in">this</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//创建代理对象</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Plugin</span> <span class="keyword">implements</span> <span class="title class_">InvocationHandler</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Object <span class="title function_">wrap</span><span class="params">(Object target, Interceptor interceptor)</span> &#123;</span><br><span class="line">        Map&lt;Class&lt;?&gt;, Set&lt;Method&gt;&gt; signatureMap = getSignatureMap(interceptor);</span><br><span class="line">        Class&lt;?&gt; type = target.getClass();</span><br><span class="line">        Class&lt;?&gt;[] interfaces = getAllInterfaces(type, signatureMap);</span><br><span class="line">        <span class="keyword">if</span> (interfaces.length &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> Proxy.newProxyInstance(</span><br><span class="line">                    type.getClassLoader(),</span><br><span class="line">                    interfaces,</span><br><span class="line">                    <span class="keyword">new</span> <span class="title class_">Plugin</span>(target, interceptor, signatureMap));</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> target;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-3、Mybatis插件介绍"><a href="#2-3、Mybatis插件介绍" class="headerlink" title="2.3、Mybatis插件介绍"></a>2.3、Mybatis插件介绍</h2><h3 id="2-3-1、什么是Mybatis插件"><a href="#2-3-1、什么是Mybatis插件" class="headerlink" title="2.3.1、什么是Mybatis插件#"></a>2.3.1、什么是Mybatis插件#</h3><p>与其称为<code>Mybatis插件</code>，不如叫<code>Mybatis拦截器</code>，更加符合其功能定位，实际上它就是一个拦截器，应用代理模式，在方法级别上进行拦截。</p>
+<h3 id="2-3-2、支持拦截的方法"><a href="#2-3-2、支持拦截的方法" class="headerlink" title="2.3.2、支持拦截的方法#"></a>2.3.2、支持拦截的方法#</h3><ul>
+<li>执行器<code>Executor</code>（update、query、commit、rollback等方法）；</li>
+<li>参数处理器<code>ParameterHandler</code>（getParameterObject、setParameters方法）；</li>
+<li>结果集处理器<code>ResultSetHandler</code>（handleResultSets、handleOutputParameters等方法）；</li>
+<li>SQL语法构建器<code>StatementHandler</code>（prepare、parameterize、batch、update、query等方法）；</li>
+</ul>
+<h3 id="2-3-3、拦截阶段"><a href="#2-3-3、拦截阶段" class="headerlink" title="2.3.3、拦截阶段#"></a>2.3.3、拦截阶段#</h3><p>那么这些类上的方法都是在什么阶段被拦截的呢？为理解这个问题，我们先看段简单的代码（摘自mybatis源码中的单元测试SqlSessionTest类），来了解下典型的mybatis执行流程，如下代码所示：<br><img src="/2021/03/02/2021-03-02-mybatis-plugin/SqlSessionTest.png" alt="SqlSessionTest"><br>以上代码主要完成以下功能：</p>
+<ul>
+<li>读取<code>mybatis</code>的xml配置文件信息</li>
+<li>通过<code>SqlSessionFactoryBuilder</code>创建<code>SqlSessionFactory</code>对象</li>
+<li>通过<code>SqlSessionFactory</code>获取<code>SqlSession</code>对象</li>
+<li>执行<code>SqlSession</code>对象的<code>selectList</code>方法，查询结果</li>
+<li>关闭<code>SqlSession</code></li>
+</ul>
+<p>如下是时序图，在整个时序图中，涉及到mybatis插件部分已标红，基本上就是体现在上文中提到的四个类上，对这些类上的方法进行拦截。<br><img src="/2021/03/02/2021-03-02-mybatis-plugin/%E5%9B%9B%E5%A4%A7%E7%BB%84%E4%BB%B6.png" alt="四大组件"></p>
+<h2 id="2-4、拦截器创建"><a href="#2-4、拦截器创建" class="headerlink" title="2.4、拦截器创建"></a>2.4、拦截器创建</h2><h3 id="2-4-1、Executor代理对象创建流程"><a href="#2-4-1、Executor代理对象创建流程" class="headerlink" title="2.4.1、Executor代理对象创建流程"></a>2.4.1、Executor代理对象创建流程</h3><p>回顾一下<strong>mapper代理对象</strong>的执行逻辑如下，最终会执行拦截器<code>SqlSessionInterceptor</code>。</p>
+<blockquote>
+<p>orderServiceProxy.select() : <code class="my-code">orderService代理对象执行（cglib代理）</code><br>-&gt; <code>DynamicAdvisedInterceptor.intercept()</code> ：<code class="my-code">cglib对象的拦截器执行</code><br>-&gt; TransactionInterceptor.invoke()    ：<code class="my-code">AOP拦截器执行</code><br>-&gt; TransactionAspectSupport.invokeWithinTransaction()：<code class="my-code">事务处理</code><br>-&gt; MapperProxy.invoke() ：<code class="my-code">mapper代理对象执行（JDK代理）</code><br>-&gt; MapperMethod.execute()<br>-&gt; SqlSessionTemplate.selectOne()<br>-&gt; this.sqlSessionProxy.selectOne()<br>-&gt; <code>SqlSessionInterceptor.invoke()</code>：<code class="my-code">mapper代理对象拦截器执行</code><br>-&gt; SqlSessionUtils.getSqlSession()：<code class="my-code">获取sqlSession</code><br>└─&gt; DefaultSqlSessionFactory.openSession()：<code class="my-code">创建DefaultSqlSession</code><br>└─&gt; DefaultSqlSessionFactory.openSessionFromDataSource()<br>└─&gt; <code class="red">configuration.newExecutor()：创建Executor，涉及plugin的生成</code><br>-&gt; SqlSessionUtils.registerSessionHolder：<br>-&gt; TransactionSynchronizationManager.bindResource(sessionFactory, holder); <code class="my-code">向事务同步器中绑定</code></p>
+</blockquote>
+<p>在<code>SqlSessionUtils.getSqlSession()</code>执行中会去创建<code>Executor</code>执行器</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> Executor <span class="title function_">newExecutor</span><span class="params">(Transaction transaction, ExecutorType executorType)</span> &#123;</span><br><span class="line">    executorType = executorType == <span class="literal">null</span> ? defaultExecutorType : executorType;</span><br><span class="line">    executorType = executorType == <span class="literal">null</span> ? ExecutorType.SIMPLE : executorType;</span><br><span class="line">    Executor executor;</span><br><span class="line">    <span class="keyword">if</span> (ExecutorType.BATCH == executorType) &#123;</span><br><span class="line">      executor = <span class="keyword">new</span> <span class="title class_">BatchExecutor</span>(<span class="built_in">this</span>, transaction);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (ExecutorType.REUSE == executorType) &#123;</span><br><span class="line">      executor = <span class="keyword">new</span> <span class="title class_">ReuseExecutor</span>(<span class="built_in">this</span>, transaction);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      executor = <span class="keyword">new</span> <span class="title class_">SimpleExecutor</span>(<span class="built_in">this</span>, transaction);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (cacheEnabled) &#123;</span><br><span class="line">      executor = <span class="keyword">new</span> <span class="title class_">CachingExecutor</span>(executor);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//重点方法</span></span><br><span class="line">    executor = (Executor) interceptorChain.pluginAll(executor);</span><br><span class="line">    <span class="keyword">return</span> executor;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>追踪<code>interceptorChain.pluginAll(executor)</code>方法，内部执行逻辑很简单，遍历拦截器，执行拦截器的<code>plugin()</code>方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">InterceptorChain</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> Object <span class="title function_">pluginAll</span><span class="params">(Object target)</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (Interceptor interceptor : interceptors) &#123;</span><br><span class="line">            target = interceptor.plugin(target);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> target;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>拦截器内部需要实现<code>plugin()</code>方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> Object <span class="title function_">plugin</span><span class="params">(Object target)</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> Plugin.wrap(target, <span class="built_in">this</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>继续追踪<code>Plugin.wrap</code>方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//创建代理对象</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Plugin</span> <span class="keyword">implements</span> <span class="title class_">InvocationHandler</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Object <span class="title function_">wrap</span><span class="params">(Object target, Interceptor interceptor)</span> &#123;</span><br><span class="line">        Map&lt;Class&lt;?&gt;, Set&lt;Method&gt;&gt; signatureMap = getSignatureMap(interceptor);</span><br><span class="line">        Class&lt;?&gt; type = target.getClass();</span><br><span class="line">        Class&lt;?&gt;[] interfaces = getAllInterfaces(type, signatureMap);</span><br><span class="line">        <span class="keyword">if</span> (interfaces.length &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> Proxy.newProxyInstance(</span><br><span class="line">                    type.getClassLoader(),</span><br><span class="line">                    interfaces,</span><br><span class="line">                    <span class="keyword">new</span> <span class="title class_">Plugin</span>(target, interceptor, signatureMap));</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> target;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到代码逻辑中会通过<code>JDK动态代理</code>创建代理对象：<code>Proxy.newProxyInstance</code></p>
+<h3 id="2-4-2、StatementHandler代理对象创建流程"><a href="#2-4-2、StatementHandler代理对象创建流程" class="headerlink" title="2.4.2、StatementHandler代理对象创建流程"></a>2.4.2、StatementHandler代理对象创建流程</h3><p>回顾一下<strong>mapper代理对象</strong>的执行逻辑如下，最终会执行拦截器<code>SqlSessionInterceptor</code>。</p>
+<blockquote>
+<p>orderServiceProxy.select() : <code class="my-code">orderService代理对象执行（cglib代理）</code><br>-&gt; <code>DynamicAdvisedInterceptor.intercept()</code> ：<code class="my-code">cglib对象的拦截器执行</code><br>-&gt; TransactionInterceptor.invoke()    ：<code class="my-code">AOP拦截器执行</code><br>-&gt; TransactionAspectSupport.invokeWithinTransaction()：<code class="my-code">事务处理</code><br>-&gt; MapperProxy.invoke() ：<code class="my-code">mapper代理对象执行（JDK代理）</code><br>-&gt; MapperMethod.execute()<br>-&gt; SqlSessionTemplate.selectOne()<br>-&gt; this.sqlSessionProxy.selectOne()<br>-&gt; <code>SqlSessionInterceptor.invoke()</code>：<code class="my-code">mapper代理对象拦截器执行</code><br>-&gt; SqlSessionUtils.getSqlSession()：<code class="my-code">获取sqlSession</code><br>└─&gt; DefaultSqlSessionFactory.openSession()：<code class="my-code">创建DefaultSqlSession</code><br>└─&gt; DefaultSqlSessionFactory.openSessionFromDataSource()<br>└─&gt; configuration.newExecutor()：<code class="my-code">创建Executor，涉及plugin的生成</code><br>-&gt; <code>SimpleExecutor.doQuery()</code>：<br>└─&gt; <code class="red">configuration.newStatementHandler：创建StatementHandler，涉及plugin的生成</code></p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> StatementHandler <span class="title function_">newStatementHandler</span><span class="params">(Executor executor, MappedStatement mappedStatement, Object parameterObject, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql)</span> &#123;</span><br><span class="line">    <span class="type">StatementHandler</span> <span class="variable">statementHandler</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">RoutingStatementHandler</span>(executor, mappedStatement, parameterObject, rowBounds, resultHandler, boundSql);</span><br><span class="line">    statementHandler = (StatementHandler) interceptorChain.pluginAll(statementHandler);</span><br><span class="line">    <span class="keyword">return</span> statementHandler;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="2-4-3、ParameterHandler-ResultSetHandler-代理对象创建流程"><a href="#2-4-3、ParameterHandler-ResultSetHandler-代理对象创建流程" class="headerlink" title="2.4.3、ParameterHandler &amp; ResultSetHandler 代理对象创建流程"></a>2.4.3、ParameterHandler &amp; ResultSetHandler 代理对象创建流程</h3><p>回顾一下<strong>mapper代理对象</strong>的执行逻辑如下，最终会执行拦截器<code>SqlSessionInterceptor</code>。</p>
+<blockquote>
+<p>orderServiceProxy.select() : <code class="my-code">orderService代理对象执行（cglib代理）</code><br>-&gt; <code>DynamicAdvisedInterceptor.intercept()</code> ：<code class="my-code">cglib对象的拦截器执行</code><br>-&gt; TransactionInterceptor.invoke()    ：<code class="my-code">AOP拦截器执行</code><br>-&gt; TransactionAspectSupport.invokeWithinTransaction()：<code class="my-code">事务处理</code><br>-&gt; MapperProxy.invoke() ：<code class="my-code">mapper代理对象执行（JDK代理）</code><br>-&gt; MapperMethod.execute()<br>-&gt; SqlSessionTemplate.selectOne()<br>-&gt; this.sqlSessionProxy.selectOne()<br>-&gt; <code>SqlSessionInterceptor.invoke()</code>：<code class="my-code">mapper代理对象拦截器执行</code><br>-&gt; SqlSessionUtils.getSqlSession()：<code class="my-code">获取sqlSession</code><br>└─&gt; DefaultSqlSessionFactory.openSession()：<code class="my-code">创建DefaultSqlSession</code><br>└─&gt; DefaultSqlSessionFactory.openSessionFromDataSource()<br>└─&gt; configuration.newExecutor()：<code class="my-code">创建Executor，涉及plugin的生成</code><br>-&gt; <code>SimpleExecutor.doQuery()</code>：<br>└─&gt; configuration.newStatementHandler：<code class="my-code">创建StatementHandler，涉及plugin的生成</code><br>└────&gt; BaseStatementHandler.<init><br>└──────&gt; <code class="red">configuration.newParameterHandler()</code><br>└──────&gt; <code class="red">configuration.newResultSetHandler()</code></init></p>
+</blockquote>
+<p><code>ParameterHandler &amp; ResultSetHandler</code>，会在<code>BaseStatementHandler</code>构造函数中进行创建。</p>
+<h2 id="2-5、拦截器的执行"><a href="#2-5、拦截器的执行" class="headerlink" title="2.5、拦截器的执行"></a>2.5、拦截器的执行</h2><p>之前的章节，我们解析了拦截器代理对象的生成。 <code>Executor, StatementHandler, ParameterHandler, ResultSetHandler</code>都会创建相应的代理对象，所以在执行方法时，首先调用的是Plugin类（实现了InvocationHandler接口）的invoke方法，如下：</p>
+<p>参考文章：<br><a href="https://www.cnblogs.com/chenpi/p/10498921.html">https://www.cnblogs.com/chenpi/p/10498921.html</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/02/25/2021-02-25-mybatis-%E4%B8%8Espring%E7%9A%84%E9%9B%86%E6%88%90/" rel="prev" title="《Mybatis》与spring的集成">
+      <i class="fa fa-chevron-left"></i> 《Mybatis》与spring的集成
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/03/04/2021-03-04-mybatis-%E7%9B%B8%E5%85%B3%E7%9F%A5%E8%AF%86%E7%82%B9/" rel="next" title="《Mybatis》相关知识点">
+      《Mybatis》相关知识点 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Mybatis"><span class="nav-text">一、Mybatis</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81plugin%E3%80%90%E6%8F%92%E4%BB%B6%E3%80%91"><span class="nav-text">二、plugin【插件】</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81Mybatis%E6%8F%92%E4%BB%B6%E5%85%B8%E5%9E%8B%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-text">2.1、Mybatis插件典型适用场景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E6%8F%92%E4%BB%B6%E7%A4%BA%E4%BE%8B"><span class="nav-text">2.2、插件示例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81Mybatis%E6%8F%92%E4%BB%B6%E4%BB%8B%E7%BB%8D"><span class="nav-text">2.3、Mybatis插件介绍</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-1%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AFMybatis%E6%8F%92%E4%BB%B6"><span class="nav-text">2.3.1、什么是Mybatis插件#</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-2%E3%80%81%E6%94%AF%E6%8C%81%E6%8B%A6%E6%88%AA%E7%9A%84%E6%96%B9%E6%B3%95"><span class="nav-text">2.3.2、支持拦截的方法#</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-3%E3%80%81%E6%8B%A6%E6%88%AA%E9%98%B6%E6%AE%B5"><span class="nav-text">2.3.3、拦截阶段#</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4%E3%80%81%E6%8B%A6%E6%88%AA%E5%99%A8%E5%88%9B%E5%BB%BA"><span class="nav-text">2.4、拦截器创建</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-1%E3%80%81Executor%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1%E5%88%9B%E5%BB%BA%E6%B5%81%E7%A8%8B"><span class="nav-text">2.4.1、Executor代理对象创建流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-2%E3%80%81StatementHandler%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1%E5%88%9B%E5%BB%BA%E6%B5%81%E7%A8%8B"><span class="nav-text">2.4.2、StatementHandler代理对象创建流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-3%E3%80%81ParameterHandler-ResultSetHandler-%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1%E5%88%9B%E5%BB%BA%E6%B5%81%E7%A8%8B"><span class="nav-text">2.4.3、ParameterHandler &amp; ResultSetHandler 代理对象创建流程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-5%E3%80%81%E6%8B%A6%E6%88%AA%E5%99%A8%E7%9A%84%E6%89%A7%E8%A1%8C"><span class="nav-text">2.5、拦截器的执行</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">167</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">135</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

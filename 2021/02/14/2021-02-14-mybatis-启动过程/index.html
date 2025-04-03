@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是Mybatis系列的第1篇文章，主要介绍的是Mybatis的启动过程。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、MybatisMybatis是持久层框架，通过XML或注解配置SQL映射">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《Mybatis》启动过程">
+<meta property="og:url" content="http://yoursite.com/2021/02/14/2021-02-14-mybatis-%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是Mybatis系列的第1篇文章，主要介绍的是Mybatis的启动过程。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、MybatisMybatis是持久层框架，通过XML或注解配置SQL映射">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-02-13T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-02T14:04:58.340Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2021/02/14/2021-02-14-mybatis-%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《Mybatis》启动过程 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/02/14/2021-02-14-mybatis-%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《Mybatis》启动过程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-02-14 00:00:00" itemprop="dateCreated datePublished" datetime="2021-02-14T00:00:00+08:00">2021-02-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-02 22:04:58" itemprop="dateModified" datetime="2025-04-02T22:04:58+08:00">2025-04-02</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mybatis/" itemprop="url" rel="index"><span itemprop="name">mybatis</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>15k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>38 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是Mybatis系列的第1篇文章，主要介绍的是Mybatis的启动过程。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、Mybatis"><a href="#一、Mybatis" class="headerlink" title="一、Mybatis"></a>一、Mybatis</h1><p><code>Mybatis</code>是持久层框架，通过XML或注解配置SQL映射，将Java对象与数据库操作解耦。与传统的JDBC相比，Mybatis简化了数据库交互，并提供了灵活的SQL控制能力。</p>
+<span id="more"></span>
+
+<h1 id="二、配置方式"><a href="#二、配置方式" class="headerlink" title="二、配置方式"></a>二、配置方式</h1><h2 id="2-1、xml配置方式"><a href="#2-1、xml配置方式" class="headerlink" title="2.1、xml配置方式"></a>2.1、xml配置方式</h2><ul>
+<li>第一步：全局配置<code>mybatis-config.xml</code>，定义数据源、事务管理器、类型处理器<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">&lt;configuration&gt;</span><br><span class="line">    &lt;environments default=&quot;development&quot;&gt;</span><br><span class="line">        &lt;environment id=&quot;development&quot;&gt;</span><br><span class="line">            &lt;transactionManager type=&quot;JDBC&quot;/&gt;</span><br><span class="line">            &lt;dataSource type=&quot;POOLED&quot;&gt;</span><br><span class="line">                &lt;property name=&quot;driver&quot; value=&quot;com.mysql.cj.jdbc.Driver&quot;/&gt;</span><br><span class="line">                &lt;property name=&quot;url&quot; value=&quot;jdbc:mysql://localhost:3306/test&quot;/&gt;</span><br><span class="line">                &lt;property name=&quot;username&quot; value=&quot;root&quot;/&gt;</span><br><span class="line">                &lt;property name=&quot;password&quot; value=&quot;123456&quot;/&gt;</span><br><span class="line">            &lt;/dataSource&gt;</span><br><span class="line">        &lt;/environment&gt;</span><br><span class="line">    &lt;/environments&gt;</span><br><span class="line">    &lt;mappers&gt;</span><br><span class="line">        &lt;mapper resource=&quot;mapper/UserMapper.xml&quot;/&gt;</span><br><span class="line">    &lt;/mappers&gt;</span><br><span class="line">    &lt;settings&gt;</span><br><span class="line">        //二级缓存：作用域为Mapper级别，跨sqlSession共享，不建议打开</span><br><span class="line">        &lt;setting name=&quot;cacheEnabled&quot; value=&quot;false&quot;/&gt;</span><br><span class="line">        &lt;setting name=&quot;logPrefix&quot; value=&quot;mybatis.&quot; /&gt;</span><br><span class="line">        &lt;setting name=&quot;logImpl&quot; value=&quot;LOG4J2&quot; /&gt;</span><br><span class="line">    &lt;/settings&gt;</span><br><span class="line">&lt;/configuration&gt;</span><br></pre></td></tr></table></figure></li>
+<li>第二步：配置相应内容<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">###### 配置sqlSessionFactoryBean</span><br><span class="line">&lt;bean id=&quot;sqlSessionFactory&quot; class=&quot;org.mybatis.spring.SqlSessionFactoryBean&quot;&gt;</span><br><span class="line">    &lt;property name=&quot;configLocation&quot; value=&quot;classpath:mybatis/mybatis-config.xml&quot;/&gt;</span><br><span class="line">    &lt;property name=&quot;dataSource&quot; ref=&quot;dynamicDataSource&quot;/&gt;</span><br><span class="line">    &lt;property name=&quot;mapperLocations&quot; value=&quot;classpath:mybatis/corder.center.server/**.xml&quot;/&gt;</span><br><span class="line">&lt;/bean&gt;</span><br><span class="line">###### 配置MapperScannerConfigurer</span><br><span class="line">&lt;bean class=&quot;org.mybatis.spring.mapper.MapperScannerConfigurer&quot;&gt;</span><br><span class="line">    &lt;property name=&quot;basePackage&quot; value=&quot;dao.mapper&quot;/&gt;</span><br><span class="line">    &lt;property name=&quot;sqlSessionFactoryBeanName&quot; value=&quot;sqlSessionFactory&quot;/&gt;</span><br><span class="line">&lt;/bean&gt;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="2-2、注解方式"><a href="#2-2、注解方式" class="headerlink" title="2.2、注解方式"></a>2.2、注解方式</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@MapperScan(basePackages = &quot;com.mapper&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyBatisConfig</span> &#123;</span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> DataSource <span class="title function_">dataSource</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">PooledDataSource</span> <span class="variable">dataSource</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">PooledDataSource</span>();</span><br><span class="line">        <span class="keyword">return</span> dataSource;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> SqlSessionFactory <span class="title function_">sqlSessionFactory</span><span class="params">(DataSource dataSource)</span> &#123;</span><br><span class="line">        <span class="type">SqlSessionFactoryBean</span> <span class="variable">factoryBean</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SqlSessionFactoryBean</span>();</span><br><span class="line">        factoryBean.setDataSource(dataSource);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            factoryBean.setMapperLocations(<span class="keyword">new</span> <span class="title class_">PathMatchingResourcePatternResolver</span>().getResources(<span class="string">&quot;classpath:mybatis/*/*.xml&quot;</span>));</span><br><span class="line">            <span class="keyword">return</span> factoryBean.getObject();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> MapperScannerConfigurer <span class="title function_">mapperScannerConfigurer</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">MapperScannerConfigurer</span> <span class="variable">mapperScannerConfigurer</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MapperScannerConfigurer</span>();</span><br><span class="line">        mapperScannerConfigurer.setBasePackage(<span class="string">&quot;com.example.mapper&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> mapperScannerConfigurer;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> SqlSessionTemplate <span class="title function_">sqlSessionTemplate</span><span class="params">(SqlSessionFactory sqlSessionFactory)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">SqlSessionTemplate</span>(sqlSessionFactory);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="三、MapperScannerConfigurer启动入口"><a href="#三、MapperScannerConfigurer启动入口" class="headerlink" title="三、MapperScannerConfigurer启动入口"></a>三、<code>MapperScannerConfigurer</code>启动入口</h1><p><code>MapperScannerConfigurer</code>是Mybatis-Spring整合模块中的核心类，用于自动扫描并注册Mapper接口到Spring容器，避免手动配置每个Mapper的繁琐操作。</p>
+<ul>
+<li><strong>主要功能</strong>：扫描basePackage下面的java文件，生成<code>BeanDefinationHolder</code><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MapperScannerConfigurer</span></span><br><span class="line">        <span class="keyword">implements</span> <span class="title class_">BeanDefinitionRegistryPostProcessor</span>, InitializingBean, ApplicationContextAware, BeanNameAware &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">postProcessBeanDefinitionRegistry</span><span class="params">(BeanDefinitionRegistry registry)</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">this</span>.processPropertyPlaceHolders) &#123;</span><br><span class="line">            processPropertyPlaceHolders();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="type">ClassPathMapperScanner</span> <span class="variable">scanner</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ClassPathMapperScanner</span>(registry);</span><br><span class="line">        scanner.setAddToConfig(<span class="built_in">this</span>.addToConfig);</span><br><span class="line">        scanner.setAnnotationClass(<span class="built_in">this</span>.annotationClass);</span><br><span class="line">        scanner.setMarkerInterface(<span class="built_in">this</span>.markerInterface);</span><br><span class="line">        scanner.setSqlSessionFactory(<span class="built_in">this</span>.sqlSessionFactory);</span><br><span class="line">        scanner.setSqlSessionTemplate(<span class="built_in">this</span>.sqlSessionTemplate);</span><br><span class="line">        scanner.setSqlSessionFactoryBeanName(<span class="built_in">this</span>.sqlSessionFactoryBeanName);</span><br><span class="line">        scanner.setSqlSessionTemplateBeanName(<span class="built_in">this</span>.sqlSessionTemplateBeanName);</span><br><span class="line">        scanner.setResourceLoader(<span class="built_in">this</span>.applicationContext);</span><br><span class="line">        scanner.setBeanNameGenerator(<span class="built_in">this</span>.nameGenerator);</span><br><span class="line">        scanner.setMapperFactoryBeanClass(<span class="built_in">this</span>.mapperFactoryBeanClass);</span><br><span class="line">        <span class="keyword">if</span> (StringUtils.hasText(lazyInitialization)) &#123;</span><br><span class="line">            scanner.setLazyInitialization(Boolean.valueOf(lazyInitialization));</span><br><span class="line">        &#125;</span><br><span class="line">        scanner.registerFilters();</span><br><span class="line">        scanner.scan(</span><br><span class="line">                StringUtils.tokenizeToStringArray(<span class="built_in">this</span>.basePackage, ConfigurableApplicationContext.CONFIG_LOCATION_DELIMITERS));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>在容器启动过程中，触发<code>MapperScannerConfigurer</code>的<code>postProcessBeanDefinitionRegistry</code>方法，执行堆栈如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">AbstractApplicationContext.refresh()</span><br><span class="line">-&gt; AbstractApplicationContext.invokeBeanFactoryPostProcessors()</span><br><span class="line">    -&gt; PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors()</span><br><span class="line">        -&gt; PostProcessorRegistrationDelegate.invokeBeanDefinitionRegistryPostProcessors()</span><br><span class="line">            -&gt; MapperScannerConfigurer.postProcessBeanDefinitionRegistry()</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-1、Bean扫描"><a href="#3-1、Bean扫描" class="headerlink" title="3.1、Bean扫描"></a>3.1、Bean扫描</h2><p>执行scanner.scan()方法，实际会执行父类ClassPathBeanDefinitionScanner的scan()方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ClassPathBeanDefinitionScanner</span> <span class="keyword">extends</span> <span class="title class_">ClassPathScanningCandidateComponentProvider</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">scan</span><span class="params">(String... basePackages)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">beanCountAtScanStart</span> <span class="operator">=</span> <span class="built_in">this</span>.registry.getBeanDefinitionCount();</span><br><span class="line"></span><br><span class="line">        doScan(basePackages);</span><br><span class="line">        <span class="comment">// Register annotation config processors, if necessary.</span></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">this</span>.includeAnnotationConfig) &#123;</span><br><span class="line">            AnnotationConfigUtils.registerAnnotationConfigProcessors(<span class="built_in">this</span>.registry);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> (<span class="built_in">this</span>.registry.getBeanDefinitionCount() - beanCountAtScanStart);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>继续跟踪，进入<code>doScan()</code>方法，进入<code>ClassPathMapperScanner.doScan()</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ClassPathMapperScanner</span> <span class="keyword">extends</span> <span class="title class_">ClassPathBeanDefinitionScanner</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Set&lt;BeanDefinitionHolder&gt; <span class="title function_">doScan</span><span class="params">(String... basePackages)</span> &#123;</span><br><span class="line">        <span class="comment">// 1. 调用父类扫描方法，获取候选 BeanDefinition</span></span><br><span class="line">        Set&lt;BeanDefinitionHolder&gt; beanDefinitions = <span class="built_in">super</span>.doScan(basePackages);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2. 对每个 BeanDefinition 进行处理</span></span><br><span class="line">        <span class="keyword">for</span> (BeanDefinitionHolder holder : beanDefinitions) &#123;</span><br><span class="line">            <span class="type">GenericBeanDefinition</span> <span class="variable">definition</span> <span class="operator">=</span> (GenericBeanDefinition) holder.getBeanDefinition();</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 3. 设置 MapperFactoryBean 为 Bean 的构造参数</span></span><br><span class="line">            definition.getConstructorArgumentValues().addGenericArgumentValue(definition.getBeanClassName());</span><br><span class="line">            definition.setBeanClass(MapperFactoryBean.class);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 4. 设置 SqlSessionFactory/SqlSessionTemplate 依赖</span></span><br><span class="line">            definition.getPropertyValues().add(<span class="string">&quot;sqlSessionFactory&quot;</span>, sqlSessionFactory);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> beanDefinitions;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>遍历<code>BeanDefinationHolder</code>，生成<code>BeanDefinition</code>，设置Bean的真实类型<code class="red">MapperFactoryBean</code></p>
+<h2 id="3-2、MapperFactoryBean结构"><a href="#3-2、MapperFactoryBean结构" class="headerlink" title="3.2、MapperFactoryBean结构"></a>3.2、<code class="red">MapperFactoryBean</code>结构</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MapperFactoryBean</span>&lt;T&gt; <span class="keyword">extends</span> <span class="title class_">SqlSessionDaoSupport</span> <span class="keyword">implements</span> <span class="title class_">FactoryBean</span>&lt;T&gt; &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> T <span class="title function_">getObject</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="keyword">return</span> getSqlSession().getMapper(<span class="built_in">this</span>.mapperInterface);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//SqlSessionDaoSupport内部属性SqlSessionTemplate</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">SqlSessionDaoSupport</span> <span class="keyword">extends</span> <span class="title class_">DaoSupport</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> SqlSessionTemplate sqlSessionTemplate;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setSqlSessionFactory</span><span class="params">(SqlSessionFactory sqlSessionFactory)</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">this</span>.sqlSessionTemplate == <span class="literal">null</span> || sqlSessionFactory != <span class="built_in">this</span>.sqlSessionTemplate.getSqlSessionFactory()) &#123;</span><br><span class="line">            <span class="built_in">this</span>.sqlSessionTemplate = createSqlSessionTemplate(sqlSessionFactory);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//SqlSessionTemplate内部属性有sqlSessionFactory</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SqlSessionTemplate</span> <span class="keyword">implements</span> <span class="title class_">SqlSession</span>, DisposableBean &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> SqlSessionFactory sqlSessionFactory;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> ExecutorType executorType;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> SqlSession sqlSessionProxy;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> PersistenceExceptionTranslator exceptionTranslator;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-3、MapperFactoryBean创建"><a href="#3-3、MapperFactoryBean创建" class="headerlink" title="3.3、MapperFactoryBean创建"></a>3.3、<code class="red">MapperFactoryBean</code>创建</h2><p>如下示例</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    <span class="meta">@Reource</span></span><br><span class="line">    <span class="keyword">private</span> OrderMapper orderMapper;</span><br><span class="line">    <span class="meta">@Transactional</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title function_">selectById</span><span class="params">()</span> &#123;</span><br><span class="line">        orderMapper.selectByPrimaryKey(<span class="number">0L</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">find</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.selectById();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>OrderService</code>注入<code>OrderMapper</code>，在创建OrderService的Bean时，会注入属性，此时会去创建OrderMapper。执行堆栈如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">1. 创建 orderService</span><br><span class="line">-&gt; AbstractAutowireCapableBeanFactory.doCreateBean()</span><br><span class="line">2. orderService属性注入</span><br><span class="line"> -&gt; AbstractAutowireCapableBeanFactory.populateBean()</span><br><span class="line">  -&gt; CommonAnnotationBeanPostProcessor.postProcessPropertyValues()</span><br><span class="line">   -&gt; InjectionMetadata.inject()</span><br><span class="line">    -&gt; CommonAnnotationBeanPostProcessor.getResourceToInject()</span><br><span class="line">     -&gt; CommonAnnotationBeanPostProcessor.getResource()</span><br><span class="line">      -&gt; CommonAnnotationBeanPostProcessor.autowireResource()</span><br><span class="line">3. orderService属性注入，触发 orderMapper 的创建</span><br><span class="line">       -&gt; AbstractBeanFactory.getBean()</span><br><span class="line">        |-&gt; AbstractBeanFactory.doGetBean()</span><br><span class="line">4. 第一步：调用getSingleton()去创建MapperFactoryBean对象</span><br><span class="line">        |1 |-&gt; DefaultSingletonBeanRegistry.getSingleton()</span><br><span class="line">        |  | -&gt; AbstractBeanFactory.getObject()</span><br><span class="line">        |  |  -&gt; AbstractAutowireCapableBeanFactory.createBean()</span><br><span class="line">        |  |   -&gt; AbstractAutowireCapableBeanFactory.doCreateBean()</span><br><span class="line">                //实例化MapperFactoryBean对象</span><br><span class="line">        |  |    -&gt; AbstractAutowireCapableBeanFactory.createBeanInstance()</span><br><span class="line">        |  |     -&gt; AbstractAutowireCapableBeanFactory.autowireConstructor()</span><br><span class="line">        |  |      -&gt; ConstructorResolver.autowireConstructor()</span><br><span class="line">        |  |       -&gt; SimpleInstantiationStrategy.instantiate()</span><br><span class="line">        |  |        -&gt; BeanUtils.instantiateClass()</span><br><span class="line">					//调用MapperFactoryBean的构造函数，创建MapperFactoryBean对象</span><br><span class="line">        |  |         -&gt; Constructor.newInstance()</span><br><span class="line">                //属性填充MapperFactoryBean对象</span><br><span class="line">        |  |    -&gt; AbstractAutowireCapableBeanFactory.populateBean()</span><br><span class="line">        |  |     -&gt; AbstractNestablePropertyAccessor.setPropertyValue()</span><br><span class="line">                  //创建 SqlSessionTemplate</span><br><span class="line">        |  |      -&gt; SqlSessionDaoSupport.setSqlSessionFactory()</span><br><span class="line">5. 第二步：调用getObjectForBeanInstance去创建MapperProxy代理</span><br><span class="line">        |2 |-&gt; AbstractBeanFactory.getObjectForBeanInstance()</span><br><span class="line">        |  | -&gt; FactoryBeanRegistrySupport.getObjectFromFactoryBean()</span><br><span class="line">        |  |  -&gt; FactoryBeanRegistrySupport.doGetObjectFromFactoryBean()</span><br><span class="line">        |  |   -&gt; MapperFactoryBean.getObject()：重点！！！调用了工厂bean的getObject()方法</span><br><span class="line">        |  |    -&gt; SqlSessionTemplate.getMapper()</span><br><span class="line">        |  |     -&gt; Configuration.getMapper()</span><br><span class="line">        |  |      -&gt; MapperRegistry.getMapper()</span><br><span class="line">        |  |       -&gt; MapperProxyFactory.newInstance()</span><br><span class="line">        |  |        -&gt; Proxy.newProxyInstance()</span><br></pre></td></tr></table></figure>
+<p>主要2个步骤：</p>
+<ol>
+<li><code>getSingleton()</code>创建<code>MapperFactoryBean</code>对象</li>
+<li>然后处理<code>MapperFactoryBean</code>工厂对象，调用其<code>getObject()</code>方法获取<code>MapperProxy</code>代理对象</li>
+</ol>
+<blockquote>
+<p>getObjectForBeanInstance()方法</p>
+<p>其核心目的是确保最终返回的Bean实例是用户期望的目标对象。处理FactoryBean对象。</p>
+</blockquote>
+<p>最终，<code>OrderMapper</code>的实例创建成功（是一个<code class="red">MapperProxy对象</code>），并注入到了<code>OrderService</code>.</p>
+<blockquote>
+<p>其实创建OrderMapper实例后，还有OrderMapper的属性注入等操作（涉及到<code class="red">sqlSessionFactory</code>创建和注入）</p>
+</blockquote>
+<h1 id="四、SqlSessionFactoryBean"><a href="#四、SqlSessionFactoryBean" class="headerlink" title="四、SqlSessionFactoryBean"></a>四、SqlSessionFactoryBean</h1><p><code>SqlSessionFactoryBean</code>用于创建Mybatis的<code>SqlSessionFactory</code>实例。它封装了配置解析、数据源绑定、映射文件加载等逻辑，是Mybatis与Spring无缝集成的桥梁。</p>
+<p><code>SqlSessionFactoryBean</code>实现了InitializingBean接口，在Bean属性都注入完成后，初始化时会调用<code>afterPropertiesSet</code>方法。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SqlSessionFactoryBean</span></span><br><span class="line">    <span class="keyword">implements</span> <span class="title class_">FactoryBean</span>&lt;SqlSessionFactory&gt;, InitializingBean, ApplicationListener&lt;ApplicationEvent&gt; &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">afterPropertiesSet</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        notNull(dataSource, <span class="string">&quot;Property &#x27;dataSource&#x27; is required&quot;</span>);</span><br><span class="line">        notNull(sqlSessionFactoryBuilder, <span class="string">&quot;Property &#x27;sqlSessionFactoryBuilder&#x27; is required&quot;</span>);</span><br><span class="line">        state((configuration == <span class="literal">null</span> &amp;&amp; configLocation == <span class="literal">null</span>) || !(configuration != <span class="literal">null</span> &amp;&amp; configLocation != <span class="literal">null</span>),</span><br><span class="line">                <span class="string">&quot;Property &#x27;configuration&#x27; and &#x27;configLocation&#x27; can not specified with together&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="built_in">this</span>.sqlSessionFactory = buildSqlSessionFactory();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>主要执行逻辑<code>buildSqlSessionFactory()</code>，创建<code>SqlSessionFactory</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> SqlSessionFactory <span class="title function_">buildSqlSessionFactory</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">final</span> Configuration targetConfiguration;</span><br><span class="line"></span><br><span class="line">    <span class="type">XMLConfigBuilder</span> <span class="variable">xmlConfigBuilder</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="comment">//1. configLocation：配置Mybatis全局配置文件路径【mybatis-config.xml】</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.configLocation != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="comment">//根据configLocation创建xmlConfigBuilder，XMLConfigBuilder构造器中会创建Configuration对象</span></span><br><span class="line">        xmlConfigBuilder = <span class="keyword">new</span> <span class="title class_">XMLConfigBuilder</span>(<span class="built_in">this</span>.configLocation.getInputStream(), <span class="literal">null</span>, <span class="built_in">this</span>.configurationProperties);</span><br><span class="line">        <span class="comment">//将XMLConfigBuilder构造器中创建的Configuration对象直接赋值给configuration属性</span></span><br><span class="line">        configuration = xmlConfigBuilder.getConfiguration();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//略....</span></span><br><span class="line">    <span class="keyword">if</span> (xmlConfigBuilder != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">//解析mybatis-Config.xml文件，并将相关配置信息保存到configuration</span></span><br><span class="line">        xmlConfigBuilder.parse();</span><br><span class="line">        LOGGER.debug(() -&gt; <span class="string">&quot;Parsed configuration file: &#x27;&quot;</span> + <span class="built_in">this</span>.configLocation + <span class="string">&quot;&#x27;&quot;</span>);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//事务默认采用SpringManagedTransaction，这一块非常重要，我将在后买你单独写一篇文章讲解Mybatis和Spring事务的关系</span></span><br><span class="line">    targetConfiguration.setEnvironment(<span class="keyword">new</span> <span class="title class_">Environment</span>(<span class="built_in">this</span>.environment,</span><br><span class="line">            <span class="built_in">this</span>.transactionFactory == <span class="literal">null</span> ? <span class="keyword">new</span> <span class="title class_">SpringManagedTransactionFactory</span>() : <span class="built_in">this</span>.transactionFactory,</span><br><span class="line">            <span class="built_in">this</span>.dataSource));</span><br><span class="line">    <span class="comment">//2. mapperLocations：mapper.xml文件路径，解析这些文件</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">this</span>.mapperLocations != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">for</span> (Resource mapperLocation : <span class="built_in">this</span>.mapperLocations) &#123;</span><br><span class="line">            <span class="keyword">if</span> (mapperLocation == <span class="literal">null</span>) &#123;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="comment">// 解析mapper.xml文件，并注册到configuration对象的mapperRegistry</span></span><br><span class="line">                <span class="type">XMLMapperBuilder</span> <span class="variable">xmlMapperBuilder</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">XMLMapperBuilder</span>(mapperLocation.getInputStream(),</span><br><span class="line">                        targetConfiguration, mapperLocation.toString(), targetConfiguration.getSqlFragments());</span><br><span class="line">                xmlMapperBuilder.parse();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 将Configuration对象实例作为参数，</span></span><br><span class="line">    <span class="comment">// 调用sqlSessionFactoryBuilder创建sqlSessionFactory对象实例</span></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">this</span>.sqlSessionFactoryBuilder.build(targetConfiguration);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>buildSqlSessionFactory</code>的核心逻辑：解析<code>mybatis配置文件mybatisConfig.xml</code>和<code>mapper配置文件mapper.xml</code>并封装到Configuration对象中，最后调用mybatis的<code>sqlSessionFactoryBuilder</code>来创建<code>SqlSessionFactory</code>对象。这一点相当于前面介绍的原生的mybatis的初始化过程。</p>
+<p>另外，当配置中未指定事务时，mybatis-spring默认采用<code>SpringManagedTransaction</code>，这一点<strong>非常重要</strong>，请大家先在心里做好准备。此时<code>SqlSessionFactory</code>已经创建好了，并且赋值到了<code>SqlSessionFactoryBean</code>的<code>sqlSessionFactory</code>属性中。</p>
+<h2 id="4-1、xmlConfigBuilder-parse"><a href="#4-1、xmlConfigBuilder-parse" class="headerlink" title="4.1、xmlConfigBuilder.parse()"></a>4.1、xmlConfigBuilder.parse()</h2><p>方法作用：mybatis.xml配置文件的解析，得到Configuration对象 （org.apache.ibatis.session.Configuration）</p>
+<ul>
+<li>解析 <code>&lt;properties&gt;</code> 标签</li>
+<li>解析 <code>&lt;settings&gt;</code> 标签</li>
+<li>解析 <code>&lt;plugins&gt;</code> 标签</li>
+<li>解析 <code>&lt;typeHandlers&gt;</code> 标签</li>
+<li>解析 <code>&lt;mappers&gt;</code> 标签</li>
+</ul>
+<h2 id="4-2、xmlMapperBuilder-parse"><a href="#4-2、xmlMapperBuilder-parse" class="headerlink" title="4.2、xmlMapperBuilder.parse()"></a>4.2、xmlMapperBuilder.parse()</h2><p>方法的主要作用是将Mapper映射器的xml配置文件解析为Spring容器能够识别的对象，并进行一些必要的处理和注册。这样，在后续的操作中，就可以通过Mapper接口来访问和执行相应的数据库操作。</p>
+<h3 id="4-2-1、mapper文件的解析"><a href="#4-2-1、mapper文件的解析" class="headerlink" title="4.2.1、mapper文件的解析"></a>4.2.1、mapper文件的解析</h3><p>获取 <code>&lt;mapper&gt;</code> 标签中的 namespace 属性，同时会进行多种边界检查</p>
+<ul>
+<li>解析 <code>&lt;cache&gt;</code> 标签<br>获取 <code>&lt;cache&gt;</code> 标签中的各项属性（<code>type、flushInterval、size</code> 等属性）<br>读取 <code>&lt;cache&gt;</code> 标签下的子标签信息，这些信息将用于初始化二级缓存<br><code>MapperBuilderAssistant</code> 会根据上述配置信息，创建一个全新的Cache 对象并添加到 <code>Configuration.caches</code> 集合中保存<br>  这个 caches 字段是一个StrictMap 类型的集合，其中的 Key是Cache 对象的唯一标识，默认值是Mapper.xml 映射文件的namespace，Value 才是真正的<code>二级缓存对应的 Cache 对象</code></li>
+<li>解析 <code>&lt;cache-ref&gt;</code> 标签<br>可以通过 <code>&lt;cache&gt;</code> 标签为每个 namespace 开启二级缓存<br>在有的场景中，我们会需要在多个 namespace 共享同一个二级缓存，也就是共享同一个 Cache 对象。</li>
+<li>解析 <code>&lt;resultMap&gt;</code> 标签<br>定义结果集与 Java 对象之间的映射规则<br>  <code>&lt;column&gt;、&lt;id&gt;</code> 等，都被解析一个 ResultMapping 对象</li>
+<li>解析 <code>&lt;sql&gt;</code> 标签</li>
+<li>解析 <code>&lt;select&gt;、&lt;insert&gt;、&lt;update&gt;、&lt;delete&gt;</code> 等 SQL 标签<br>通过<code>XMLStatementBuilder</code> 进行解析<br><code>LanguageDriver.createSqlSource()</code>方法创建SqlSource对象<br>  使用 SqlSource 接口来表示解析之后的 SQL 语句，其中的 SQL 语句只是一个中间态，可能包含动态 SQL 标签或占位符等信息，无法直接使用<br>  解析SQL语句，如果含有未解析的”${}”占位符，则为动态SQL<br>  如果解析到一个子标签，那么一定是动态SQL<br>  这里会根据不同的标签，获取不同的NodeHandler，然后由NodeHandler进行后续解析<br>      以 IfHandler 为例，它解析的就是 <if> 标签<br>  9 种动态 sql 标签：<code>trim | where | set | foreach | if | choose | when | otherwise | bind</code>。</if></li>
+</ul>
+<p>最后，利用工具类 <code>MapperBuilderAssistant</code> 来将上面解析的内容组装成 <code>MappedStatement</code> 对象，然后注册到 <code>Configuration</code> 的 <code>mappedStatements</code> 属性中。<code>mappedStatements</code> 为 Map 结构，其中 <code>Key 为 Mapper Id，Value 为 MappedStatement 对象</code></p>
+<ul>
+<li><code>MappedStatement</code><br>每个<code>MappedStatement</code>对应了我们自定义Mapper接口中的一个方法，它保存了开发人员编写的SQL语句、参数结构、返回值结构、Mybatis对它的处理方式的配置等细节要素，是对一个SQL命令是什么、执行方式的完整定义。可以说，有了它Mybatis就知道如何去调度四大组件顺利的完成用户请求</li>
+<li>mapper id 不可重复</li>
+</ul>
+<h3 id="4-2-2、bindMapperForNamespace"><a href="#4-2-2、bindMapperForNamespace" class="headerlink" title="4.2.2、bindMapperForNamespace()"></a>4.2.2、bindMapperForNamespace()</h3><p>作用：动态绑定 Mapper 接口：</p>
+<ul>
+<li>允许在运行时将特定的 Mapper 接口与SqlSession关联起来，而不是仅仅依赖于在配置文件中静态地定义 Mapper 接口与 SQL 映射关系。</li>
+</ul>
+<p>Mapper 接口的绑定过程</p>
+<ul>
+<li>获取命名空间，并根据命名空间解析 mapper 类型；</li>
+<li>将 type 和 <code>MapperProxyFactory</code> 实例存入 <code>knownMappers</code> 中；</li>
+<li>创建注解解析器进行解析（这个就不看了，注解无非也是拿到我们的注解的 sql 最后都是字符串 然后进行解析的。</li>
+</ul>
+<h1 id="五、SqlSessionFactory"><a href="#五、SqlSessionFactory" class="headerlink" title="五、SqlSessionFactory"></a>五、SqlSessionFactory</h1><h2 id="5-1、创建时机"><a href="#5-1、创建时机" class="headerlink" title="5.1、创建时机"></a>5.1、创建时机</h2><p><code>SqlSessionFactoryBean</code>的实例化过程中执行<code>buildSqlSessionFactory()</code>方法，会创建<code>SqlSessionFactory</code>。</p>
+<h2 id="5-2、核心作用"><a href="#5-2、核心作用" class="headerlink" title="5.2、核心作用"></a>5.2、核心作用</h2><ul>
+<li>创建SqlSession：通过openSession()方法生成SqlSession实例，用于执行SQL操作。</li>
+<li>管理全局配置：解析并缓存Mybatis的全局配置（如数据源、类型处理器、插件等）。</li>
+<li>加载映射文件：加载所有Mapper XML文件，维护SQL映射关系（MappedStatement）</li>
+</ul>
+<h2 id="5-3、生命周期与线程安全"><a href="#5-3、生命周期与线程安全" class="headerlink" title="5.3、生命周期与线程安全"></a>5.3、生命周期与线程安全</h2><p><strong>初始化</strong>：随应用启动一次性创建，通常为单例。<br><strong>运行期</strong>：持续提供SqlSession实例。<br>是线程安全的。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/02/03/2021-02-03-spring-%E7%9B%B8%E5%85%B3%E7%9F%A5%E8%AF%86%E7%82%B9/" rel="prev" title="《spring》相关知识点">
+      <i class="fa fa-chevron-left"></i> 《spring》相关知识点
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/02/20/2021-02-20-mybatis-%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B/" rel="next" title="《Mybatis》执行过程">
+      《Mybatis》执行过程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81Mybatis"><span class="nav-text">一、Mybatis</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E9%85%8D%E7%BD%AE%E6%96%B9%E5%BC%8F"><span class="nav-text">二、配置方式</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81xml%E9%85%8D%E7%BD%AE%E6%96%B9%E5%BC%8F"><span class="nav-text">2.1、xml配置方式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E6%B3%A8%E8%A7%A3%E6%96%B9%E5%BC%8F"><span class="nav-text">2.2、注解方式</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81MapperScannerConfigurer%E5%90%AF%E5%8A%A8%E5%85%A5%E5%8F%A3"><span class="nav-text">三、MapperScannerConfigurer启动入口</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81Bean%E6%89%AB%E6%8F%8F"><span class="nav-text">3.1、Bean扫描</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81MapperFactoryBean%E7%BB%93%E6%9E%84"><span class="nav-text">3.2、MapperFactoryBean结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81MapperFactoryBean%E5%88%9B%E5%BB%BA"><span class="nav-text">3.3、MapperFactoryBean创建</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81SqlSessionFactoryBean"><span class="nav-text">四、SqlSessionFactoryBean</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81xmlConfigBuilder-parse"><span class="nav-text">4.1、xmlConfigBuilder.parse()</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81xmlMapperBuilder-parse"><span class="nav-text">4.2、xmlMapperBuilder.parse()</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-1%E3%80%81mapper%E6%96%87%E4%BB%B6%E7%9A%84%E8%A7%A3%E6%9E%90"><span class="nav-text">4.2.1、mapper文件的解析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-2%E3%80%81bindMapperForNamespace"><span class="nav-text">4.2.2、bindMapperForNamespace()</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81SqlSessionFactory"><span class="nav-text">五、SqlSessionFactory</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1%E3%80%81%E5%88%9B%E5%BB%BA%E6%97%B6%E6%9C%BA"><span class="nav-text">5.1、创建时机</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-2%E3%80%81%E6%A0%B8%E5%BF%83%E4%BD%9C%E7%94%A8"><span class="nav-text">5.2、核心作用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-3%E3%80%81%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E4%B8%8E%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8"><span class="nav-text">5.3、生命周期与线程安全</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">167</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">135</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
