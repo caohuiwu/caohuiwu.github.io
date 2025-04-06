@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是springboot系列的第3篇文章，主要介绍的是springboot的自动装配，selector。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、springbootspringboot是">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《springboot》自动装配selector">
+<meta property="og:url" content="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是springboot系列的第3篇文章，主要介绍的是springboot的自动装配，selector。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、springbootspringboot是">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/AutoConfigurationImportSelector.png">
+<meta property="og:image" content="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/Imports%E6%96%87%E4%BB%B6.png">
+<meta property="og:image" content="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/%E8%87%AA%E5%AE%9A%E4%B9%89starter.png">
+<meta property="og:image" content="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/%E8%87%AA%E5%AE%9A%E4%B9%89%E4%BE%9D%E8%B5%96.png">
+<meta property="og:image" content="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/%E8%87%AA%E5%AE%9A%E4%B9%89Configuration.png">
+<meta property="og:image" content="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/%E8%87%AA%E5%AE%9A%E4%B9%89%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6.png">
+<meta property="article:published_time" content="2021-04-17T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-06T13:19:23.956Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/AutoConfigurationImportSelector.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《springboot》自动装配selector | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《springboot》自动装配selector
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-04-18 00:00:00" itemprop="dateCreated datePublished" datetime="2021-04-18T00:00:00+08:00">2021-04-18</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-06 21:19:23" itemprop="dateModified" datetime="2025-04-06T21:19:23+08:00">2025-04-06</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/springboot/" itemprop="url" rel="index"><span itemprop="name">springboot</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>15k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>37 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是springboot系列的第3篇文章，主要介绍的是springboot的自动装配，selector。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、springboot"><a href="#一、springboot" class="headerlink" title="一、springboot"></a>一、springboot</h1><p><code>springboot</code>是一个基于spring框架的快速开发脚手架，旨在简化spring应用的初始搭建和开发过程。其核心思想是<code class="red">约定优于配置</code>，通过自动配置、起步依赖（starter）等机制大幅减少开发者的配置工作。</p>
+<span id="more"></span>
+
+<ul>
+<li><code class="red">脚手架</code>：指springboot提供的一整套开箱即用的工具和框架。脚手架的主要体现<ul>
+<li><strong>自动配置（<code>auto-Configuration</code>）</strong>：springboot会根据项目中引入的依赖（如<code>spring-boot-starter-web</code>），自动配置相应的组件。例如如果项目依赖了<code>spring-boot-starter-web</code>，springboot会自动集成Tomcat作为内嵌服务器，无需手动部署到外部容器（如单独安装的Tomcat）。</li>
+<li><strong>starter依赖</strong>：springboot提供了一系列<code>spring-boot-starter-XXX</code>依赖（如<code>spring-boot-starter-web、spring-boot-starter-Mybatis</code>），这些依赖已经预置了常用的版本和基础配置，避免了手动管理依赖巴巴的繁琐。</li>
+</ul>
+</li>
+<li><code class="red">约定大于配置</code><ul>
+<li><strong>默认配置文件</strong>：springboot会自动默认加载<code>src/main/resources</code>目录下的<code>application.properties</code>或<code>application.yml</code>，无需在代码中指定配置文件路径。</li>
+<li><strong>环境特定配置</strong>：springboot通过扫描类路径下的<code>META-INF/spring.factories</code>文件，自动加载配置类（如<code>SpringBootApplication</code>启动类所在包下的<code>@Configuration</code>类），实现Bean的自动注册。</li>
+<li><strong>条件化配置</strong>：通过<code>@Conditional</code>配置，springboot会根据条件（如是否存在某个类、某个属性是否配置）动态启用或禁用配置。</li>
+<li><strong>路径和包结构约定</strong>：<ul>
+<li><strong>默认包扫描规则</strong>：springboot启动类所在包及其子包会被自动扫描，无需显示配置<code>@ComponentScan</code></li>
+<li><strong>静态资源和模板路径</strong>：默认静态资源路径为<code>src/main/resources/static</code>或<code>src/main/resources/public</code>，模板文件（如Thymeleaf）默认放在<code>src/main/resources/templates</code>。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h1 id="二、自动装配入口"><a href="#二、自动装配入口" class="headerlink" title="二、自动装配入口"></a>二、自动装配入口</h1><p>回顾自动装配</p>
+<p><code>ConfigurationClassPostProcessor</code>是自动装配入口，通过<code>ConfigurationClassParser</code>解析器</p>
+<ul>
+<li>解析内部类</li>
+<li>解析<code>@PropertySource</code>注解</li>
+<li>解析<code>@ComponentScan</code>注解，扫描指定包下的所有<code>@Component</code>类，直接注册bean定义至spring，并递归解析</li>
+<li>解析<code>@Import</code>注解</li>
+<li>解析<code>@ImportResource</code>注解</li>
+<li>解析<code>@Bean</code></li>
+<li>解析实现接口中的<code>@Bean</code></li>
+<li>返回父类</li>
+</ul>
+<p>解析<code>@Import</code>注解后，生成<code>ImportSelector</code>，根据<code>selector</code>类型</p>
+<ul>
+<li>如果是延迟导入，交给<code>deferredImportSelectorHandler</code>处理：<ul>
+<li><code>this.deferredImportSelectorHandler.handle(configClass, (DeferredImportSelector) selector)</code></li>
+</ul>
+</li>
+<li>否则，执行其<code>selectImports()</code>方法</li>
+</ul>
+<p>接下来还需详细解析<code>ImportSelector</code>。</p>
+<h1 id="三、ImportSelector"><a href="#三、ImportSelector" class="headerlink" title="三、ImportSelector"></a>三、<code>ImportSelector</code></h1><p>动态地选择并导入需要的类或配置到Spring容器中。它提供了一种灵活的机制，使得在运行时可以根据特定的需求来决定哪些类或配置应该被加载和注册到Spring容器中。</p>
+<blockquote>
+<p>导入外部配置的核心接口</p>
+</blockquote>
+<h2 id="3-1、示例"><a href="#3-1、示例" class="headerlink" title="3.1、示例"></a>3.1、示例</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//@Configuration换成@Component效果也是一样的，习惯上放在@Configuration而已</span></span><br><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@Import(&#123;AntPathMatcher.class&#125;)</span> <span class="comment">// 这是Spring-code包里面的Bean，随便找的一个</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyConfig</span> &#123;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-2、类型"><a href="#3-2、类型" class="headerlink" title="3.2、类型"></a>3.2、类型</h2><p>使用<code>@Import</code>的时候，它的类可以是实现了<code>ImportSelector</code>或者<code>DeferredImportSelector</code>接口的类。</p>
+<h3 id="3-2-1、ImportSelector"><a href="#3-2-1、ImportSelector" class="headerlink" title="3.2.1、ImportSelector"></a>3.2.1、<code>ImportSelector</code></h3><p>先来看看<code>ImportSelector</code>接口的定义，其中有两个方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">ImportSelector</span> &#123;</span><br><span class="line">	String[] selectImports(AnnotationMetadata importingClassMetadata);</span><br><span class="line">	<span class="meta">@Nullable</span></span><br><span class="line">	<span class="keyword">default</span> Predicate&lt;String&gt; <span class="title function_">getExclusionFilter</span><span class="params">()</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>String[] selectImports(AnnotationMetadata importingClassMetadata)</code> 返回一个包含了类全限定名的数组，这些类会注入到Spring容器当中。</li>
+<li><code>Predicate&lt;String&gt; getExclusionFilter()</code> 返回一个谓词接口，该方法制定了一个对类全限定名的排除规则来过滤一些候选的导入类，默认不排除过滤。该接口可以不实现。</li>
+</ul>
+<p>Spring容器会实例化这个实现类，并且执行其<code>selectImports方</code>法。</p>
+<p>我们先来看一个<code>ImportSelector</code>的例子：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyImportSelector</span> <span class="keyword">implements</span> <span class="title class_">ImportSelector</span></span><br><span class="line">        <span class="comment">//虽然不能@Autowired，但是实现了这些接口是可以感知到的，下面看源码会发现，Spring会给它注入进去</span></span><br><span class="line">        <span class="comment">// 这样我们就可以根据特定的条件，来决定某些Bean能注入，有些Bean不能注入了</span></span><br><span class="line">        <span class="comment">//,BeanClassLoaderAware,BeanFactoryAware,EnvironmentAware,ResourceLoaderAware</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 备注：这里各种@Autowired的注入都是不生效的，都是null</span></span><br><span class="line">    <span class="comment">// 了解Spring容器刷新过程的时候就知道，这个时候还没有开始解析@Autowired，所以肯定是不生效的</span></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> HelloService helloService;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 容器在会在特定的时机，帮我们调用这个方法，向容器里注入Bean信息</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> importingClassMetadata 包含配置类上面所有的注解信息，以及该配置类本身</span></span><br><span class="line"><span class="comment">     *                               若有需要，可以根据这些其它注解信息，来判断哪些Bean应该注册进去，哪些不需要</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> 返回String数组，注意：都必须是类的全类名，才会被注册进去的（若你返回的全类名不存在该类，容器会抛错）</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> String[] selectImports(AnnotationMetadata importingClassMetadata) &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;this MyImportSelector...&quot;</span>);</span><br><span class="line">        <span class="comment">//return new String[]&#123;&quot;com.buqiong.bean.Child&quot;&#125;;</span></span><br><span class="line">        <span class="comment">// 一般建议这么玩 用字符串写死的方式只是某些特殊场合（比如这个类不一定存在之类的。。。）</span></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">String</span>[]&#123;Child.class.getName()&#125;;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-2、DeferredImportSelector"><a href="#3-2-2、DeferredImportSelector" class="headerlink" title="3.2.2、DeferredImportSelector"></a>3.2.2、<code>DeferredImportSelector</code></h3><ul>
+<li><code>DeferredImportSelector</code>是<code>ImportSelector</code>的一个扩展<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">DeferredImportSelector</span> <span class="keyword">extends</span> <span class="title class_">ImportSelector</span> &#123;</span><br><span class="line">  <span class="meta">@Nullable</span></span><br><span class="line">  <span class="keyword">default</span> Class&lt;? <span class="keyword">extends</span> <span class="title class_">Group</span>&gt; getImportGroup() &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">interface</span> <span class="title class_">Group</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">process</span><span class="params">(AnnotationMetadata metadata, DeferredImportSelector selector)</span>;</span><br><span class="line">    Iterable&lt;Entry&gt; <span class="title function_">selectImports</span><span class="params">()</span>;</span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">Entry</span> &#123;</span><br><span class="line">      <span class="keyword">private</span> <span class="keyword">final</span> AnnotationMetadata metadata;</span><br><span class="line">      <span class="keyword">private</span> <span class="keyword">final</span> String importClassName;</span><br><span class="line">      <span class="keyword">public</span> <span class="title function_">Entry</span><span class="params">(AnnotationMetadata metadata, String importClassName)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.metadata = metadata;</span><br><span class="line">        <span class="built_in">this</span>.importClassName = importClassName;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">public</span> AnnotationMetadata <span class="title function_">getMetadata</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">this</span>.metadata;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">public</span> String <span class="title function_">getImportClassName</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">this</span>.importClassName;</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="3-2-3、创建时机"><a href="#3-2-3、创建时机" class="headerlink" title="3.2.3、创建时机"></a>3.2.3、创建时机</h3><p>selector的创建时机：</p>
+<ul>
+<li>ConfigurationClassParser解析器解析<code>@Import</code>注解，对引入的selector进行实例化。<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">ConfigurationClassPostProcessor.postProcessBeanDefinitionRegistry() </span><br><span class="line">    -&gt; ConfigurationClassPostProcessor.processConfigBeanDefinitions() </span><br><span class="line">        -&gt; ConfigurationClassParser.parse() </span><br><span class="line">            -&gt; ConfigurationClassParser.processConfigurationClass() </span><br><span class="line">                -&gt; ConfigurationClassParser.doProcessConfigurationClass() </span><br><span class="line">                    -&gt; ConfigurationClassParser.processImports() </span><br><span class="line">                        -&gt; ImportSelector selector = ParserStrategyUtils.instantiateClass()：实例化</span><br><span class="line">                        -&gt; this.deferredImportSelectorHandler.handle()</span><br><span class="line">                        -&gt; selector.selectImports()</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="3-3、DeferredImportSelector执行逻辑"><a href="#3-3、DeferredImportSelector执行逻辑" class="headerlink" title="3.3、DeferredImportSelector执行逻辑"></a>3.3、<code>DeferredImportSelector</code>执行逻辑</h2><p>以<code>AutoConfigurationImportSelector</code>为例进行解析。</p>
+<p><code>AutoConfigurationImportSelector</code>的类图如下：<br><img src="/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/AutoConfigurationImportSelector.png" alt="AutoConfigurationImportSelector"></p>
+<ul>
+<li>实现了<code>DeferredImportSelector</code>接口，处理逻辑可以分为2步<ul>
+<li><strong>handler</strong>：添加到<code>deferredImportSelectors</code>延迟集合中</li>
+<li><strong>process</strong>：执行<code>deferredImportSelectors</code>延迟集合。</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-3-1、DeferredImportSelector-的保存"><a href="#3-3-1、DeferredImportSelector-的保存" class="headerlink" title="3.3.1、DeferredImportSelector 的保存"></a>3.3.1、DeferredImportSelector 的保存</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">ConfigurationClassParser</span> &#123;</span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">parse</span><span class="params">(Set&lt;BeanDefinitionHolder&gt; configCandidates)</span> &#123;</span><br><span class="line">    <span class="keyword">for</span> (BeanDefinitionHolder holder : configCandidates) &#123;</span><br><span class="line">      <span class="type">BeanDefinition</span> <span class="variable">bd</span> <span class="operator">=</span> holder.getBeanDefinition();</span><br><span class="line">      <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (bd <span class="keyword">instanceof</span> AnnotatedBeanDefinition) &#123;</span><br><span class="line">            <span class="comment">//解析@Import注解，添加到deferredImportSelectors中</span></span><br><span class="line">          parse(((AnnotatedBeanDefinition) bd).getMetadata(), holder.getBeanName());</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//执行</span></span><br><span class="line">    <span class="built_in">this</span>.deferredImportSelectorHandler.process();</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">class</span> <span class="title class_">DeferredImportSelectorHandler</span> &#123;</span><br><span class="line">    <span class="comment">//  添加到deferredImportSelectors中</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">handle</span><span class="params">(ConfigurationClass configClass, DeferredImportSelector importSelector)</span> &#123;</span><br><span class="line">        <span class="type">DeferredImportSelectorHolder</span> <span class="variable">holder</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DeferredImportSelectorHolder</span>(configClass, importSelector);</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">this</span>.deferredImportSelectors == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="type">DeferredImportSelectorGroupingHandler</span> <span class="variable">handler</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DeferredImportSelectorGroupingHandler</span>();</span><br><span class="line">            handler.register(holder);</span><br><span class="line">            handler.processGroupImports();</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="built_in">this</span>.deferredImportSelectors.add(holder);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//延迟的ImportSelector执行</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">process</span><span class="params">()</span> &#123;</span><br><span class="line">      List&lt;DeferredImportSelectorHolder&gt; deferredImports = <span class="built_in">this</span>.deferredImportSelectors;</span><br><span class="line">      <span class="built_in">this</span>.deferredImportSelectors = <span class="literal">null</span>;</span><br><span class="line">      <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (deferredImports != <span class="literal">null</span>) &#123;</span><br><span class="line">          <span class="type">DeferredImportSelectorGroupingHandler</span> <span class="variable">handler</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DeferredImportSelectorGroupingHandler</span>();</span><br><span class="line">          <span class="comment">// 排序</span></span><br><span class="line">          deferredImports.sort(DEFERRED_IMPORT_COMPARATOR);</span><br><span class="line">          <span class="comment">// 1. 根据不同的group 进行分组注册</span></span><br><span class="line">          deferredImports.forEach(handler::register);</span><br><span class="line">          <span class="comment">// 2. 按照分组调用</span></span><br><span class="line">          handler.processGroupImports();</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>由于 <code>DeferredImportSelector</code> 具有后处理的特性，所以在刚开始扫描出来<code>DeferredImportSelector</code> 的时候并不能立即处理，需要将其保存起来，在最后再进行统一的处理。</p>
+<h3 id="3-3-2、DeferredImportSelector-的真正处理"><a href="#3-3-2、DeferredImportSelector-的真正处理" class="headerlink" title="3.3.2、DeferredImportSelector 的真正处理"></a>3.3.2、DeferredImportSelector 的真正处理</h3><p>在 <code>ConfigurationClassParser#parse()</code> 中最后一句处理了<code> DeferredImportSelector</code>。</p>
+<p>然后进入<code>ConfigurationClassParser.DeferredImportSelectorGroupingHandler#processGroupImports()：</code>分组调用方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">processGroupImports</span><span class="params">()</span> &#123;  </span><br><span class="line">   <span class="keyword">for</span> (DeferredImportSelectorGrouping grouping : <span class="built_in">this</span>.groupings.values()) &#123;  </span><br><span class="line">      Predicate&lt;String&gt; exclusionFilter = grouping.getCandidateFilter();  </span><br><span class="line">      <span class="comment">// 获取分组导入的类，递归进行导入（按ImportSelector、ImportBeanDefinitionRegistrar和配置类）</span></span><br><span class="line">      grouping.getImports().forEach(entry -&gt; &#123;  </span><br><span class="line">         <span class="type">ConfigurationClass</span> <span class="variable">configurationClass</span> <span class="operator">=</span> <span class="built_in">this</span>.configurationClasses.get(entry.getMetadata());  </span><br><span class="line">         <span class="keyword">try</span> &#123;  </span><br><span class="line">            processImports(configurationClass, asSourceClass(configurationClass, exclusionFilter),  </span><br><span class="line">                  Collections.singleton(asSourceClass(entry.getImportClassName(), exclusionFilter)),  </span><br><span class="line">                  exclusionFilter, <span class="literal">false</span>);  </span><br><span class="line">         &#125;  </span><br><span class="line">      &#125;);  </span><br><span class="line">   &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>首先，获取分组：<code>getImports()</code>中会对每个分组进行处理，然后再获取配置类：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> Iterable&lt;Group.Entry&gt; getImports() &#123;</span><br><span class="line">  <span class="keyword">for</span> (DeferredImportSelectorHolder deferredImport : <span class="built_in">this</span>.deferredImports) &#123;</span><br><span class="line">    <span class="comment">// 执行分组规则，调用 DeferredImportSelector.Group#process</span></span><br><span class="line">    <span class="built_in">this</span>.group.process(deferredImport.getConfigurationClass().getMetadata(),</span><br><span class="line">            deferredImport.getImportSelector());</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 获取分组的导入配置</span></span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">this</span>.group.selectImports();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>进入<code>AutoConfigurationImportSelector#AutoConfigurationGroup.process()</code>方法</p>
+<h2 id="3-4、AutoConfigurationImportSelector处理"><a href="#3-4、AutoConfigurationImportSelector处理" class="headerlink" title="3.4、AutoConfigurationImportSelector处理"></a>3.4、<code>AutoConfigurationImportSelector</code>处理</h2><p>我们这里调用的是 <code>AutoConfigurationGroup</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AutoConfigurationImportSelector</span> <span class="keyword">implements</span> <span class="title class_">DeferredImportSelector</span>, BeanClassLoaderAware,</span><br><span class="line">        ResourceLoaderAware, BeanFactoryAware, EnvironmentAware, Ordered &#123;</span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">AutoConfigurationGroup</span></span><br><span class="line">          <span class="keyword">implements</span> <span class="title class_">DeferredImportSelector</span>.Group, BeanClassLoaderAware, BeanFactoryAware, ResourceLoaderAware &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">process</span><span class="params">(AnnotationMetadata annotationMetadata, DeferredImportSelector deferredImportSelector)</span> &#123;</span><br><span class="line">      Assert.state(deferredImportSelector <span class="keyword">instanceof</span> AutoConfigurationImportSelector,</span><br><span class="line">              () -&gt; String.format(<span class="string">&quot;Only %s implementations are supported, got %s&quot;</span>,</span><br><span class="line">                      AutoConfigurationImportSelector.class.getSimpleName(),</span><br><span class="line">                      deferredImportSelector.getClass().getName()));</span><br><span class="line">      <span class="type">AutoConfigurationEntry</span> <span class="variable">autoConfigurationEntry</span> <span class="operator">=</span> ((AutoConfigurationImportSelector) deferredImportSelector)</span><br><span class="line">              .getAutoConfigurationEntry(annotationMetadata);</span><br><span class="line">      <span class="built_in">this</span>.autoConfigurationEntries.add(autoConfigurationEntry);</span><br><span class="line">      <span class="keyword">for</span> (String importClassName : autoConfigurationEntry.getConfigurations()) &#123;</span><br><span class="line">        <span class="built_in">this</span>.entries.putIfAbsent(importClassName, annotationMetadata);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>概要逻辑：</p>
+<ol>
+<li><code>getAutoConfigurationEntry()</code>获得<code>AutoConfigurationEntry</code></li>
+<li>通过<code>AutoConfigurationEntry</code> ，获得要导入的类的名称,存入内部的 <code>autoConfigurationEntries</code>中</li>
+</ol>
+<h3 id="3-4-1、getAutoConfigurationEntry"><a href="#3-4-1、getAutoConfigurationEntry" class="headerlink" title="3.4.1、getAutoConfigurationEntry()"></a>3.4.1、getAutoConfigurationEntry()</h3><p><code>getAutoConfigurationEntry(autoConfigurationMetadata, annotationMetadata)</code>的实现如下</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AutoConfigurationImportSelector</span>&#123;</span><br><span class="line">    <span class="comment">//省略其他代码</span></span><br><span class="line">  <span class="keyword">protected</span> AutoConfigurationEntry <span class="title function_">getAutoConfigurationEntry</span><span class="params">(AutoConfigurationMetadata autoConfigurationMetadata,</span></span><br><span class="line"><span class="params">        AnnotationMetadata annotationMetadata)</span> &#123;</span><br><span class="line">     <span class="keyword">if</span> (!isEnabled(annotationMetadata)) &#123;</span><br><span class="line">        <span class="keyword">return</span> EMPTY_ENTRY;</span><br><span class="line">     &#125;</span><br><span class="line">    <span class="type">AnnotationAttributes</span> <span class="variable">attributes</span> <span class="operator">=</span> getAttributes(annotationMetadata);</span><br><span class="line">    <span class="comment">// 过 SpringFactoriesLoader 类提供的方法加载类路径中 META-INF 目录下的 spring.factories 文件中针对 EnableautoConfiguration 的注册配置类</span></span><br><span class="line">    List&lt;String&gt; configurations = getCandidateConfigurations(annotationMetadata, attributes);</span><br><span class="line">    <span class="comment">// 对获得的注册配置类集合进行去重处理，防止多个项目引入同样的配置类</span></span><br><span class="line">    configurations = removeDuplicates(configurations);</span><br><span class="line">    <span class="comment">// 获得注解中被 exclude 或 excludeName 所排除的类的集合</span></span><br><span class="line">    Set&lt;String&gt; exclusions = getExclusions(annotationMetadata, attributes);</span><br><span class="line">    <span class="comment">// 检查被排除类是否可实例化，是否被自动注册配置所使用，不符合条件则抛出异常</span></span><br><span class="line">    checkExcludedClasses(configurations, exclusions);</span><br><span class="line">    <span class="comment">// 从自动配置类集合中去除被排除的类</span></span><br><span class="line">    configurations.removeAll(exclusions);</span><br><span class="line">    <span class="comment">// 检查配置类的注解是否符合 spring.factories 文件中 AutoConfigurationImportFilter 指定的注解检查条件</span></span><br><span class="line">    configurations = getConfigurationClassFilter().filter(configurations);</span><br><span class="line">    <span class="comment">// 将饰选完成的配置类和排查的配置类构建为事件类，并传入监听器。监听器的配置在于 spring.factories 文件中，通过 AutoConfigurationImportlistener 指定</span></span><br><span class="line">    fireAutoConfigurationImportEvents(configurations, exclusions);</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">AutoConfigurationEntry</span>(configurations, exclusions);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>概要逻辑：</p>
+<ul>
+<li>getAttributes获取注解的属性</li>
+<li>getCandidateConfiguration获取候选装配组件</li>
+<li>removeDuplicates删除重复的配置项</li>
+<li>getExclusions 获取排除的组件</li>
+<li>spring.autoconfigure.exclude，exclude，excludeName对应的值存储到set中</li>
+<li>checkExcludedClasses 当前类在classLoader中，但是不在候选列表中内抛出异常</li>
+<li>configurations.removeAll(exclusions)移除需要排除的配置项</li>
+<li>filter 过滤不满足条件的自动装配组件</li>
+<li>fireAutoConfigurationImportEvents 发送@EnableAutoConfiguration的自动装配事件</li>
+</ul>
+<p>关键点在于<code>getCandidateConfigurations</code>方法中使用<code>SpringFactoriesLoader</code>加载<code>META-INF/spring/imports</code>文件中配置的<code>EnableAutoConfiguration</code>类型的自动配置类：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> List&lt;String&gt; <span class="title function_">getCandidateConfigurations</span><span class="params">(AnnotationMetadata metadata, AnnotationAttributes attributes)</span> &#123;</span><br><span class="line">  List&lt;String&gt; configurations = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;(</span><br><span class="line">          SpringFactoriesLoader.loadFactoryNames(getSpringFactoriesLoaderFactoryClass(), getBeanClassLoader()));</span><br><span class="line">  ImportCandidates.load(AutoConfiguration.class, getBeanClassLoader()).forEach(configurations::add);</span><br><span class="line">  Assert.notEmpty(configurations,</span><br><span class="line">          <span class="string">&quot;No auto configuration classes found in META-INF/spring.factories nor in META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports. If you &quot;</span></span><br><span class="line">                  + <span class="string">&quot;are using a custom packaging, make sure that file is correct.&quot;</span>);</span><br><span class="line">  <span class="keyword">return</span> configurations;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">LOCATION</span> <span class="operator">=</span> <span class="string">&quot;META-INF/spring/%s.imports&quot;</span>;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> ImportCandidates <span class="title function_">load</span><span class="params">(Class&lt;?&gt; annotation, ClassLoader classLoader)</span> &#123;</span><br><span class="line">  Assert.notNull(annotation, <span class="string">&quot;&#x27;annotation&#x27; must not be null&quot;</span>);</span><br><span class="line">  <span class="type">ClassLoader</span> <span class="variable">classLoaderToUse</span> <span class="operator">=</span> decideClassloader(classLoader);</span><br><span class="line">  <span class="type">String</span> <span class="variable">location</span> <span class="operator">=</span> String.format(LOCATION, annotation.getName());</span><br><span class="line">  <span class="comment">//通过类加载器加载所有匹配的资源（文件）</span></span><br><span class="line">  Enumeration&lt;URL&gt; urls = findUrlsInClasspath(classLoaderToUse, location);</span><br><span class="line">  List&lt;String&gt; autoConfigurations = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">  <span class="keyword">while</span> (urls.hasMoreElements()) &#123;</span><br><span class="line">    <span class="type">URL</span> <span class="variable">url</span> <span class="operator">=</span> urls.nextElement();</span><br><span class="line">    autoConfigurations.addAll(readAutoConfigurations(url));</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">ImportCandidates</span>(autoConfigurations);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>文件路径</strong>：路径为<code>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</code>，其中AutoConfiguration是注解类的全限定名。<ul>
+<li><code>AutoConfiguration</code> 类：自动配置类，SpringBoot 的大量以 <code>xxxAutoConfiguration</code> 命名的自动配置类，定义了三方组件集成 Spring 所需初始化的 Bean 和条件；</li>
+</ul>
+</li>
+<li><strong>文件格式</strong>：每行一个类全限定名，支持注释（以#开头），无键值对格式：<br><img src="/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/Imports%E6%96%87%E4%BB%B6.png" alt="Imports文件"></li>
+<li>资源遍历：会遍历所有类路径下匹配的文件（imports），合并所有类名。</li>
+</ul>
+<p><strong>执行过程</strong></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">| ConfigurationClassPostProcessor.postProcessBeanDefinitionRegistry()</span><br><span class="line">| ConfigurationClassPostProcessor.processConfigBeanDefinitions()</span><br><span class="line">| ConfigurationClassParser.parse()</span><br><span class="line">|1.--&gt; ConfigurationClassParser.doProcessConfigurationClass()</span><br><span class="line">         //解析器：解析@Import注解</span><br><span class="line">|------&gt; ConfigurationClassParser.processImports()</span><br><span class="line">|------&gt; this.deferredImportSelectorHandler.handle()</span><br><span class="line">         //AutoConfigurationImportSelector是延迟解析器，添加到延迟解析器集合内</span><br><span class="line">|------&gt; this.deferredImportSelectors.add(holder);</span><br><span class="line">       //在ConfigurationClassParser.parse()方法尾部，执行操作</span><br><span class="line">|2.--&gt; this.deferredImportSelectorHandler.process()</span><br><span class="line">|------&gt; ConfigurationClassParser.DeferredImportSelectorGrouping.getImports()</span><br><span class="line">|--------&gt; AutoConfigurationImportSelector.AutoConfigurationGroup().process()</span><br><span class="line">|--------&gt; AutoConfigurationImportSelector.getCandidateConfigurations()</span><br><span class="line">           //解析imports文件，将内部的XXXConfiguration类AutoConfigurationEntry对象</span><br><span class="line">|--------&gt; ImportCandidates.load()</span><br><span class="line">|------&gt; 遍历AutoConfigurationEntry集合，生成ConfigurationClass</span><br><span class="line">|--------&gt; 循环进入ConfigurationClassParser.processImports()，继续解析@Import注解</span><br></pre></td></tr></table></figure>
+<p><img src="/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B.png" alt="执行过程"></p>
+<h1 id="四、自动装配小结"><a href="#四、自动装配小结" class="headerlink" title="四、自动装配小结"></a>四、自动装配小结</h1><h2 id="4-1、什么是自动装配？"><a href="#4-1、什么是自动装配？" class="headerlink" title="4.1、什么是自动装配？"></a>4.1、什么是自动装配？</h2><p>通过SPI机制，通过注解或者一些简单的配置就能在 Spring Boot 的帮助下实现某块功能。</p>
+<table>
+<thead>
+<tr>
+<th>旧方式（&lt;&#x3D;2.6）</th>
+<th>新方式（&gt;&#x3D;2.7）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>通过<code>spring.factories</code>文件，以键值对形式定义<code>EnableAutoConfiguration</code>的值</td>
+<td>通过<code>AutoConfiguration.imports</code>文件，以纯文本逐行列出自动配置类全限定名</td>
+</tr>
+<tr>
+<td>使用<code>SpringFactoriesLoader</code>加载（SPI方式）</td>
+<td>使用<code>ImportCandidates</code>类加载</td>
+</tr>
+</tbody></table>
+<h2 id="4-2、自动装配原理"><a href="#4-2、自动装配原理" class="headerlink" title="4.2、自动装配原理"></a>4.2、自动装配原理</h2><p>通过<code>@EnableAutoConfiguration</code>注解实现，这个注解通常通过<code>@SpringBootApplication</code>注解间接引入。</p>
+<h3 id="4-2-1、关键组件"><a href="#4-2-1、关键组件" class="headerlink" title="4.2.1、关键组件"></a>4.2.1、关键组件</h3><ol>
+<li>配置文件<br><code>META-INF/spring.factories</code>和<code>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</code>文件。</li>
+<li>自动装配类<br>包含<code>@Configuration</code>和<code>@AutoConfiguration</code>注解的类。</li>
+</ol>
+<h3 id="4-2-2、自动装配入口"><a href="#4-2-2、自动装配入口" class="headerlink" title="4.2.2、自动装配入口"></a>4.2.2、自动装配入口</h3><ul>
+<li><code>ConfigurationClassPostProcessor</code>工厂后置处理器，是自动装配入口，内部创建<code>ConfigurationClassParser</code>解析器。</li>
+<li><code>ConfigurationClassParser</code>解析器，是自动装配的核心处理逻辑，内部解析<code>@Import</code>注解，生成对应的<code>selector</code>并触发其执行。</li>
+<li><code>AutoConfigurationImportSelector</code>选择器，通过SPI机制，解析<code>META-INF/spring.factories</code>和<code>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</code>文件。</li>
+</ul>
+<h2 id="4-3、自定义示例"><a href="#4-3、自定义示例" class="headerlink" title="4.3、自定义示例"></a>4.3、自定义示例</h2><h3 id="4-3-1、第一步，创建threadpool-spring-boot-starter工程"><a href="#4-3-1、第一步，创建threadpool-spring-boot-starter工程" class="headerlink" title="4.3.1、第一步，创建threadpool-spring-boot-starter工程"></a>4.3.1、第一步，创建threadpool-spring-boot-starter工程</h3><p><img src="/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/%E8%87%AA%E5%AE%9A%E4%B9%89starter.png" alt="自定义starter"></p>
+<h3 id="4-3-2、第二步，引入-Spring-Boot-相关依赖"><a href="#4-3-2、第二步，引入-Spring-Boot-相关依赖" class="headerlink" title="4.3.2、第二步，引入 Spring Boot 相关依赖"></a>4.3.2、第二步，引入 Spring Boot 相关依赖</h3><p><img src="/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/%E8%87%AA%E5%AE%9A%E4%B9%89%E4%BE%9D%E8%B5%96.png" alt="自定义依赖"></p>
+<h3 id="4-3-3、第三步，创建ThreadPoolAutoConfiguration"><a href="#4-3-3、第三步，创建ThreadPoolAutoConfiguration" class="headerlink" title="4.3.3、第三步，创建ThreadPoolAutoConfiguration"></a>4.3.3、第三步，创建ThreadPoolAutoConfiguration</h3><p><img src="/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/%E8%87%AA%E5%AE%9A%E4%B9%89Configuration.png" alt="自定义Configuration"></p>
+<h3 id="4-3-4、第四步，创建META-INF-spring-factories文件"><a href="#4-3-4、第四步，创建META-INF-spring-factories文件" class="headerlink" title="4.3.4、第四步，创建META-INF&#x2F;spring.factories文件"></a>4.3.4、第四步，创建META-INF&#x2F;spring.factories文件</h3><p><img src="/2021/04/18/2021-04-18-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D-selector/%E8%87%AA%E5%AE%9A%E4%B9%89%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6.png" alt="自定义配置文件"></p>
+<p>最后打包</p>
+<p>参考文章：<br><a href="https://juejin.cn/post/7164272494625423373#heading-15">https://juejin.cn/post/7164272494625423373#heading-15</a><br><a href="https://cloud.tencent.com/developer/article/2342977">https://cloud.tencent.com/developer/article/2342977</a><br><a href="https://www.cnblogs.com/Xianhuii/p/17105291.html">https://www.cnblogs.com/Xianhuii/p/17105291.html</a><br><a href="https://www.cnblogs.com/javaguide/p/springboot-auto-config.html">https://www.cnblogs.com/javaguide/p/springboot-auto-config.html</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/04/14/2021-04-14-springboot-%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/" rel="prev" title="《springboot》自动装配">
+      <i class="fa fa-chevron-left"></i> 《springboot》自动装配
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/04/21/2021-04-21-springboot-%E5%A6%82%E4%BD%95%E5%B5%8C%E5%85%A5Tomcat/" rel="next" title="《springboot》如何嵌入Tomcat">
+      《springboot》如何嵌入Tomcat <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81springboot"><span class="nav-text">一、springboot</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D%E5%85%A5%E5%8F%A3"><span class="nav-text">二、自动装配入口</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81ImportSelector"><span class="nav-text">三、ImportSelector</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E7%A4%BA%E4%BE%8B"><span class="nav-text">3.1、示例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E7%B1%BB%E5%9E%8B"><span class="nav-text">3.2、类型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1%E3%80%81ImportSelector"><span class="nav-text">3.2.1、ImportSelector</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-2%E3%80%81DeferredImportSelector"><span class="nav-text">3.2.2、DeferredImportSelector</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-3%E3%80%81%E5%88%9B%E5%BB%BA%E6%97%B6%E6%9C%BA"><span class="nav-text">3.2.3、创建时机</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81DeferredImportSelector%E6%89%A7%E8%A1%8C%E9%80%BB%E8%BE%91"><span class="nav-text">3.3、DeferredImportSelector执行逻辑</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-1%E3%80%81DeferredImportSelector-%E7%9A%84%E4%BF%9D%E5%AD%98"><span class="nav-text">3.3.1、DeferredImportSelector 的保存</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-2%E3%80%81DeferredImportSelector-%E7%9A%84%E7%9C%9F%E6%AD%A3%E5%A4%84%E7%90%86"><span class="nav-text">3.3.2、DeferredImportSelector 的真正处理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4%E3%80%81AutoConfigurationImportSelector%E5%A4%84%E7%90%86"><span class="nav-text">3.4、AutoConfigurationImportSelector处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-1%E3%80%81getAutoConfigurationEntry"><span class="nav-text">3.4.1、getAutoConfigurationEntry()</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D%E5%B0%8F%E7%BB%93"><span class="nav-text">四、自动装配小结</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AF%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D%EF%BC%9F"><span class="nav-text">4.1、什么是自动装配？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D%E5%8E%9F%E7%90%86"><span class="nav-text">4.2、自动装配原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-1%E3%80%81%E5%85%B3%E9%94%AE%E7%BB%84%E4%BB%B6"><span class="nav-text">4.2.1、关键组件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-2%E3%80%81%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D%E5%85%A5%E5%8F%A3"><span class="nav-text">4.2.2、自动装配入口</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81%E8%87%AA%E5%AE%9A%E4%B9%89%E7%A4%BA%E4%BE%8B"><span class="nav-text">4.3、自定义示例</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-1%E3%80%81%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%8C%E5%88%9B%E5%BB%BAthreadpool-spring-boot-starter%E5%B7%A5%E7%A8%8B"><span class="nav-text">4.3.1、第一步，创建threadpool-spring-boot-starter工程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-2%E3%80%81%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%8C%E5%BC%95%E5%85%A5-Spring-Boot-%E7%9B%B8%E5%85%B3%E4%BE%9D%E8%B5%96"><span class="nav-text">4.3.2、第二步，引入 Spring Boot 相关依赖</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-3%E3%80%81%E7%AC%AC%E4%B8%89%E6%AD%A5%EF%BC%8C%E5%88%9B%E5%BB%BAThreadPoolAutoConfiguration"><span class="nav-text">4.3.3、第三步，创建ThreadPoolAutoConfiguration</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-4%E3%80%81%E7%AC%AC%E5%9B%9B%E6%AD%A5%EF%BC%8C%E5%88%9B%E5%BB%BAMETA-INF-spring-factories%E6%96%87%E4%BB%B6"><span class="nav-text">4.3.4、第四步，创建META-INF&#x2F;spring.factories文件</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">171</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">136</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
