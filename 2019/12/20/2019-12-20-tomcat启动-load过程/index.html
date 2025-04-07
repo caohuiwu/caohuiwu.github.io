@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }    一、tomcat的启动过程1exec &quot;$PRGDIR&#x2F;$EXECUTABLE&quot; start &quot;$@&quot;  exe">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《tomcat》启动-load过程">
+<meta property="og:url" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }    一、tomcat的启动过程1exec &quot;$PRGDIR&#x2F;$EXECUTABLE&quot; start &quot;$@&quot;  exe">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/standardEngine%E7%B1%BB%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/Http11NioProtocol%E7%B1%BB%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/NioEndpoint%E7%B1%BB%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B.png">
+<meta property="article:published_time" content="2019-12-20T13:39:13.000Z">
+<meta property="article:modified_time" content="2025-04-07T13:54:47.924Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/standardEngine%E7%B1%BB%E5%9B%BE.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《tomcat》启动-load过程 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《tomcat》启动-load过程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-12-20 21:39:13" itemprop="dateCreated datePublished" datetime="2019-12-20T21:39:13+08:00">2019-12-20</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-07 21:54:47" itemprop="dateModified" datetime="2025-04-07T21:54:47+08:00">2025-04-07</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/tomcat/" itemprop="url" rel="index"><span itemprop="name">tomcat</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>19k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>48 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+
+<h1 id="一、tomcat的启动过程"><a href="#一、tomcat的启动过程" class="headerlink" title="一、tomcat的启动过程"></a>一、tomcat的启动过程</h1><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">exec &quot;$PRGDIR/$EXECUTABLE&quot; start &quot;$@&quot;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>exec命令</code>：替换当前shell进程为<code>catalina.sh</code>，并传递参数（如start）</li>
+<li><code>start参数</code>：指示<code>catalina.sh</code>以后台模式启动Tomcat</li>
+</ul>
+<span id="more"></span>
+
+<h2 id="catalina-sh的核心流程"><a href="#catalina-sh的核心流程" class="headerlink" title="catalina.sh的核心流程"></a>catalina.sh的核心流程</h2><p>启动Tomcat</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">if [ &quot;$1&quot; = &quot;start&quot; ]; then</span><br><span class="line">  # 以后台模式启动</span><br><span class="line">  nohup &quot;$PRGDIR&quot;/../bin/bootstrap.jar ...</span><br><span class="line">elif [ &quot;$1&quot; = &quot;run&quot; ]; then</span><br><span class="line">  # 以调试模式启动（前台）</span><br><span class="line">  exec &quot;$_RUNJAVA&quot; ...</span><br><span class="line">fi</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>nohup命令</code>：使Tomcat在后台运行，关闭终端后仍保持运行。</li>
+<li><code>bootstrap.jar</code>：Java启动类 <code>org.apache.catalina.startup.Bootstrap</code>的入口。</li>
+</ul>
+<h2 id="Java启动过程"><a href="#Java启动过程" class="headerlink" title="Java启动过程"></a>Java启动过程</h2><p>初始化类加载器</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    initClassLoaders(); <span class="comment">// 初始化 Catalina 类加载器</span></span><br><span class="line">    Thread.currentThread().setContextClassLoader(catalinaLoader);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>启动catalina容器</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String args[])</span> &#123;</span><br><span class="line">    <span class="keyword">synchronized</span> (daemonLock) &#123;</span><br><span class="line">        <span class="type">Bootstrap</span> <span class="variable">daemon</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Bootstrap</span>();</span><br><span class="line">        <span class="keyword">if</span> (command.equals(<span class="string">&quot;startd&quot;</span>)) &#123;</span><br><span class="line">            args[args.length - <span class="number">1</span>] = <span class="string">&quot;start&quot;</span>;</span><br><span class="line">            daemon.load(args);</span><br><span class="line">            daemon.start();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>执行<code>Boostrap</code>的main方法，此时tomcat就在JVM作为一个线程启动了。启动过程主要有2个步骤</p>
+<ol>
+<li>资源初始化，<code>load()</code>，绑定<code>serverSocket</code></li>
+<li>资源启动，<code>start()</code>，connector创建acceptor连接线程池。</li>
+</ol>
+<h1 id="二、Load加载过程"><a href="#二、Load加载过程" class="headerlink" title="二、Load加载过程"></a>二、Load加载过程</h1><p>执行Load方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Load daemon.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">load</span><span class="params">(String[] arguments)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="comment">// Call the load() method</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">methodName</span> <span class="operator">=</span> <span class="string">&quot;load&quot;</span>;</span><br><span class="line">    <span class="type">Method</span> <span class="variable">method</span> <span class="operator">=</span> catalinaDaemon.getClass().getMethod(methodName, paramTypes);</span><br></pre></td></tr></table></figure>
+<p>通过反射，执行<code>Catalina.java</code>的load方法    </p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">load</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//首先利用Digester类解析server.xml文件，得到容器的配置，并创建相应的对象，并关联父子容器。依次创建的是StandardServer、StandardService、StandardEngine、StandardHost。</span></span><br><span class="line">    <span class="type">Digester</span> <span class="variable">digester</span> <span class="operator">=</span> createStartDigester();</span><br><span class="line">    <span class="type">InputSource</span> <span class="variable">inputSource</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="type">InputStream</span> <span class="variable">inputStream</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="type">File</span> <span class="variable">file</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">//解析server.xml</span></span><br><span class="line">        file = <span class="keyword">new</span> <span class="title class_">File</span>(<span class="string">&quot;conf/server.xml&quot;</span>);</span><br><span class="line">        inputStream = <span class="keyword">new</span> <span class="title class_">FileInputStream</span>(file);</span><br><span class="line">        inputSource = <span class="keyword">new</span> <span class="title class_">InputSource</span>(file.toURI().toURL().toString());</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// Start the new server</span></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        getServer().init();</span><br><span class="line">    &#125; <span class="keyword">catch</span> (LifecycleException e) &#123;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-1、第一步：解析server-xml配置文件"><a href="#2-1、第一步：解析server-xml配置文件" class="headerlink" title="2.1、第一步：解析server.xml配置文件"></a>2.1、第一步：解析server.xml配置文件</h2><h3 id="2-1-1、createStartDigester的核心作用"><a href="#2-1-1、createStartDigester的核心作用" class="headerlink" title="2.1.1、createStartDigester的核心作用"></a>2.1.1、createStartDigester的核心作用</h3><p>是Tomcat启动过程中用于解析<code>server.xml</code>配置文件的关键方法，其核心功能是</p>
+<ul>
+<li><strong>创建并配置<code>Digester</code>对象</strong>：通过规程（<code>Rules</code>）将XML节点映射到Java对象</li>
+<li><strong>定义对象创建规则</strong>：根据XML节点路径（<code>&lt;server&gt;, &lt;service&gt;</code>）生成对应的Java对象（如<code>StandardServer、StandardService</code>）</li>
+<li><strong>设置属性和关联关系</strong>：将XML节点的属性值设置到对象中，并通过方法调用（如<code>setParent()</code>）建立对象之间的层级关系。</li>
+</ul>
+<details style="background-color: #dbdbdb;padding: 10px;">
+<summary>点击查看“`createStartDigester()`方法执行逻辑如下：”相关定义</summary>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> Digester <span class="title function_">createStartDigester</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">long</span> t1=System.currentTimeMillis();</span><br><span class="line">    <span class="comment">// Initialize the digester</span></span><br><span class="line">    <span class="type">Digester</span> <span class="variable">digester</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Digester</span>();</span><br><span class="line">    digester.setValidating(<span class="literal">false</span>);</span><br><span class="line">    digester.setRulesValidation(<span class="literal">true</span>);</span><br><span class="line">    Map&lt;Class&lt;?&gt;, List&lt;String&gt;&gt; fakeAttributes = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line">    List&lt;String&gt; objectAttrs = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">    objectAttrs.add(<span class="string">&quot;className&quot;</span>);</span><br><span class="line">    fakeAttributes.put(Object.class, objectAttrs);</span><br><span class="line">    <span class="comment">// Ignore attribute added by Eclipse for its internal tracking</span></span><br><span class="line">    List&lt;String&gt; contextAttrs = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">    contextAttrs.add(<span class="string">&quot;source&quot;</span>);</span><br><span class="line">    fakeAttributes.put(StandardContext.class, contextAttrs);</span><br><span class="line">    digester.setFakeAttributes(fakeAttributes);</span><br><span class="line">    digester.setUseContextClassLoader(<span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//1. 创建 server对象（根节点）</span></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server&quot;</span>,<span class="comment">//xml节点路径</span></span><br><span class="line">                             <span class="string">&quot;org.apache.catalina.core.StandardServer&quot;</span>,<span class="comment">//默认类名</span></span><br><span class="line">                             <span class="string">&quot;className&quot;</span>);<span class="comment">//通过className属性指定类名（可选）</span></span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server&quot;</span>);<span class="comment">//设置server节点的属性（如port、address）</span></span><br><span class="line">    <span class="comment">//2. 将server对象传递给 catalina 实例的setServer()方法</span></span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;setServer&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.catalina.Server&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server/GlobalNamingResources&quot;</span>,</span><br><span class="line">                             <span class="string">&quot;org.apache.catalina.deploy.NamingResourcesImpl&quot;</span>);</span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server/GlobalNamingResources&quot;</span>);</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/GlobalNamingResources&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;setGlobalNamingResources&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.catalina.deploy.NamingResourcesImpl&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server/Listener&quot;</span>,</span><br><span class="line">                             <span class="literal">null</span>, <span class="comment">// MUST be specified in the element</span></span><br><span class="line">                             <span class="string">&quot;className&quot;</span>);</span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server/Listener&quot;</span>);</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Listener&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;addLifecycleListener&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.catalina.LifecycleListener&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server/Service&quot;</span>,</span><br><span class="line">                             <span class="string">&quot;org.apache.catalina.core.StandardService&quot;</span>,</span><br><span class="line">                             <span class="string">&quot;className&quot;</span>);</span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server/Service&quot;</span>);</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Service&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;addService&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.catalina.Service&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server/Service/Listener&quot;</span>,</span><br><span class="line">                             <span class="literal">null</span>, <span class="comment">// MUST be specified in the element</span></span><br><span class="line">                             <span class="string">&quot;className&quot;</span>);</span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server/Service/Listener&quot;</span>);</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Service/Listener&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;addLifecycleListener&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.catalina.LifecycleListener&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//Executor</span></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server/Service/Executor&quot;</span>,</span><br><span class="line">                     <span class="string">&quot;org.apache.catalina.core.StandardThreadExecutor&quot;</span>,</span><br><span class="line">                     <span class="string">&quot;className&quot;</span>);</span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server/Service/Executor&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Service/Executor&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;addExecutor&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.catalina.Executor&quot;</span>);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    digester.addRule(<span class="string">&quot;Server/Service/Connector&quot;</span>,</span><br><span class="line">                     <span class="keyword">new</span> <span class="title class_">ConnectorCreateRule</span>());</span><br><span class="line">    digester.addRule(<span class="string">&quot;Server/Service/Connector&quot;</span>,</span><br><span class="line">                     <span class="keyword">new</span> <span class="title class_">SetAllPropertiesRule</span>(<span class="keyword">new</span> <span class="title class_">String</span>[]&#123;<span class="string">&quot;executor&quot;</span>, <span class="string">&quot;sslImplementationName&quot;</span>&#125;));</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Service/Connector&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;addConnector&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.catalina.connector.Connector&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server/Service/Connector/SSLHostConfig&quot;</span>,</span><br><span class="line">                             <span class="string">&quot;org.apache.tomcat.util.net.SSLHostConfig&quot;</span>);</span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server/Service/Connector/SSLHostConfig&quot;</span>);</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Service/Connector/SSLHostConfig&quot;</span>,</span><br><span class="line">            <span class="string">&quot;addSslHostConfig&quot;</span>,</span><br><span class="line">            <span class="string">&quot;org.apache.tomcat.util.net.SSLHostConfig&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addRule(<span class="string">&quot;Server/Service/Connector/SSLHostConfig/Certificate&quot;</span>,</span><br><span class="line">                     <span class="keyword">new</span> <span class="title class_">CertificateCreateRule</span>());</span><br><span class="line">    digester.addRule(<span class="string">&quot;Server/Service/Connector/SSLHostConfig/Certificate&quot;</span>,</span><br><span class="line">                     <span class="keyword">new</span> <span class="title class_">SetAllPropertiesRule</span>(<span class="keyword">new</span> <span class="title class_">String</span>[]&#123;<span class="string">&quot;type&quot;</span>&#125;));</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Service/Connector/SSLHostConfig/Certificate&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;addCertificate&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.tomcat.util.net.SSLHostConfigCertificate&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server/Service/Connector/SSLHostConfig/OpenSSLConf&quot;</span>,</span><br><span class="line">                             <span class="string">&quot;org.apache.tomcat.util.net.openssl.OpenSSLConf&quot;</span>);</span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server/Service/Connector/SSLHostConfig/OpenSSLConf&quot;</span>);</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Service/Connector/SSLHostConfig/OpenSSLConf&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;setOpenSslConf&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.tomcat.util.net.openssl.OpenSSLConf&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server/Service/Connector/SSLHostConfig/OpenSSLConf/OpenSSLConfCmd&quot;</span>,</span><br><span class="line">                             <span class="string">&quot;org.apache.tomcat.util.net.openssl.OpenSSLConfCmd&quot;</span>);</span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server/Service/Connector/SSLHostConfig/OpenSSLConf/OpenSSLConfCmd&quot;</span>);</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Service/Connector/SSLHostConfig/OpenSSLConf/OpenSSLConfCmd&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;addCmd&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.tomcat.util.net.openssl.OpenSSLConfCmd&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server/Service/Connector/Listener&quot;</span>,</span><br><span class="line">                             <span class="literal">null</span>, <span class="comment">// MUST be specified in the element</span></span><br><span class="line">                             <span class="string">&quot;className&quot;</span>);</span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server/Service/Connector/Listener&quot;</span>);</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Service/Connector/Listener&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;addLifecycleListener&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.catalina.LifecycleListener&quot;</span>);</span><br><span class="line"></span><br><span class="line">    digester.addObjectCreate(<span class="string">&quot;Server/Service/Connector/UpgradeProtocol&quot;</span>,</span><br><span class="line">                              <span class="literal">null</span>, <span class="comment">// MUST be specified in the element</span></span><br><span class="line">                              <span class="string">&quot;className&quot;</span>);</span><br><span class="line">    digester.addSetProperties(<span class="string">&quot;Server/Service/Connector/UpgradeProtocol&quot;</span>);</span><br><span class="line">    digester.addSetNext(<span class="string">&quot;Server/Service/Connector/UpgradeProtocol&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;addUpgradeProtocol&quot;</span>,</span><br><span class="line">                        <span class="string">&quot;org.apache.coyote.UpgradeProtocol&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Add RuleSets for nested elements</span></span><br><span class="line">    digester.addRuleSet(<span class="keyword">new</span> <span class="title class_">NamingRuleSet</span>(<span class="string">&quot;Server/GlobalNamingResources/&quot;</span>));</span><br><span class="line">    digester.addRuleSet(<span class="keyword">new</span> <span class="title class_">EngineRuleSet</span>(<span class="string">&quot;Server/Service/&quot;</span>));</span><br><span class="line">    digester.addRuleSet(<span class="keyword">new</span> <span class="title class_">HostRuleSet</span>(<span class="string">&quot;Server/Service/Engine/&quot;</span>));</span><br><span class="line">    digester.addRuleSet(<span class="keyword">new</span> <span class="title class_">ContextRuleSet</span>(<span class="string">&quot;Server/Service/Engine/Host/&quot;</span>));</span><br><span class="line">    addClusterRuleSet(digester, <span class="string">&quot;Server/Service/Engine/Host/Cluster/&quot;</span>);</span><br><span class="line">    digester.addRuleSet(<span class="keyword">new</span> <span class="title class_">NamingRuleSet</span>(<span class="string">&quot;Server/Service/Engine/Host/Context/&quot;</span>));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// When the &#x27;engine&#x27; is found, set the parentClassLoader.</span></span><br><span class="line">    digester.addRule(<span class="string">&quot;Server/Service/Engine&quot;</span>,</span><br><span class="line">                     <span class="keyword">new</span> <span class="title class_">SetParentClassLoaderRule</span>(parentClassLoader));</span><br><span class="line">    addClusterRuleSet(digester, <span class="string">&quot;Server/Service/Engine/Cluster/&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="type">long</span> t2=System.currentTimeMillis();</span><br><span class="line">    <span class="keyword">if</span> (log.isDebugEnabled()) &#123;</span><br><span class="line">        log.debug(<span class="string">&quot;Digester for server.xml created &quot;</span> + ( t2-t1 ));</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> digester;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</details>
+
+<h4 id="2-1-1-1、关键规则方法解析"><a href="#2-1-1-1、关键规则方法解析" class="headerlink" title="2.1.1.1、关键规则方法解析"></a>2.1.1.1、关键规则方法解析</h4><h5 id="addObjectCreate"><a href="#addObjectCreate" class="headerlink" title="addObjectCreate()"></a>addObjectCreate()</h5><p><strong>作用</strong>：关键XML节点路径创建Java对象<br>底层实现</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">begin</span><span class="params">(Attributes attributes)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">realClassName</span> <span class="operator">=</span> className; <span class="comment">// 默认类名</span></span><br><span class="line">    <span class="keyword">if</span> (attributeName != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">value</span> <span class="operator">=</span> attributes.getValue(attributeName); <span class="comment">// 读取 className 属性</span></span><br><span class="line">        <span class="keyword">if</span> (value != <span class="literal">null</span>) &#123;</span><br><span class="line">            realClassName = value;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    Class&lt;?&gt; clazz = digester.getClassLoader().loadClass(realClassName);</span><br><span class="line">    <span class="type">Object</span> <span class="variable">instance</span> <span class="operator">=</span> clazz.newInstance();</span><br><span class="line">    digester.push(instance); <span class="comment">// 将对象压入栈顶</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="addSetProperties"><a href="#addSetProperties" class="headerlink" title="addSetProperties()"></a>addSetProperties()</h5><p><strong>作用</strong>：将XML节点的属性值设置到对象的属性中。<br>实现</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">begin</span><span class="params">(Attributes attributes)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="type">Object</span> <span class="variable">top</span> <span class="operator">=</span> digester.peek(); <span class="comment">// 获取栈顶对象</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; attributes.getLength(); i++) &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">name</span> <span class="operator">=</span> attributes.getQName(i);</span><br><span class="line">        <span class="type">String</span> <span class="variable">value</span> <span class="operator">=</span> attributes.getValue(i);</span><br><span class="line">        <span class="comment">// 通过反射调用对象的 setter 方法（如 setPort(8080)）</span></span><br><span class="line">        BeanUtils.setProperty(top, name, value);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h5 id="addSetNext"><a href="#addSetNext" class="headerlink" title="addSetNext()"></a>addSetNext()</h5><p><strong>作用</strong>：将当前对象传递给父对象的方法（建立父子关系）</p>
+<h4 id="2-1-1-2、小结"><a href="#2-1-1-2、小结" class="headerlink" title="2.1.1.2、小结"></a>2.1.1.2、小结</h4><blockquote>
+<p>解析<code>server.xml</code>文件，首先利用Digester类解析<code>server.xml</code>文件，得到容器的配置，并创建相应的对象，并关联父子容器。 依次创建的是<code>StandardServer、StandardService、StandardEngine、StandardHost</code>。。<br>StandardService的创建：</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">digester.addObjectCreate(<span class="string">&quot;Server/Service&quot;</span>,</span><br><span class="line"><span class="string">&quot;org.apache.catalina.core.StandardService&quot;</span>,</span><br><span class="line"><span class="string">&quot;className&quot;</span>);</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>connector的创建</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">digester.addRule(<span class="string">&quot;Server/Service/Connector&quot;</span>, <span class="keyword">new</span> <span class="title class_">ConnectorCreateRule</span>());<span class="comment">//begin()方法</span></span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>Engine的创建：engine、host、Context的创建逻辑是差不多的。</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">digester.addRuleSet(<span class="keyword">new</span> <span class="title class_">EngineRuleSet</span>(<span class="string">&quot;Server/Service/&quot;</span>));</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Digester</span> <span class="keyword">extends</span> <span class="title class_">DefaultHandler2</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">addRuleSet</span><span class="params">(RuleSet ruleSet)</span> &#123;</span><br><span class="line">        <span class="comment">//执行RuleSet的addRuleInstances方法</span></span><br><span class="line">        ruleSet.addRuleInstances(<span class="built_in">this</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">EngineRuleSet</span> <span class="keyword">extends</span> <span class="title class_">RuleSetBase</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">addRuleInstances</span><span class="params">(Digester digester)</span> &#123;</span><br><span class="line">        digester.addObjectCreate(prefix + <span class="string">&quot;Engine&quot;</span>,</span><br><span class="line">                <span class="string">&quot;org.apache.catalina.core.StandardEngine&quot;</span>,</span><br><span class="line">                <span class="string">&quot;className&quot;</span>);</span><br><span class="line">    ...</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-2、第二步：getServer-init-初始化server"><a href="#2-2、第二步：getServer-init-初始化server" class="headerlink" title="2.2、第二步：getServer().init()初始化server"></a>2.2、第二步：getServer().init()初始化server</h2><p><code>StandardServer</code>继承了<code>LifecycleBase</code>类</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">LifecycleBase</span> <span class="keyword">implements</span> <span class="title class_">Lifecycle</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> <span class="keyword">throws</span> LifecycleException &#123;</span><br><span class="line">        <span class="keyword">if</span> (!state.equals(LifecycleState.NEW)) &#123;</span><br><span class="line">            invalidTransition(Lifecycle.BEFORE_INIT_EVENT);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            setStateInternal(LifecycleState.INITIALIZING, <span class="literal">null</span>, <span class="literal">false</span>);</span><br><span class="line">            initInternal();</span><br><span class="line">            setStateInternal(LifecycleState.INITIALIZED, <span class="literal">null</span>, <span class="literal">false</span>);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Throwable t) &#123;</span><br><span class="line">            handleSubClassException(t, <span class="string">&quot;lifecycleBase.initFail&quot;</span>, toString());</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>内部执行<code>initInternal();</code>初始化方法</p>
+<h3 id="2-2-1、StandardServer-initInternal"><a href="#2-2-1、StandardServer-initInternal" class="headerlink" title="2.2.1、StandardServer.initInternal()"></a>2.2.1、StandardServer.initInternal()</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initInternal</span><span class="params">()</span> <span class="keyword">throws</span> LifecycleException &#123;</span><br><span class="line">    onameStringCache = register(<span class="keyword">new</span> <span class="title class_">StringCache</span>(), <span class="string">&quot;type=StringCache&quot;</span>);</span><br><span class="line">    <span class="comment">// Register the MBeanFactory</span></span><br><span class="line">    <span class="type">MBeanFactory</span> <span class="variable">factory</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MBeanFactory</span>();</span><br><span class="line">    factory.setContainer(<span class="built_in">this</span>);</span><br><span class="line">    onameMBeanFactory = register(factory, <span class="string">&quot;type=MBeanFactory&quot;</span>);</span><br><span class="line">    <span class="comment">// Register the naming resources</span></span><br><span class="line">    globalNamingResources.init();</span><br><span class="line">    <span class="comment">// Initialize our defined Services</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; services.length; i++) &#123;</span><br><span class="line">        services[i].init();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>触发<code>service</code>的初始化</p>
+<h3 id="2-2-2、StandardService-initInternal"><a href="#2-2-2、StandardService-initInternal" class="headerlink" title="2.2.2、StandardService.initInternal()"></a>2.2.2、StandardService.initInternal()</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initInternal</span><span class="params">()</span> <span class="keyword">throws</span> LifecycleException &#123;</span><br><span class="line">    <span class="keyword">if</span> (engine != <span class="literal">null</span>) &#123;</span><br><span class="line">        engine.init();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// Initialize any Executors</span></span><br><span class="line">    <span class="keyword">for</span> (Executor executor : findExecutors()) &#123;</span><br><span class="line">        <span class="keyword">if</span> (executor <span class="keyword">instanceof</span> JmxEnabled) &#123;</span><br><span class="line">            ((JmxEnabled) executor).setDomain(getDomain());</span><br><span class="line">        &#125;</span><br><span class="line">        executor.init();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// Initialize mapper listener</span></span><br><span class="line">    mapperListener.init();</span><br><span class="line">    <span class="comment">// Initialize our defined Connectors</span></span><br><span class="line">    <span class="keyword">synchronized</span> (connectorsLock) &#123;</span><br><span class="line">        <span class="keyword">for</span> (Connector connector : connectors) &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                connector.init();</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">                <span class="type">String</span> <span class="variable">message</span> <span class="operator">=</span> sm.getString(</span><br><span class="line">                        <span class="string">&quot;standardService.connector.initFailed&quot;</span>, connector);</span><br><span class="line">                log.error(message, e);</span><br><span class="line">                <span class="keyword">if</span> (Boolean.getBoolean(<span class="string">&quot;org.apache.catalina.startup.EXIT_ON_INIT_FAILURE&quot;</span>))</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">LifecycleException</span>(message);</span><br><span class="line">&#125;&#125;&#125;&#125;</span><br></pre></td></tr></table></figure>
+<p>主要有3个执行步骤：</p>
+<ol>
+<li>service执行<code>engine</code>的初始化。(engine继承Container，所以实际是进行container的初始化)</li>
+<li>然后创建一组线程池。<code>executor</code>是Tomcat自己实现的线程池。</li>
+<li>然后进行连接器(<code>connector</code>)的初始化（一组连接器，server.xml中配置的多个connector，对应了端口号和协议）</li>
+</ol>
+<p>tomcat的核心组件层级如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Server</span><br><span class="line">└── Service(s)</span><br><span class="line">    ├── Connector(s)  # 处理外部连接（HTTP/HTTPS等）</span><br><span class="line">    └── Engine        # 顶层容器，管理虚拟主机（Host）和请求处理</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-3、engine-init"><a href="#2-2-3、engine-init" class="headerlink" title="2.2.3、engine.init()"></a>2.2.3、engine.init()</h3><p><code>StandardEngine.init()</code>实际执行<code>LifecycleBase.init()</code><br><strong>触发条件</strong>：当StandardService的engine属性不为null时（默认由<code>server.xml</code>配置）</p>
+<p><img src="/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/standardEngine%E7%B1%BB%E5%9B%BE.png" alt="standardEngine类图"></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">LifecycleBase</span> <span class="keyword">implements</span> <span class="title class_">Lifecycle</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> <span class="keyword">throws</span> LifecycleException &#123;</span><br><span class="line">        <span class="keyword">if</span> (!state.equals(LifecycleState.NEW)) &#123;</span><br><span class="line">            invalidTransition(Lifecycle.BEFORE_INIT_EVENT);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            setStateInternal(LifecycleState.INITIALIZING, <span class="literal">null</span>, <span class="literal">false</span>);</span><br><span class="line">            initInternal();</span><br><span class="line">            setStateInternal(LifecycleState.INITIALIZED, <span class="literal">null</span>, <span class="literal">false</span>);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Throwable t) &#123;</span><br><span class="line">            handleSubClassException(t, <span class="string">&quot;lifecycleBase.initFail&quot;</span>, toString());</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">StandardEngine</span> <span class="keyword">extends</span> <span class="title class_">ContainerBase</span> <span class="keyword">implements</span> <span class="title class_">Engine</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initInternal</span><span class="params">()</span> <span class="keyword">throws</span> LifecycleException &#123;</span><br><span class="line">        <span class="comment">// Ensure that a Realm is present before any attempt is made to start</span></span><br><span class="line">        <span class="comment">// one. This will create the default NullRealm if necessary.</span></span><br><span class="line">        getRealm();</span><br><span class="line">        <span class="built_in">super</span>.initInternal();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">ContainerBase</span> <span class="keyword">extends</span> <span class="title class_">LifecycleMBeanBase</span> <span class="keyword">implements</span> <span class="title class_">Container</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initInternal</span><span class="params">()</span> <span class="keyword">throws</span> LifecycleException &#123;</span><br><span class="line">        BlockingQueue&lt;Runnable&gt; startStopQueue = <span class="keyword">new</span> <span class="title class_">LinkedBlockingQueue</span>&lt;&gt;();</span><br><span class="line">        startStopExecutor = <span class="keyword">new</span> <span class="title class_">ThreadPoolExecutor</span>(</span><br><span class="line">                getStartStopThreadsInternal(),</span><br><span class="line">                getStartStopThreadsInternal(), <span class="number">10</span>, TimeUnit.SECONDS,</span><br><span class="line">                startStopQueue,</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">StartStopThreadFactory</span>(getName() + <span class="string">&quot;-startStop-&quot;</span>));</span><br><span class="line">        startStopExecutor.allowCoreThreadTimeOut(<span class="literal">true</span>);</span><br><span class="line">        <span class="built_in">super</span>.initInternal();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>执行<code>engine.init()</code>方法，最终只会执行<code>ContainerBase.initInternal()</code>方法，主要是初始化一个启动线程池。</p>
+<h3 id="2-2-4、executor-init"><a href="#2-2-4、executor-init" class="headerlink" title="2.2.4、executor.init()"></a>2.2.4、executor.init()</h3><p>executor是<code>StandardThreadExecutor</code>（查看digester的解析过程）</p>
+<p>没有做特殊的事情。</p>
+<h3 id="2-2-5、connector-init"><a href="#2-2-5、connector-init" class="headerlink" title="2.2.5、connector.init()"></a>2.2.5、connector.init()</h3><p>Connector的init方法主要是：</p>
+<ul>
+<li>创建CoyoteAdapter</li>
+<li>调用ProtocolHandler的init方法（并没有特殊逻辑），内部会调用Endpoint的init方法<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Connector</span> <span class="keyword">extends</span> <span class="title class_">LifecycleMBeanBase</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initInternal</span><span class="params">()</span> <span class="keyword">throws</span> LifecycleException &#123;</span><br><span class="line">        <span class="built_in">super</span>.initInternal();</span><br><span class="line">        <span class="comment">// 实例化adapter适配器</span></span><br><span class="line">        adapter = <span class="keyword">new</span> <span class="title class_">CoyoteAdapter</span>(<span class="built_in">this</span>);</span><br><span class="line">        protocolHandler.setAdapter(adapter);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//</span></span><br><span class="line">            protocolHandler.init();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h4 id="2-2-5-1、Connector的创建"><a href="#2-2-5-1、Connector的创建" class="headerlink" title="2.2.5.1、Connector的创建"></a>2.2.5.1、Connector的创建</h4><p><code>ConnectorCreateRule</code>，用于处理<connection>标签的解析和Connector对象的创建，主要是其内部的begin()方法</connection></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">digester.addRule(<span class="string">&quot;Server/Service/Connector&quot;</span>, <span class="keyword">new</span> <span class="title class_">ConnectorCreateRule</span>());</span><br><span class="line">digester.addRule(<span class="string">&quot;Server/Service/Connector&quot;</span>, <span class="keyword">new</span> <span class="title class_">SetAllPropertiesRule</span>(<span class="keyword">new</span> <span class="title class_">String</span>[]&#123;<span class="string">&quot;executor&quot;</span>, <span class="string">&quot;sslImplementationName&quot;</span>&#125;));</span><br><span class="line">digester.addSetNext(<span class="string">&quot;Server/Service/Connector&quot;</span>,</span><br><span class="line">                    <span class="string">&quot;addConnector&quot;</span>,</span><br><span class="line">                    <span class="string">&quot;org.apache.catalina.connector.Connector&quot;</span>);</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ConnectorCreateRule</span> <span class="keyword">extends</span> <span class="title class_">Rule</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">begin</span><span class="params">(String namespace, String name, Attributes attributes)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="comment">//栈顶是 StandardService</span></span><br><span class="line">        <span class="type">Service</span> <span class="variable">svc</span> <span class="operator">=</span> (Service)digester.peek();</span><br><span class="line">        <span class="type">Executor</span> <span class="variable">ex</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">if</span> ( attributes.getValue(<span class="string">&quot;executor&quot;</span>)!=<span class="literal">null</span> ) &#123;</span><br><span class="line">            ex = svc.getExecutor(attributes.getValue(<span class="string">&quot;executor&quot;</span>));</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//根据protocol属性创建Connector</span></span><br><span class="line">        <span class="type">Connector</span> <span class="variable">con</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Connector</span>(attributes.getValue(<span class="string">&quot;protocol&quot;</span>));</span><br><span class="line">        <span class="keyword">if</span> (ex != <span class="literal">null</span>) &#123;</span><br><span class="line">            setExecutor(con, ex);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="type">String</span> <span class="variable">sslImplementationName</span> <span class="operator">=</span> attributes.getValue(<span class="string">&quot;sslImplementationName&quot;</span>);</span><br><span class="line">        <span class="keyword">if</span> (sslImplementationName != <span class="literal">null</span>) &#123;</span><br><span class="line">            setSSLImplementationName(con, sslImplementationName);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//将新创建的Connector推入栈顶</span></span><br><span class="line">        digester.push(con);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在Connector的构造函数中，会去实例化<code>ProtocolHandler（&quot;org.apache.coyote.http11.Http11NioProtocol&quot;）</code>，并设置到Connector的protocolHandler属性中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">Connector</span><span class="params">(String protocol)</span> &#123;</span><br><span class="line">    setProtocol(protocol);</span><br><span class="line">    <span class="comment">// Instantiate protocol handler</span></span><br><span class="line">    <span class="type">ProtocolHandler</span> <span class="variable">p</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        Class&lt;?&gt; clazz = Class.forName(protocolHandlerClassName);</span><br><span class="line">        p = (ProtocolHandler) clazz.getConstructor().newInstance();</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.protocolHandler = p;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>Http11NioProtocol</code>构造函数，会创建<code>NioEndpoint</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">Http11NioProtocol</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="built_in">super</span>(<span class="keyword">new</span> <span class="title class_">NioEndpoint</span>());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-2-5-2、protocolHandler-init"><a href="#2-2-5-2、protocolHandler-init" class="headerlink" title="2.2.5.2、protocolHandler.init()"></a>2.2.5.2、protocolHandler.init()</h4><p>在创建<code>Connector</code>时就创建了<code>ProtocolHandler</code>。<br><img src="/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/Http11NioProtocol%E7%B1%BB%E5%9B%BE.png" alt="Http11NioProtocol类图"></p>
+<ul>
+<li>执行<code>AbstractHttp11JsseProtocol.init()</code><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">AbstractHttp11Protocol</span>&lt;S&gt; <span class="keyword">extends</span> <span class="title class_">AbstractProtocol</span>&lt;S&gt; &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="keyword">for</span> (UpgradeProtocol upgradeProtocol : upgradeProtocols) &#123;</span><br><span class="line">            configureUpgradeProtocol(upgradeProtocol);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">super</span>.init();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li>然后执行<code>AbstractProtocol.init()</code>方法：可以看到最终执行<code>endpoint.init()</code>方法<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">AbstractProtocol</span>&lt;S&gt; <span class="keyword">implements</span> <span class="title class_">ProtocolHandler</span>, MBeanRegistration &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">endpointName</span> <span class="operator">=</span> getName();</span><br><span class="line">        endpoint.setName(endpointName.substring(<span class="number">1</span>, endpointName.length()-<span class="number">1</span>));</span><br><span class="line">        endpoint.setDomain(domain);</span><br><span class="line">        endpoint.init();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h4 id="2-2-5-3、endpoint-init"><a href="#2-2-5-3、endpoint-init" class="headerlink" title="2.2.5.3、endpoint.init()"></a>2.2.5.3、endpoint.init()</h4><p><img src="/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/NioEndpoint%E7%B1%BB%E5%9B%BE.png" alt="NioEndpoint类图"><br>最终执行<code>AbstractEndpoint.init()</code>，主要职责就像绑定端口</p>
+<ul>
+<li>NioEndpoint的内部结构，我们已经在上一篇文章已经讲过，回顾一下，<code>NioEndpoint</code>包含以下核心组件：</li>
+</ul>
+<ol>
+<li><code>Acceptor</code>：接受新连接（<code>主Reactor</code>），监听TCP&#x2F;IP连接请求。</li>
+<li><code>Poller</code>：监听I&#x2F;O事件（<code>从Reactor</code>），基于Selector实现</li>
+<li><code>SocketProcessor</code>：封装具体连接的请求处理任务。</li>
+<li><code>Executor</code>（线程池）：处理<code>SocketProcessor</code>中的请求。- <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">AbstractEndpoint</span>&lt;S&gt; &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="keyword">if</span> (bindOnInit) &#123;</span><br><span class="line">            bind();</span><br><span class="line">            bindState = BindState.BOUND_ON_INIT;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">this</span>.domain != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="comment">// Register endpoint (as ThreadPool - historical name)</span></span><br><span class="line">            oname = <span class="keyword">new</span> <span class="title class_">ObjectName</span>(domain + <span class="string">&quot;:type=ThreadPool,name=\&quot;&quot;</span> + getName() + <span class="string">&quot;\&quot;&quot;</span>);</span><br><span class="line">            Registry.getRegistry(<span class="literal">null</span>, <span class="literal">null</span>).registerComponent(<span class="built_in">this</span>, oname, <span class="literal">null</span>);</span><br><span class="line"></span><br><span class="line">            <span class="type">ObjectName</span> <span class="variable">socketPropertiesOname</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectName</span>(domain +</span><br><span class="line">                    <span class="string">&quot;:type=ThreadPool,name=\&quot;&quot;</span> + getName() + <span class="string">&quot;\&quot;,subType=SocketProperties&quot;</span>);</span><br><span class="line">            socketProperties.setObjectName(socketPropertiesOname);</span><br><span class="line">            Registry.getRegistry(<span class="literal">null</span>, <span class="literal">null</span>).registerComponent(socketProperties, socketPropertiesOname, <span class="literal">null</span>);</span><br><span class="line"></span><br><span class="line">            <span class="keyword">for</span> (SSLHostConfig sslHostConfig : findSslHostConfigs()) &#123;</span><br><span class="line">                registerJmx(sslHostConfig);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+创建socket并绑定端口号。<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">bind</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="keyword">if</span> (!getUseInheritedChannel()) &#123;</span><br><span class="line">        serverSock = ServerSocketChannel.open();</span><br><span class="line">        socketProperties.setProperties(serverSock.socket());</span><br><span class="line">        <span class="type">InetSocketAddress</span> <span class="variable">addr</span> <span class="operator">=</span> (getAddress()!=<span class="literal">null</span>?<span class="keyword">new</span> <span class="title class_">InetSocketAddress</span>(getAddress(),getPort()):<span class="keyword">new</span> <span class="title class_">InetSocketAddress</span>(getPort()));</span><br><span class="line">        serverSock.socket().bind(addr,getAcceptCount());</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// Retrieve the channel provided by the OS</span></span><br><span class="line">        <span class="type">Channel</span> <span class="variable">ic</span> <span class="operator">=</span> System.inheritedChannel();</span><br><span class="line">        <span class="keyword">if</span> (ic <span class="keyword">instanceof</span> ServerSocketChannel) &#123;</span><br><span class="line">            serverSock = (ServerSocketChannel) ic;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (serverSock == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(sm.getString(<span class="string">&quot;endpoint.init.bind.inherited&quot;</span>));</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    serverSock.configureBlocking(<span class="literal">true</span>); <span class="comment">//mimic APR behavior</span></span><br><span class="line">    selectorPool.open();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h1 id="三、load过程总结"><a href="#三、load过程总结" class="headerlink" title="三、load过程总结"></a>三、load过程总结</h1><p><img src="/2019/12/20/2019-12-20-tomcat%E5%90%AF%E5%8A%A8-load%E8%BF%87%E7%A8%8B/%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B.png" alt="启动过程"></p>
+<p>参考<br><a href="https://blog.csdn.net/cx520forever/article/details/52743166">Tomcat整体架构浅析</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/11/30/2019-11-30-tomcat%E6%9E%B6%E6%9E%84/" rel="prev" title="tomcat架构">
+      <i class="fa fa-chevron-left"></i> tomcat架构
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/12/21/2019-12-21-tomcat%E5%90%AF%E5%8A%A8-start%E8%BF%87%E7%A8%8B/" rel="next" title="《tomcat》启动-start过程">
+      《tomcat》启动-start过程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81tomcat%E7%9A%84%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B"><span class="nav-text">一、tomcat的启动过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#catalina-sh%E7%9A%84%E6%A0%B8%E5%BF%83%E6%B5%81%E7%A8%8B"><span class="nav-text">catalina.sh的核心流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Java%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B"><span class="nav-text">Java启动过程</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Load%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B"><span class="nav-text">二、Load加载过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%9A%E8%A7%A3%E6%9E%90server-xml%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6"><span class="nav-text">2.1、第一步：解析server.xml配置文件</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-1%E3%80%81createStartDigester%E7%9A%84%E6%A0%B8%E5%BF%83%E4%BD%9C%E7%94%A8"><span class="nav-text">2.1.1、createStartDigester的核心作用</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-1-1%E3%80%81%E5%85%B3%E9%94%AE%E8%A7%84%E5%88%99%E6%96%B9%E6%B3%95%E8%A7%A3%E6%9E%90"><span class="nav-text">2.1.1.1、关键规则方法解析</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#addObjectCreate"><span class="nav-text">addObjectCreate()</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#addSetProperties"><span class="nav-text">addSetProperties()</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#addSetNext"><span class="nav-text">addSetNext()</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-1-1-2%E3%80%81%E5%B0%8F%E7%BB%93"><span class="nav-text">2.1.1.2、小结</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%9AgetServer-init-%E5%88%9D%E5%A7%8B%E5%8C%96server"><span class="nav-text">2.2、第二步：getServer().init()初始化server</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1%E3%80%81StandardServer-initInternal"><span class="nav-text">2.2.1、StandardServer.initInternal()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-2%E3%80%81StandardService-initInternal"><span class="nav-text">2.2.2、StandardService.initInternal()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-3%E3%80%81engine-init"><span class="nav-text">2.2.3、engine.init()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-4%E3%80%81executor-init"><span class="nav-text">2.2.4、executor.init()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-5%E3%80%81connector-init"><span class="nav-text">2.2.5、connector.init()</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-5-1%E3%80%81Connector%E7%9A%84%E5%88%9B%E5%BB%BA"><span class="nav-text">2.2.5.1、Connector的创建</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-5-2%E3%80%81protocolHandler-init"><span class="nav-text">2.2.5.2、protocolHandler.init()</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-5-3%E3%80%81endpoint-init"><span class="nav-text">2.2.5.3、endpoint.init()</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81load%E8%BF%87%E7%A8%8B%E6%80%BB%E7%BB%93"><span class="nav-text">三、load过程总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">171</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">137</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">25</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
