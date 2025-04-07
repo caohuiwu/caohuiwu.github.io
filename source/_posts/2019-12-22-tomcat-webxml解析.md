@@ -1,7 +1,8 @@
 ---
 title: tomcat-webxml解析
 date: 2019-12-22 18:08:35
-tags: Tomcat
+categories:
+   - [tomcat]
 ---
 # 一、解析顺序
 先解析server.xml，再解析web.xml
@@ -12,7 +13,7 @@ tags: Tomcat
 Catalina的load方法，此时会去解析server.xml文件
 
 <!--more-->
-```
+```java
 public void load() {
     // Create and execute our Digester
     Digester digester = createStartDigester();
@@ -173,7 +174,7 @@ server.xml的解析，主要是去创建相应的实例对象，并设置层级�
  
 ## 2.1、StandardContext的创建时机
 
-```
+```java
 ContextRuleSet
 /**
  * <p>Add the set of Rule instances defined in this RuleSet to the
@@ -350,7 +351,7 @@ ContextRuleSet定义了创建规则，digester会通过规则创建StandardConte
 
 # 三、web.xml的解析时机，在启动阶段
 ## 1. StandardServer.startInternal()方法
-```
+```java
 protected void startInternal() throws LifecycleException {
     //通知容器启动事件
     fireLifecycleEvent(CONFIGURE_START_EVENT, null);
@@ -365,7 +366,7 @@ protected void startInternal() throws LifecycleException {
 }
 ```
 ## 2. StandardContext.startInternal()方法
-```
+```java
 protected synchronized void startInternal() throws LifecycleException {
     // Notify our interested LifecycleListeners
     //1、通知容器启动事件，去解析web.xml
@@ -397,7 +398,7 @@ protected synchronized void startInternal() throws LifecycleException {
 ```
 ## 3、ContextConfig.lifecycleEvent()方法
 触发事件，进行文件的解析
-```
+```java
 public void lifecycleEvent(LifecycleEvent event) {
     // Process the event that has occurred
     if (event.getType().equals(Lifecycle.CONFIGURE_START_EVENT)) {
@@ -411,7 +412,7 @@ public void lifecycleEvent(LifecycleEvent event) {
 
 
 ### 3.1、ContextConfig事件
-```
+```java
 /**
  * Process a "contextConfig" event for this Context.
  */
@@ -471,7 +472,7 @@ protected synchronized void configureStart() {
 
 
 ### 3.2、webConfig()方法，会根据web.xml中的配置进行listen，filter，servlet的信息设置
-```
+```java
 private void configureContext(WebXml webxml) {
     
     //filter的解析，此处未进行创建
@@ -535,7 +536,7 @@ private void configureContext(WebXml webxml) {
 
 ### 3.3、listen filter servlet的创建
 StandardContext.startInternal()方法进行web.xml解析后，就会进行listen和filter和servlet的创建
-```
+```java
 public boolean listenerStart() {
      // Instantiate the required listeners
     String listeners[] = findApplicationListeners();
@@ -591,7 +592,7 @@ public boolean filterStart() {
 当然这种加载只是针对配置了 load-on-startup 属性的 Servlet 而言，
 其它一般 Servlet 的加载和初始化会推迟到真正请求访问 web 应用而第一次调用该 Servlet 时，
 下面会看到这种情况下代码分析。
-```
+```java
 public boolean loadOnStartup(Container children[]) {
 
     // Collect "load on startup" servlets that need to be initialized
@@ -636,7 +637,7 @@ public synchronized void load() throws ServletException {
 3. filter#doFilter()、servlet#service()的执行是在filterChain.doFilter(request.getRequest(), response.getResponse());代码内部执行的。
 
 > sevletRequestListener执行时机
-```
+```java
 StandardHostValve.invoke
 // context.fireRequestInitEvent，会去通知Listener
 public final void invoke(Request request, Response response)
@@ -650,7 +651,7 @@ public final void invoke(Request request, Response response)
 ```   
 
 //请求过来时，会去执行listener
-```
+```java
 public boolean fireRequestInitEvent(ServletRequest request) {
     Object instances[] = getApplicationEventListeners();
     if ((instances != null) && (instances.length > 0)) {
@@ -665,7 +666,7 @@ public boolean fireRequestInitEvent(ServletRequest request) {
 }
 ```
 
-# 五、请求执行过程
+# 四、请求执行过程
 StandardContext.startInternal()方法进行web.xml解析后，就会进行listen和filter和servlet（ServletWarpper）的创建
 1. StandardHostValve.invoke，会调用StanardContext.fireRequestInitEvent
 2. StandardContext.fireRequestInitEvent的 **listener（servletListener）** 的requestInitialized方法

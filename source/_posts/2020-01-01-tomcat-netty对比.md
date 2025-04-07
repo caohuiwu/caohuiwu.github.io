@@ -1,7 +1,8 @@
 ---
 title: tomcat-netty对比
 date: 2020-01-01 11:54:20
-tags: Tomcat netty
+categories:
+  - [tomcat]
 ---
 # 一、Acceptor线程数量对比
 ## Tomcat：默认是1，该线程监听客户端连接请求
