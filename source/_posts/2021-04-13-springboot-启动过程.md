@@ -2,7 +2,7 @@
 title: 《springboot》启动过程
 date: 2021-04-13
 categories:
-  - [springboot]
+  - [spring, springboot]
 ---
 
     这是springboot系列的第1篇文章，主要介绍的是springboot的启动过程。

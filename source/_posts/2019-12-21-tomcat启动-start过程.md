@@ -188,7 +188,42 @@ private static class StartChild implements Callable<Void> {
 Host（实现类为StandardHost）中的start没有特殊的，会调用父类ContainerBase的startInternal方法，会继续找子容器调用start方法
 
 ### 2.3.2、Context.start()
-在`Context`容器中，start方法的执行逻辑会比较复杂：
+在`Context`容器中，start方法的执行逻辑会比较复杂：会去解析`web.xml`文件，
+`StandardContext.startInternal()`启动过程中，触发`Lifecycle.CONFIGURE_START_EVENT` 事件，简化后代码如下：
+```java
+protected synchronized void startInternal() throws LifecycleException {
+   //1、通知容器启动事件，去解析web.xml
+   fireLifecycleEvent(Lifecycle.CONFIGURE_START_EVENT, null);
+   //Start our child containers, if not already started
+   for (Container child : findChildren()) {
+      if (!child.getState().isAvailable()) {
+         child.start();
+      }
+   }
+   //2、进行listener的创建和启动
+   if (ok) {
+     if (!listenerStart()) {
+         log.error(sm.getString("standardContext.listenerFail"));
+         ok = false;
+     }
+   }
+   // 3、filter的创建和启动
+   if (ok) {
+     if (!filterStart()) {
+         log.error(sm.getString("standardContext.filterFail"));
+         ok = false;
+     }
+   }
+   //加载和实例化servlet
+   // Load and initialize all "load on startup" servlets
+   if (ok) {
+     if (!loadOnStartup(findChildren())){
+         log.error(sm.getString("standardContext.servletFail"));
+         ok = false;
+     }
+   }
+}
+```
 
 创建一个Loader，内部会包含一个类加载器，并且调用start方法。
 ```java
@@ -222,6 +257,33 @@ loadOnStartup(findChildren());
 ```
 `Wrapper`容器中，并没有特殊的地方。
 
+### 2.3.3、wrapper.start()
+```java
+public class StandardWrapper extends ContainerBase
+    implements ServletConfig, Wrapper, NotificationEmitter {
+   @Override
+   protected synchronized void startInternal() throws LifecycleException {
+      // Send j2ee.state.starting notification
+      if (this.getObjectName() != null) {
+         Notification notification = new Notification("j2ee.state.starting",
+                 this.getObjectName(),
+                 sequenceNumber++);
+         broadcaster.sendNotification(notification);
+      }
+      // Start up this component
+      super.startInternal();
+
+      setAvailable(0L);
+      // Send j2ee.state.running notification
+      if (this.getObjectName() != null) {
+         Notification notification =
+                 new Notification("j2ee.state.running", this.getObjectName(),
+                         sequenceNumber++);
+         broadcaster.sendNotification(notification);
+      }
+   }
+ }
+```
 
 ## 2.4、Executor.startInternal()
 ```java
@@ -612,8 +674,7 @@ postParseSuccess = postParseRequest(req, request, res, response);
 // Calling the container
 connector.getService().getContainer().getPipeline().getFirst().invoke(
         request, response);
-```        
-        
+```
 1. 根据请求信息解析, 将对应的Host, Context, Wrapper容器对象封装到request实例中(重点)
 2. 调用StandardEngine的pipeline对Request,Response进行处理, StandardHostValve保存在pipeline的first属性中
 

@@ -2,7 +2,7 @@
 title: 《springboot》自动装配
 date: 2021-04-14
 categories:
-  - [springboot]
+  - [spring, springboot]
 ---
 
     这是springboot系列的第2篇文章，主要介绍的是springboot的自动装配。

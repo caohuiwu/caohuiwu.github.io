@@ -2,7 +2,7 @@
 title: 《springboot》如何嵌入Tomcat
 date: 2021-04-21
 categories:
-  - [springboot]
+  - [spring, springboot]
 ---
 
     这是springboot系列的第4篇文章，主要介绍的是springboot如何嵌入Tomcat。
