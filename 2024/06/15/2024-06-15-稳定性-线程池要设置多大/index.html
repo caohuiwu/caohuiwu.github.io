@@ -20,17 +20,17 @@
     var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="这是稳定性系列的第四篇文章，主要介绍的是线程池的设置。  一、理论分析业界的一些线程池参数配置方案：">
+  <meta name="description" content="这是稳定性系列的第四篇文章，主要介绍的是线程池的设置。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }    一、理论分析1.1、N+1 和 2N的说法来源">
 <meta property="og:type" content="article">
 <meta property="og:title" content="《稳定性》线程池要设置多大">
 <meta property="og:url" content="http://yoursite.com/2024/06/15/2024-06-15-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E7%BA%BF%E7%A8%8B%E6%B1%A0%E8%A6%81%E8%AE%BE%E7%BD%AE%E5%A4%9A%E5%A4%A7/index.html">
 <meta property="og:site_name" content="CHW&#39;s Notes">
-<meta property="og:description" content="这是稳定性系列的第四篇文章，主要介绍的是线程池的设置。  一、理论分析业界的一些线程池参数配置方案：">
+<meta property="og:description" content="这是稳定性系列的第四篇文章，主要介绍的是线程池的设置。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }    一、理论分析1.1、N+1 和 2N的说法来源">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="http://yoursite.com/2024/06/15/2024-06-15-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E7%BA%BF%E7%A8%8B%E6%B1%A0%E8%A6%81%E8%AE%BE%E7%BD%AE%E5%A4%9A%E5%A4%A7/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E5%8F%82%E6%95%B0%E9%85%8D%E7%BD%AE%E6%96%B9%E6%A1%88.png">
 <meta property="og:image" content="http://yoursite.com/2024/06/15/2024-06-15-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E7%BA%BF%E7%A8%8B%E6%B1%A0%E8%A6%81%E8%AE%BE%E7%BD%AE%E5%A4%9A%E5%A4%A7/%E9%98%9F%E5%88%97%E5%92%8C%E6%B5%81%E9%87%8F%E7%9A%84%E5%85%B3%E7%B3%BB.png">
 <meta property="article:published_time" content="2024-06-15T02:00:00.000Z">
-<meta property="article:modified_time" content="2025-03-04T07:37:55.844Z">
+<meta property="article:modified_time" content="2025-04-10T08:22:37.712Z">
 <meta property="article:author" content="chw">
 <meta property="article:tag" content="阿里">
 <meta name="twitter:card" content="summary">
@@ -194,7 +194,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2025-03-04 15:37:55" itemprop="dateModified" datetime="2025-03-04T15:37:55+08:00">2025-03-04</time>
+                <time title="修改时间：2025-04-10 16:22:37" itemprop="dateModified" datetime="2025-04-10T16:22:37+08:00">2025-04-10</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -235,14 +235,14 @@
                 <i class="far fa-file-word"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>1.2k</span>
+              <span>2k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="far fa-clock"></i>
               </span>
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>3 分钟</span>
+              <span>5 分钟</span>
             </span>
 
         </div>
@@ -256,10 +256,35 @@
       
         <pre><code>这是稳定性系列的第四篇文章，主要介绍的是线程池的设置。
 </code></pre>
-<h3 id="一、理论分析"><a href="#一、理论分析" class="headerlink" title="一、理论分析"></a>一、理论分析</h3><p><strong>业界的一些线程池参数配置方案：</strong><br><img src="/2024/06/15/2024-06-15-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E7%BA%BF%E7%A8%8B%E6%B1%A0%E8%A6%81%E8%AE%BE%E7%BD%AE%E5%A4%9A%E5%A4%A7/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E5%8F%82%E6%95%B0%E9%85%8D%E7%BD%AE%E6%96%B9%E6%A1%88.png" alt="线程池参数配置方案"></p>
-<span id="more"></span>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+
+<h1 id="一、理论分析"><a href="#一、理论分析" class="headerlink" title="一、理论分析"></a>一、理论分析</h1><h2 id="1-1、N-1-和-2N的说法来源"><a href="#1-1、N-1-和-2N的说法来源" class="headerlink" title="1.1、N+1 和 2N的说法来源"></a>1.1、N+1 和 2N的说法来源</h2><span id="more"></span>
+<p><strong>业界的一些线程池参数配置方案：</strong><br><img src="/2024/06/15/2024-06-15-%E7%A8%B3%E5%AE%9A%E6%80%A7-%E7%BA%BF%E7%A8%8B%E6%B1%A0%E8%A6%81%E8%AE%BE%E7%BD%AE%E5%A4%9A%E5%A4%A7/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E5%8F%82%E6%95%B0%E9%85%8D%E7%BD%AE%E6%96%B9%E6%A1%88.png" alt="线程池参数配置方案"><br>源自2006年出版的《Java并发编程》这本书里，给出的公式如上图（第一种）：</p>
 <blockquote>
-<p>一般思路：会使用第3种计算方式去得到大致的线程池数量。</p>
+<p><code>N+1</code>：CPU密集型任务，线程几乎一直在执行计算，很少阻塞。N+1可以确保即使一个线程阻塞，其他N个线程扔能充分利用CPU。<br><code>2N</code>：IO密集型任务，线程频繁阻塞（如等待网络、数据库、文件IO），理论上，2N线程可使CPU利用率接近100%（假设每个线程的IO等待时间均匀分布）</p>
+</blockquote>
+<p>现实情况下，假设一个简单查询，等待时间大约是10ms，计算时间是2ms，理论是5N个线程数量。<code>但是为什么可以设置成这么高，大家不敢设置呢？</code></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">是因为长久以来有个一贯的说法是：上下文切换会带来CPU的空转损耗，但是没人告诉你，CPU上下文切换这种说法呢是源自1961年有其时代的局限性</span><br><span class="line">• 1961年的上下文切换耗时：在数百微秒到毫秒级别（如100~1000us），主要受限于低主频、慢内存和缺乏硬件支持。</span><br><span class="line">• 现在的CPU上下文切换耗时大约是1~3微秒左右。</span><br><span class="line"></span><br><span class="line">微秒 (μs)</span><br><span class="line">• 换算关系：1 ms = 1000 μs。</span><br><span class="line"></span><br><span class="line">每核每秒切换线程上下文1000次 * 每次3μs = 3000μs</span><br><span class="line">• 3000μs/1000 = 3ms -&gt; 1s中损耗3ms，损耗极少</span><br></pre></td></tr></table></figure>
+<p>在极端的高并发情况下，有<code>几十万个线程</code>正在切换才会造成巨大影响，否则以Tomcat为例，200个线程或者是1000、2000个线程切换，这个损耗几乎可以忽略不计的。</p>
+<blockquote>
+<p>200000*3μs &#x2F;1000&#x2F;1000&#x3D;0.6s，此时线程上下文切换会对性能造成巨大影响。</p>
+</blockquote>
+<h2 id="1-2、理论设计"><a href="#1-2、理论设计" class="headerlink" title="1.2、理论设计"></a>1.2、理论设计</h2><p>一般思路：会使用<code>第3种</code>计算方式去得到大致的线程池数量。</p>
+<blockquote>
 <p>示例如下：假设1秒需要执行1000个任务，每个任务执行耗时40ms，那么需要多少个线程？</p>
 <p>公式：任务个数&#x2F;每秒执行个数&#x3D;线程数量</p>
 <ul>
@@ -279,9 +304,9 @@
 <li><strong>线程处理速度 &gt; 流量：</strong> 有可能是线程数量过多，造成资源浪费。</li>
 </ul>
 </blockquote>
-<h3 id="三、实际业务"><a href="#三、实际业务" class="headerlink" title="三、实际业务"></a>三、实际业务</h3><p>在实际业务中，为了系统稳定性，每个业务都会有独立的线程池，所以会存在多个线程池。那如果一个新业务来了，我们应该怎么设置线程池数量呢？这篇文章为订单拉单的后序文章。</p>
-<h4 id="3-1、线程预估"><a href="#3-1、线程预估" class="headerlink" title="3.1、线程预估"></a>3.1、线程预估</h4><p>这一步操作还是需要的，基于新业务的特性，根据理论分析，估算出大致的线程数量。预估出来后，我们应该怎么做呢？</p>
-<h4 id="3-2、分析影响"><a href="#3-2、分析影响" class="headerlink" title="3.2、分析影响"></a>3.2、分析影响</h4><p>预估出来后，需要分析影响。</p>
+<h1 id="三、实际业务"><a href="#三、实际业务" class="headerlink" title="三、实际业务"></a>三、实际业务</h1><p>在实际业务中，为了系统稳定性，每个业务都会有独立的线程池，所以会存在多个线程池。那如果一个新业务来了，我们应该怎么设置线程池数量呢？这篇文章为订单拉单的后序文章。</p>
+<h2 id="3-1、线程预估"><a href="#3-1、线程预估" class="headerlink" title="3.1、线程预估"></a>3.1、线程预估</h2><p>这一步操作还是需要的，基于新业务的特性，根据理论分析，估算出大致的线程数量。预估出来后，我们应该怎么做呢？</p>
+<h2 id="3-2、分析影响"><a href="#3-2、分析影响" class="headerlink" title="3.2、分析影响"></a>3.2、分析影响</h2><p>预估出来后，需要分析影响。</p>
 <p>增加线程池，有可能会对现有业务造成影响（不管有木有影响，我们还是得去做考虑），应该从哪些方面进行分析呢？</p>
 <p><strong>方面1：业务响应时间 &amp; 吞吐量</strong><br>为什么需要考虑这个？</p>
 <blockquote>
@@ -315,7 +340,7 @@
 <blockquote>
 <p>每开启一个线程都需要内存空间，并且任务堆积情况下，会造成内存消耗，极端情况下造成oom。</p>
 </blockquote>
-<h4 id="3-3、我们应该怎么做？"><a href="#3-3、我们应该怎么做？" class="headerlink" title="3.3、我们应该怎么做？"></a>3.3、我们应该怎么做？</h4><blockquote>
+<h2 id="3-3、我们应该怎么做？"><a href="#3-3、我们应该怎么做？" class="headerlink" title="3.3、我们应该怎么做？"></a>3.3、我们应该怎么做？</h2><blockquote>
 <p>最佳实践：采用灰度发布的方式，逐步将新线程池引入现有业务系统；同时对现有业务的监控指标进行观察。</p>
 </blockquote>
 <p>参考文章：<br><a href="https://tech.meituan.com/2020/04/02/java-pooling-pratice-in-meituan.html">Java线程池实现原理及其在美团业务中的实践</a><br><a href="https://juejin.cn/post/7067183465224994852#heading-5">线程池的数量和线程池中线程数量如何设置-实践篇</a></p>
@@ -402,7 +427,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E7%90%86%E8%AE%BA%E5%88%86%E6%9E%90"><span class="nav-text">一、理论分析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%AE%9E%E9%99%85%E4%B8%9A%E5%8A%A1"><span class="nav-text">三、实际业务</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1%E3%80%81%E7%BA%BF%E7%A8%8B%E9%A2%84%E4%BC%B0"><span class="nav-text">3.1、线程预估</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2%E3%80%81%E5%88%86%E6%9E%90%E5%BD%B1%E5%93%8D"><span class="nav-text">3.2、分析影响</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3%E3%80%81%E6%88%91%E4%BB%AC%E5%BA%94%E8%AF%A5%E6%80%8E%E4%B9%88%E5%81%9A%EF%BC%9F"><span class="nav-text">3.3、我们应该怎么做？</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E7%90%86%E8%AE%BA%E5%88%86%E6%9E%90"><span class="nav-text">一、理论分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-1%E3%80%81N-1-%E5%92%8C-2N%E7%9A%84%E8%AF%B4%E6%B3%95%E6%9D%A5%E6%BA%90"><span class="nav-text">1.1、N+1 和 2N的说法来源</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-2%E3%80%81%E7%90%86%E8%AE%BA%E8%AE%BE%E8%AE%A1"><span class="nav-text">1.2、理论设计</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%AE%9E%E9%99%85%E4%B8%9A%E5%8A%A1"><span class="nav-text">三、实际业务</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E7%BA%BF%E7%A8%8B%E9%A2%84%E4%BC%B0"><span class="nav-text">3.1、线程预估</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E5%88%86%E6%9E%90%E5%BD%B1%E5%93%8D"><span class="nav-text">3.2、分析影响</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E6%88%91%E4%BB%AC%E5%BA%94%E8%AF%A5%E6%80%8E%E4%B9%88%E5%81%9A%EF%BC%9F"><span class="nav-text">3.3、我们应该怎么做？</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -418,7 +443,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">172</span>
+          <span class="site-state-item-count">174</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
