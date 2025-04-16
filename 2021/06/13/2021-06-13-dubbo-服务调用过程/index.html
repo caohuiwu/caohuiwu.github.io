@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是dubbo系列的第6篇文章，主要介绍的是dubbo的服务调用过程。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、dubboDubbo 是一款微服务开发框架，它提供了 RPC通信 与 微服务">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《dubbo》服务调用过程">
+<meta property="og:url" content="http://yoursite.com/2021/06/13/2021-06-13-dubbo-%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是dubbo系列的第6篇文章，主要介绍的是dubbo的服务调用过程。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、dubboDubbo 是一款微服务开发框架，它提供了 RPC通信 与 微服务">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/06/13/2021-06-13-dubbo-%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B/Invoker%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2021/06/13/2021-06-13-dubbo-%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B/%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E6%97%B6%E5%BA%8F%E5%9B%BE.png">
+<meta property="article:published_time" content="2021-06-12T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-16T07:35:24.054Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/06/13/2021-06-13-dubbo-%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B/Invoker%E7%BB%93%E6%9E%84.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/06/13/2021-06-13-dubbo-%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《dubbo》服务调用过程 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/06/13/2021-06-13-dubbo-%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《dubbo》服务调用过程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-06-13 00:00:00" itemprop="dateCreated datePublished" datetime="2021-06-13T00:00:00+08:00">2021-06-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-16 15:35:24" itemprop="dateModified" datetime="2025-04-16T15:35:24+08:00">2025-04-16</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/dubbo/" itemprop="url" rel="index"><span itemprop="name">dubbo</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>3.8k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>10 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是dubbo系列的第6篇文章，主要介绍的是dubbo的服务调用过程。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、dubbo"><a href="#一、dubbo" class="headerlink" title="一、dubbo"></a>一、dubbo</h1><p>Dubbo 是一款微服务开发框架，它提供了 <strong>RPC通信</strong> 与 <strong>微服务治理</strong> 两大关键能力。这意味着，使用 Dubbo 开发的微服务，将具备相互之间的远程发现与通信能力， 同时利用 Dubbo 提供的丰富服务治理能力，可以实现诸如服务发现、负载均衡、流量调度等服务治理诉求。同时 Dubbo 是高度可扩展的，用户几乎可以在任意功能点去定制自己的实现，以改变框架的默认行为来满足自己的业务需求。</p>
+<span id="more"></span>
+
+<p>Dubbo主要提供了<code>3大核心功能</code>：面向接口的远程方法调用，智能容错和负载均衡，以及服务自动注册和发现。</p>
+<ol>
+<li><p><strong>远程方法调用</strong><br>网络通信框架，提供对多种NIO框架抽象封装，包括“同步转异步”和“请求-响应”模式的信息交换方式。</p>
+</li>
+<li><p><strong>智能容错和负载均衡</strong><br>提供基于接口方法的透明远程过程调用，包括多协议支持，以及软负载均衡，失败容错，地址路由，动态配置等集群支持。</p>
+</li>
+<li><p><strong>服务注册和发现</strong><br>服务注册，基于注册中心目录服务，使服务消费方能动态的查找服务提供方，使地址透明，使服务提供方可以平滑增加或减少机器。</p>
+</li>
+</ol>
+<h1 id="二、示例代码"><a href="#二、示例代码" class="headerlink" title="二、示例代码"></a>二、示例代码</h1><p>以当前示例，来进行服务调用过程的分析。</p>
+<p>spring配置文件：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dubbo:reference</span> <span class="attr">id</span>=<span class="string">&quot;demoService&quot;</span> <span class="attr">check</span>=<span class="string">&quot;false&quot;</span> <span class="attr">init</span>=<span class="string">&quot;false&quot;</span> <span class="attr">interface</span>=<span class="string">&quot;com.alibaba.dubbo.demo.DemoService&quot;</span>/&gt;</span></span><br></pre></td></tr></table></figure>
+<p>Java代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TestService</span> &#123;</span><br><span class="line">    <span class="meta">@Resource</span></span><br><span class="line">    <span class="keyword">private</span> DemoService demoService;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">get</span><span class="params">()</span> &#123;</span><br><span class="line">        demoSercice.sayHello(<span class="string">&quot;String name&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在<code>Consumer</code>启动过程中，我们解析了注入过程，当前注入的对象，是执行<code>ReferenceBean.getObject()</code>方法返回的代理对象。</p>
+<p>代理对象字节码反编译后的示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">proxy0</span> <span class="keyword">implements</span> <span class="title class_">ClassGenerator</span>.DC, EchoService, DemoService &#123;</span><br><span class="line">    <span class="comment">// 方法数组</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Method[] methods;</span><br><span class="line">    <span class="keyword">private</span> InvocationHandler handler;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">proxy0</span><span class="params">(InvocationHandler invocationHandler)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.handler = invocationHandler;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">proxy0</span><span class="params">()</span> &#123;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">sayHello</span><span class="params">(String string)</span> &#123;</span><br><span class="line">        <span class="comment">// 将参数存储到 Object 数组中</span></span><br><span class="line">        Object[] arrobject = <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;string&#125;;</span><br><span class="line">        <span class="comment">// 调用 InvocationHandler 实现类的 invoke 方法得到调用结果</span></span><br><span class="line">        <span class="type">Object</span> <span class="variable">object</span> <span class="operator">=</span> <span class="built_in">this</span>.handler.invoke(<span class="built_in">this</span>, methods[<span class="number">0</span>], arrobject);</span><br><span class="line">        <span class="comment">// 返回调用结果</span></span><br><span class="line">        <span class="keyword">return</span> (String)object;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 回声测试方法 */</span></span><br><span class="line">    <span class="keyword">public</span> Object $echo(Object object) &#123;</span><br><span class="line">        Object[] arrobject = <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;object&#125;;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">object2</span> <span class="operator">=</span> <span class="built_in">this</span>.handler.invoke(<span class="built_in">this</span>, methods[<span class="number">1</span>], arrobject);</span><br><span class="line">        <span class="keyword">return</span> object2;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>Invoker</code>：Dubbo内部定义的类，封装具体的调用逻辑。</li>
+<li><code>InvocationHandler</code>：JDK动态代理的接口</li>
+<li><code>InvokerInvocationHandler</code>：Dubbo中对JDK动态代理的实现</li>
+</ul>
+<h1 id="三、代理对象执行"><a href="#三、代理对象执行" class="headerlink" title="三、代理对象执行"></a>三、代理对象执行</h1><p>代理对象执行相应方法时，会先执行增强处理器： <code>InvokerInvocationHandler</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">InvokerInvocationHandler</span> <span class="keyword">implements</span> <span class="title class_">InvocationHandler</span> &#123;</span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> Invoker&lt;?&gt; invoker;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">public</span> <span class="title function_">InvokerInvocationHandler</span><span class="params">(Invoker&lt;?&gt; handler)</span> &#123;</span><br><span class="line">    <span class="built_in">this</span>.invoker = handler;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="keyword">public</span> Object <span class="title function_">invoke</span><span class="params">(Object proxy, Method method, Object[] args)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">methodName</span> <span class="operator">=</span> method.getName();</span><br><span class="line">    Class&lt;?&gt;[] parameterTypes = method.getParameterTypes();</span><br><span class="line">    <span class="keyword">if</span> (method.getDeclaringClass() == Object.class) &#123;</span><br><span class="line">      <span class="keyword">return</span> method.invoke(invoker, args);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="string">&quot;toString&quot;</span>.equals(methodName) &amp;&amp; parameterTypes.length == <span class="number">0</span>) &#123;</span><br><span class="line">      <span class="keyword">return</span> invoker.toString();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="string">&quot;hashCode&quot;</span>.equals(methodName) &amp;&amp; parameterTypes.length == <span class="number">0</span>) &#123;</span><br><span class="line">      <span class="keyword">return</span> invoker.hashCode();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="string">&quot;equals&quot;</span>.equals(methodName) &amp;&amp; parameterTypes.length == <span class="number">1</span>) &#123;</span><br><span class="line">      <span class="keyword">return</span> invoker.equals(args[<span class="number">0</span>]);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> invoker.invoke(<span class="keyword">new</span> <span class="title class_">RpcInvocation</span>(method, args)).recreate();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们这里以在单注册中心为例，当前 <code>Invoker</code> 结构如下：<br><img src="/2021/06/13/2021-06-13-dubbo-%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B/Invoker%E7%BB%93%E6%9E%84.png" alt="Invoker结构"></p>
+<h2 id="3-1、AbstractClusterInvoker-invoke-方法"><a href="#3-1、AbstractClusterInvoker-invoke-方法" class="headerlink" title="3.1、AbstractClusterInvoker.invoke()方法"></a>3.1、AbstractClusterInvoker.invoke()方法</h2><h3 id="3-1-1、路由"><a href="#3-1-1、路由" class="headerlink" title="3.1.1、路由"></a>3.1.1、路由</h3><h3 id="3-1-2、负载均衡"><a href="#3-1-2、负载均衡" class="headerlink" title="3.1.2、负载均衡"></a>3.1.2、负载均衡</h3><p>首先加载LoadBalance</p>
+<h3 id="3-1-3、通过负载均衡，获得invoker"><a href="#3-1-3、通过负载均衡，获得invoker" class="headerlink" title="3.1.3、通过负载均衡，获得invoker"></a>3.1.3、通过负载均衡，获得invoker</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">loadbalance.select(invokers, getUrl(), invocation)</span><br></pre></td></tr></table></figure>
+<h3 id="3-1-4、获取Invoker"><a href="#3-1-4、获取Invoker" class="headerlink" title="3.1.4、获取Invoker"></a>3.1.4、获取Invoker</h3><p>通过<code>FailoverClusterInvoker</code>选择出了<code>DubboInvoker</code>并有它的父类<code>AbstractInvoke</code>调用它的<code>doInvoke()</code>,它才是真正进行远程调用的invoker.</p>
+<h4 id="3-1-4-1、服务消费方发送请求"><a href="#3-1-4-1、服务消费方发送请求" class="headerlink" title="3.1.4.1、服务消费方发送请求"></a>3.1.4.1、服务消费方发送请求</h4><p>发送请求时的调用链如上</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">DubboInvoker#doInvoke -&gt; ReferenceCountExchangeClient#request -&gt; HeaderExchangeClient#request</span><br><span class="line">-&gt; HeaderExchangeChannel#request -&gt; AbstractPeer#send -&gt; AbstractClient#send -&gt; NettyChannel#send</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>ReferenceCountExchangeClient</code><ul>
+<li>内部定义了一个引用计数变量 <code>referenceCount</code>，每当该对象被引用一次 <code>referenceCount</code> 都会进行自增</li>
+</ul>
+</li>
+<li><code>HeaderExchangeClient</code><ul>
+<li>加入心跳检测的逻辑,心跳检测会在构造方法中被开启,close()被调用后停止:</li>
+<li>Dubbo 对于建立的每一个连接，同时在客户端和服务端开启了 2 个定时器，一个用于定时发送心跳，一个用于定时重连、断连，执行的频率均为各自检测周期的 1&#x2F;3。定时发送心跳的任务负责在连接空闲时，向对端发送心跳包。定时重连、断连的任务负责检测 lastRead 是否在超时周期内仍未被更新，如果判定为超时，客户端处理的逻辑是重连，服务端则采取断连的措施</li>
+</ul>
+</li>
+<li><code>HeaderExchangeChannel</code><ul>
+<li>创建 <code>Request</code> 对象：<code class="red">Request req = new Request();</code></li>
+<li>创建 <code>DefaultFuture</code> 对象：<code class="red">DefaultFuture future = new DefaultFuture(channel, req, timeout);</code></li>
+<li>调用 <code>NettyClient</code> 的 <code>send</code> 方法发送请求：<code class="red">channel.send(req);</code></li>
+</ul>
+</li>
+</ul>
+<p>消费者服务调用的时序图如下 ：<br><img src="/2021/06/13/2021-06-13-dubbo-%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E8%BF%87%E7%A8%8B/%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E6%97%B6%E5%BA%8F%E5%9B%BE.png" alt="服务调用时序图"></p>
+<p>参考文章：<br><a href="https://blog.csdn.net/qq_36882793/article/details/115726433">消费者启动流程 - ReferenceConfig#get</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/11/2021-06-11-dubbo-invoker/" rel="prev" title="《dubbo》Invoker">
+      <i class="fa fa-chevron-left"></i> 《dubbo》Invoker
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/" rel="next" title="《TIDB》架构">
+      《TIDB》架构 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81dubbo"><span class="nav-text">一、dubbo</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="nav-text">二、示例代码</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1%E6%89%A7%E8%A1%8C"><span class="nav-text">三、代理对象执行</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81AbstractClusterInvoker-invoke-%E6%96%B9%E6%B3%95"><span class="nav-text">3.1、AbstractClusterInvoker.invoke()方法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E8%B7%AF%E7%94%B1"><span class="nav-text">3.1.1、路由</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-2%E3%80%81%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1"><span class="nav-text">3.1.2、负载均衡</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-3%E3%80%81%E9%80%9A%E8%BF%87%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%EF%BC%8C%E8%8E%B7%E5%BE%97invoker"><span class="nav-text">3.1.3、通过负载均衡，获得invoker</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-4%E3%80%81%E8%8E%B7%E5%8F%96Invoker"><span class="nav-text">3.1.4、获取Invoker</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-4-1%E3%80%81%E6%9C%8D%E5%8A%A1%E6%B6%88%E8%B4%B9%E6%96%B9%E5%8F%91%E9%80%81%E8%AF%B7%E6%B1%82"><span class="nav-text">3.1.4.1、服务消费方发送请求</span></a></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">187</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">140</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">25</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

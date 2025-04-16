@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是dubbo系列的第2篇文章，主要介绍的是dubbo的provider启动流程。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、dubboDubbo 是一款微服务开发框架，它提供了 RPC通信">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《dubbo》provider启动">
+<meta property="og:url" content="http://yoursite.com/2021/06/05/2021-06-05-dubbo-provide%E5%90%AF%E5%8A%A8/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是dubbo系列的第2篇文章，主要介绍的是dubbo的provider启动流程。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、dubboDubbo 是一款微服务开发框架，它提供了 RPC通信">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-04T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-13T14:16:18.254Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2021/06/05/2021-06-05-dubbo-provide%E5%90%AF%E5%8A%A8/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《dubbo》provider启动 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/06/05/2021-06-05-dubbo-provide%E5%90%AF%E5%8A%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《dubbo》provider启动
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-06-05 00:00:00" itemprop="dateCreated datePublished" datetime="2021-06-05T00:00:00+08:00">2021-06-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-13 22:16:18" itemprop="dateModified" datetime="2025-04-13T22:16:18+08:00">2025-04-13</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/dubbo/" itemprop="url" rel="index"><span itemprop="name">dubbo</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>9.7k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>24 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是dubbo系列的第2篇文章，主要介绍的是dubbo的provider启动流程。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、dubbo"><a href="#一、dubbo" class="headerlink" title="一、dubbo"></a>一、dubbo</h1><p>Dubbo 是一款微服务开发框架，它提供了 RPC通信 与 微服务治理 两大关键能力。这意味着，使用 Dubbo 开发的微服务，将具备相互之间的远程发现与通信能力， 同时利用 Dubbo 提供的丰富服务治理能力，可以实现诸如服务发现、负载均衡、流量调度等服务治理诉求。同时 Dubbo 是高度可扩展的，用户几乎可以在任意功能点去定制自己的实现，以改变框架的默认行为来满足自己的业务需求。</p>
+<span id="more"></span>
+
+<p>Dubbo主要提供了<code>3大核心功能</code>：面向接口的远程方法调用，智能容错和负载均衡，以及服务自动注册和发现。</p>
+<ol>
+<li><p><strong>远程方法调用</strong><br>网络通信框架，提供对多种NIO框架抽象封装，包括“同步转异步”和“请求-响应”模式的信息交换方式。</p>
+</li>
+<li><p><strong>智能容错和负载均衡</strong><br>提供基于接口方法的透明远程过程调用，包括多协议支持，以及软负载均衡，失败容错，地址路由，动态配置等集群支持。</p>
+</li>
+<li><p><strong>服务注册和发现</strong><br>服务注册，基于注册中心目录服务，使服务消费方能动态的查找服务提供方，使地址透明，使服务提供方可以平滑增加或减少机器。</p>
+</li>
+</ol>
+<h1 id="二、示例代码"><a href="#二、示例代码" class="headerlink" title="二、示例代码"></a>二、示例代码</h1><p><strong>启动类：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.alibaba.dubbo.demo.provider;</span><br><span class="line"><span class="keyword">import</span> org.springframework.context.support.ClassPathXmlApplicationContext;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Provider</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="comment">//Prevent to get IPV6 address,this way only work in debug mode</span></span><br><span class="line">        <span class="comment">//But you can pass use -Djava.net.preferIPv4Stack=true,then it work well whether in debug mode or not</span></span><br><span class="line">        System.setProperty(<span class="string">&quot;java.net.preferIPv4Stack&quot;</span>, <span class="string">&quot;true&quot;</span>);</span><br><span class="line">        <span class="type">ClassPathXmlApplicationContext</span> <span class="variable">context</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ClassPathXmlApplicationContext</span>(<span class="keyword">new</span> <span class="title class_">String</span>[]&#123;<span class="string">&quot;META-INF/spring/dubbo-demo-provider.xml&quot;</span>&#125;);</span><br><span class="line">        context.start();</span><br><span class="line">        System.in.read(); <span class="comment">// press any key to exit</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>自定义service：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.alibaba.dubbo.demo;</span><br><span class="line"><span class="comment">//接口定义：</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">DemoService</span> &#123;</span><br><span class="line">    String <span class="title function_">sayHello</span><span class="params">(String name)</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//服务实现</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DemoServiceImpl</span> <span class="keyword">implements</span> <span class="title class_">DemoService</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">sayHello</span><span class="params">(String name)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;[&quot;</span> + <span class="keyword">new</span> <span class="title class_">SimpleDateFormat</span>(<span class="string">&quot;HH:mm:ss&quot;</span>).format(<span class="keyword">new</span> <span class="title class_">Date</span>()) + <span class="string">&quot;] Hello &quot;</span> + name + <span class="string">&quot;, request from consumer: &quot;</span> + RpcContext.getContext().getRemoteAddress());</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;Hello &quot;</span> + name + <span class="string">&quot;, response from provider: &quot;</span> + RpcContext.getContext().getLocalAddress();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>配置文件：</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">beans</span> <span class="attr">xmlns:xsi</span>=<span class="string">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span></span></span><br><span class="line"><span class="tag">       <span class="attr">xmlns:dubbo</span>=<span class="string">&quot;http://dubbo.apache.org/schema/dubbo&quot;</span></span></span><br><span class="line"><span class="tag">       <span class="attr">xmlns</span>=<span class="string">&quot;http://www.springframework.org/schema/beans&quot;</span></span></span><br><span class="line"><span class="tag">       <span class="attr">xsi:schemaLocation</span>=<span class="string">&quot;http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.3.xsd</span></span></span><br><span class="line"><span class="string"><span class="tag">       http://dubbo.apache.org/schema/dubbo http://dubbo.apache.org/schema/dubbo/dubbo.xsd&quot;</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- provider&#x27;s application name, used for tracing dependency relationship --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dubbo:application</span> <span class="attr">name</span>=<span class="string">&quot;demo-provider&quot;</span>/&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- use multicast registry center to export service --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dubbo:registry</span> <span class="attr">address</span>=<span class="string">&quot;multicast://224.5.6.7:1234&quot;</span>/&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- use dubbo protocol to export service on port 20880 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dubbo:protocol</span> <span class="attr">name</span>=<span class="string">&quot;dubbo&quot;</span> <span class="attr">port</span>=<span class="string">&quot;20880&quot;</span>/&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- service implementation, as same as regular local bean --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;demoService&quot;</span> <span class="attr">class</span>=<span class="string">&quot;com.alibaba.dubbo.demo.provider.DemoServiceImpl&quot;</span>/&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- declare the service interface to be exported --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dubbo:service</span> <span class="attr">interface</span>=<span class="string">&quot;com.alibaba.dubbo.demo.DemoService&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;demoService&quot;</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">beans</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h1 id="三、provider启动流程"><a href="#三、provider启动流程" class="headerlink" title="三、provider启动流程"></a>三、provider启动流程</h1><p><code>provider</code>启动流程包括</p>
+<ul>
+<li><strong>配置解析</strong></li>
+<li><strong>服务注册</strong></li>
+<li><strong>协议暴露</strong></li>
+<li><strong>网络监听</strong></li>
+</ul>
+<h2 id="3-1、配置解析与初始化"><a href="#3-1、配置解析与初始化" class="headerlink" title="3.1、配置解析与初始化"></a>3.1、配置解析与初始化</h2><p>示例代码中，通过XML配置引入Dubbo。Dubbo的命名空间，相关的handler如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DubboNamespaceHandler</span> <span class="keyword">extends</span> <span class="title class_">NamespaceHandlerSupport</span> &#123;</span><br><span class="line">    <span class="keyword">static</span> &#123;</span><br><span class="line">        Version.checkDuplicate(DubboNamespaceHandler.class);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> &#123;</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;application&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ApplicationConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;module&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ModuleConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;registry&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(RegistryConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;monitor&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(MonitorConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;provider&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ProviderConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;consumer&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ConsumerConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;protocol&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ProtocolConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;service&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ServiceBean.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;reference&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ReferenceBean.class, <span class="literal">false</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;annotation&quot;</span>, <span class="keyword">new</span> <span class="title class_">AnnotationBeanDefinitionParser</span>());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在<code>init()</code>方法中，注册了多个<code>BeanDefinitionParser</code>，每个解析器负责处理特定的<code>Dubbo XML</code>标签。</p>
+<h3 id="3-1-1、标签解析器"><a href="#3-1-1、标签解析器" class="headerlink" title="3.1.1、标签解析器"></a>3.1.1、标签解析器</h3><table>
+<thead>
+<tr>
+<th>XML 标签</th>
+<th>解析器类</th>
+<th>对应配置类&#x2F;Bean 类</th>
+<th>关键参数说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>application</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ApplicationConfig</code></td>
+<td>应用全局配置（如应用名）</td>
+</tr>
+<tr>
+<td><code>module</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ModuleConfig</code></td>
+<td>模块配置（已逐渐废弃）</td>
+</tr>
+<tr>
+<td><code>registry</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>RegistryConfig</code></td>
+<td>注册中心配置（如 Zookeeper 地址）</td>
+</tr>
+<tr>
+<td><code>monitor</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>MonitorConfig</code></td>
+<td>监控中心配置</td>
+</tr>
+<tr>
+<td><code>provider</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ProviderConfig</code></td>
+<td>服务提供者默认配置</td>
+</tr>
+<tr>
+<td><code>consumer</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ConsumerConfig</code></td>
+<td>服务消费者默认配置</td>
+</tr>
+<tr>
+<td><code>protocol</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ProtocolConfig</code></td>
+<td>协议配置（如 Dubbo、HTTP）</td>
+</tr>
+<tr>
+<td><code>service</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ServiceBean</code></td>
+<td>服务暴露配置</td>
+</tr>
+<tr>
+<td><code>reference</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ReferenceBean</code></td>
+<td>服务引用配置</td>
+</tr>
+<tr>
+<td><code>annotation</code></td>
+<td><code>AnnotationBeanDefinitionParser</code></td>
+<td>-</td>
+<td>注解驱动配置（如包扫描）</td>
+</tr>
+</tbody></table>
+<p>特殊解析器：<code>AnnotationBeanDefinitionParser</code></p>
+<ul>
+<li><strong>功能</strong>：处理 <code>&lt;dubbo:annotation&gt;</code> 标签，启用 <code>Dubbo</code> 注解扫描。</li>
+<li><strong>作用</strong>：扫描 <code>@DubboService</code>（服务提供者）和 <code>@DubboReference</code>（服务消费者）注解，自动注册 Bean。</li>
+<li><strong>配置示例</strong>：<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dubbo:annotation</span> <span class="attr">package</span>=<span class="string">&quot;com.example.service&quot;</span> /&gt;</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="3-2、服务注册"><a href="#3-2、服务注册" class="headerlink" title="3.2、服务注册"></a>3.2、服务注册</h2><h3 id="3-2-1、核心类解析ServiceBean"><a href="#3-2-1、核心类解析ServiceBean" class="headerlink" title="3.2.1、核心类解析ServiceBean"></a>3.2.1、核心类解析<code>ServiceBean</code></h3><ul>
+<li><strong>作用</strong>：服务提供者的配置入口，继承 <code>ServiceConfig</code>。</li>
+<li><strong>生命周期</strong>：在 Spring 容器初始化完成后，调用 <code>export()</code> 方法暴露服务。</li>
+<li><strong>关键属性</strong>：<ul>
+<li><code>interface</code>：服务接口类。</li>
+<li><code>ref</code>：服务实现 Bean 的引用。</li>
+<li><code>registry</code>：关联的注册中心配置。</li>
+</ul>
+</li>
+</ul>
+<p><code>ServiceBean</code>实现了<code>InitializingBean</code>接口，在Bean的初始化时，执行其<code>afterPropertiesSet()</code>方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ServiceBean</span>&lt;T&gt; <span class="keyword">extends</span> <span class="title class_">ServiceConfig</span>&lt;T&gt; <span class="keyword">implements</span> <span class="title class_">InitializingBean</span>, ApplicationContextAware, BeanNameAware &#123;</span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">afterPropertiesSet</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="comment">// 1. 检查必要配置是否缺失</span></span><br><span class="line">    <span class="keyword">if</span> (getProvider() == <span class="literal">null</span>) &#123;</span><br><span class="line">      <span class="comment">// 尝试从 Spring 容器中获取全局 ProviderConfig</span></span><br><span class="line">      setProvider(ApplicationModel.getConfigManager().getDefaultProvider().orElse(<span class="literal">null</span>));</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (getApplication() == <span class="literal">null</span>) &#123;</span><br><span class="line">      <span class="comment">// 获取全局 ApplicationConfig</span></span><br><span class="line">      setApplication(ApplicationModel.getConfigManager().getDefaultApplication().orElse(<span class="literal">null</span>));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 填充未显式配置的默认值（如协议、注册中心）</span></span><br><span class="line">    <span class="keyword">if</span> (StringUtils.isEmpty(getProtocolIds())) &#123;</span><br><span class="line">      <span class="comment">// 使用默认协议配置（如 DubboProtocol）</span></span><br><span class="line">      List&lt;ProtocolConfig&gt; protocols = ApplicationModel.getConfigManager().getDefaultProtocols();</span><br><span class="line">      <span class="keyword">if</span> (!protocols.isEmpty()) &#123;</span><br><span class="line">        setProtocols(protocols);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 触发服务暴露（根据 delay 配置决定是否延迟）</span></span><br><span class="line">    <span class="keyword">if</span> (shouldExport()) &#123;</span><br><span class="line">      export();</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span> <span class="type">boolean</span> <span class="title function_">shouldExport</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">Boolean</span> <span class="variable">export</span> <span class="operator">=</span> getExport();</span><br><span class="line">    <span class="comment">// 若未配置 export 属性，默认暴露服务</span></span><br><span class="line">    <span class="keyword">return</span> export == <span class="literal">null</span> || export;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>核心操作详解</p>
+<ul>
+<li><strong>配置校验与补全</strong><ul>
+<li><strong>检查必要属性</strong>：确保<code>interface</code>（服务接口）、<code>ref</code>（服务实现Bean）已正确配置</li>
+<li><strong>填充全局配置</strong>：<ul>
+<li>若未显示配置<code>provider、application、Protocol</code>等属性，尝试从spring容器或Dubbo全局配置管理器（<code>ConfigManager</code>）中获取默认配置。</li>
+<li>例如：未指定<code>&lt;dubbo:protocol&gt;</code>时，自动使用默认的Dubbo协议（端口20880）。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>服务暴露触发</strong><ul>
+<li><strong>条件判断</strong>：根据<code>export</code>属性（默认为<code>true</code>）决定是否暴露服务。</li>
+<li><strong>延迟暴露处理</strong>：<ul>
+<li>若配置了<code>delay</code>参数（如<code>&lt;dubbo:service delay=&quot;5000&quot;&gt;</code>），则通过定时任务延迟调用<code>export()</code>。</li>
+<li>若未配置<code>delay</code>或<code>delay=-1</code>，则立即触发<code>export()</code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>解析<code>export()</code>方法，其继承自<code>ServiceConfig</code>：是服务暴露核心入口，负责将服务实现注册到注册中心并启动网络监听：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ServiceBean</span>&lt;T&gt; <span class="keyword">extends</span> <span class="title class_">ServiceConfig</span>&lt;T&gt; <span class="keyword">implements</span> <span class="title class_">InitializingBean</span>, DisposableBean&#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">export</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="built_in">super</span>.export();</span><br><span class="line">        <span class="comment">// Publish ServiceBeanExportedEvent</span></span><br><span class="line">        publishExportEvent();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>分析<code>ServiceConfig</code>的<code>export()</code>逻辑。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ServiceConfig</span>&lt;T&gt; <span class="keyword">extends</span> <span class="title class_">AbstractServiceConfig</span> &#123;</span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title function_">export</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 1.1 检查是否已暴露，避免重复暴露</span></span><br><span class="line">    <span class="keyword">if</span> (exported) &#123;</span><br><span class="line">      <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    exported = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1.2 校验必要配置（接口名、实现类引用等）</span></span><br><span class="line">    checkAndUpdateSubConfigs();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1.3 延迟暴露处理（若配置了 delay）</span></span><br><span class="line">    <span class="keyword">if</span> (shouldDelay()) &#123;</span><br><span class="line">      delayExportExecutor.schedule(<span class="built_in">this</span>::doExport, getDelay(), TimeUnit.MILLISECONDS);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      doExport();</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>核心暴露逻辑<code>doExport()</code>，以下是总结提炼后的代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title function_">doExport</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 2.1 再次检查是否已暴露</span></span><br><span class="line">    <span class="keyword">if</span> (exported) &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    exported = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2.2 生成服务 URL（包含协议、IP、端口、接口等信息）</span></span><br><span class="line">    List&lt;URL&gt; registryURLs = loadRegistries(<span class="literal">true</span>);</span><br><span class="line">    <span class="keyword">for</span> (ProtocolConfig protocolConfig : protocols) &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">pathKey</span> <span class="operator">=</span> URL.buildKey(getContextPath(protocolConfig).map(p -&gt; p + <span class="string">&quot;/&quot;</span> + path).orElse(path), group, version);</span><br><span class="line">        <span class="comment">// 2.3 构建服务 URL</span></span><br><span class="line">        <span class="type">URL</span> <span class="variable">url</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">URL</span>(protocolConfig.getName(), host, port, pathKey, getServiceParameters(protocolConfig));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2.4 多协议暴露：为每个协议生成独立的 Exporter</span></span><br><span class="line">        Exporter&lt;?&gt; exporter = protocol.export(createInvoker(url));</span><br><span class="line">        exporters.add(exporter);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2.5 触发注册中心服务注册</span></span><br><span class="line">    registerService();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="步骤1、生成注册中心URL"><a href="#步骤1、生成注册中心URL" class="headerlink" title="步骤1、生成注册中心URL"></a>步骤1、生成注册中心URL</h3><ul>
+<li><strong>方法</strong>：<code>loadRegistries()</code></li>
+<li><strong>作用</strong>：加载所有注册中心配置（如多个<code>ZK/Nacos</code>节点），生成对应的注册中心URL</li>
+<li>示例输出<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">zookeeper://localhost:2181/org.apache.dubbo.registry.RegistryService?application=user-service</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="步骤2、构建服务URL"><a href="#步骤2、构建服务URL" class="headerlink" title="步骤2、构建服务URL"></a>步骤2、构建服务URL</h3><ul>
+<li><strong>方法</strong>：<code>URL url = new URL(protocolConfig.getName(), host, port, pathKey, getServiceParameters(protocolConfig));</code></li>
+<li><strong>参数解析</strong>：<ul>
+<li><strong>协议</strong>：如dubbo、HTTP</li>
+<li><strong>主机与端口</strong>：自动获取或手动指定</li>
+<li><strong>路径</strong>：服务接口全限定名</li>
+<li><strong>参数</strong>：超时时间、版本version、分组group等</li>
+</ul>
+</li>
+<li>示例URL<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dubbo://192.168.1.100:20880/com.example.UserService?timeout=3000&amp;version=1.0.0</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="步骤3、协议暴露-protocol-export"><a href="#步骤3、协议暴露-protocol-export" class="headerlink" title="步骤3、协议暴露 protocol.export()"></a>步骤3、协议暴露 protocol.export()</h3><ul>
+<li><p><strong>协议选择</strong>：根据<strong>protocolConfig</strong>获取对应的<strong>Protocol</strong>实现（如<strong>DubboProtocol</strong>）。</p>
+</li>
+<li><p><strong>生成invoker</strong>：将服务实现封装为<code>Invoker</code>对象，用于处理远程调用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Invoker&lt;?&gt; invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, url);</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>Invoker 创建过程<br><code>proxyFactory.getInvoker(ref, (Class) interfaceClass, url)</code><br>通过ProxyFactory 创建而来，Dubbo 默认的 <code>ProxyFactory</code> 实现类是 <code>JavassistProxyFactory</code><br>为目标类创建 Wrapper，在创建 Wrapper 子类的过程中，子类代码生成逻辑会对 getWrapper 方法传入的 Class 对象进行解析，拿到诸如类方法，类成员变量等信息</p>
+</blockquote>
+</li>
+<li><p><strong>启动网络服务</strong>：调用协议实现的<code>export()</code>方法，启动<code>Netty</code>等网络服务器。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// DubboProtocol.export()</span></span><br><span class="line"><span class="keyword">public</span> &lt;T&gt; Exporter&lt;T&gt; <span class="title function_">export</span><span class="params">(Invoker&lt;T&gt; invoker)</span> &#123;</span><br><span class="line">    <span class="comment">// 创建 Exporter，管理服务生命周期</span></span><br><span class="line">    DubboExporter&lt;T&gt; exporter = <span class="keyword">new</span> <span class="title class_">DubboExporter</span>&lt;&gt;(serviceKey, invoker, protocolServer);</span><br><span class="line">    <span class="comment">// 启动 Netty 服务端</span></span><br><span class="line">    protocolServer.start();</span><br><span class="line">    <span class="keyword">return</span> exporter;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="步骤4、注册服务到注册中心"><a href="#步骤4、注册服务到注册中心" class="headerlink" title="步骤4、注册服务到注册中心"></a>步骤4、注册服务到注册中心</h3><p><strong>流程</strong>：将服务URL发布到所有注册中心。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (Registry registry : registries) &#123;</span><br><span class="line">    <span class="comment">//RegistryProtocol#register</span></span><br><span class="line">    registry.register(serviceUrl);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>实现细节</p>
+<ul>
+<li>注册中心客户端（如<code>ZookeeperRegistry</code>)创建持久化节点。</li>
+<li>服务元数据写入注册中心（如<code>Zookeeper</code>的<code>/dubbo/com.example.UserService/providers</code>节点）。</li>
+</ul>
+<h2 id="3-3、完整流程图示"><a href="#3-3、完整流程图示" class="headerlink" title="3.3、完整流程图示"></a>3.3、完整流程图示</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">1. export() 触发</span><br><span class="line">   │</span><br><span class="line">2. 校验配置，生成注册中心 URL</span><br><span class="line">   │</span><br><span class="line">3. 遍历协议配置，生成服务 URL</span><br><span class="line">   │</span><br><span class="line">4. 为每个协议生成 Invoker 并暴露服务</span><br><span class="line">   │   ├─ 启动 Netty 服务端（DubboProtocol）</span><br><span class="line">   │   └─ 生成 Exporter 管理生命周期</span><br><span class="line">   │</span><br><span class="line">5. 注册服务 URL 到所有注册中心</span><br><span class="line">   │</span><br><span class="line">6. 服务就绪，等待 Consumer 请求</span><br></pre></td></tr></table></figure>
+
+
+<p>参考文章：<br><a href="https://nnkwrik.github.io/2019/04/16/20190416/">Dubbo源码跟踪</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/03/2021-06-03-dubbo-%E6%9E%B6%E6%9E%84/" rel="prev" title="《dubbo》架构">
+      <i class="fa fa-chevron-left"></i> 《dubbo》架构
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/09/2021-06-09-dubbo-consumer%E5%90%AF%E5%8A%A8/" rel="next" title="《dubbo》Consumer启动">
+      《dubbo》Consumer启动 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81dubbo"><span class="nav-text">一、dubbo</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="nav-text">二、示例代码</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81provider%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B"><span class="nav-text">三、provider启动流程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E9%85%8D%E7%BD%AE%E8%A7%A3%E6%9E%90%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-text">3.1、配置解析与初始化</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E6%A0%87%E7%AD%BE%E8%A7%A3%E6%9E%90%E5%99%A8"><span class="nav-text">3.1.1、标签解析器</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E6%9C%8D%E5%8A%A1%E6%B3%A8%E5%86%8C"><span class="nav-text">3.2、服务注册</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1%E3%80%81%E6%A0%B8%E5%BF%83%E7%B1%BB%E8%A7%A3%E6%9E%90ServiceBean"><span class="nav-text">3.2.1、核心类解析ServiceBean</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AD%A5%E9%AA%A41%E3%80%81%E7%94%9F%E6%88%90%E6%B3%A8%E5%86%8C%E4%B8%AD%E5%BF%83URL"><span class="nav-text">步骤1、生成注册中心URL</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AD%A5%E9%AA%A42%E3%80%81%E6%9E%84%E5%BB%BA%E6%9C%8D%E5%8A%A1URL"><span class="nav-text">步骤2、构建服务URL</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AD%A5%E9%AA%A43%E3%80%81%E5%8D%8F%E8%AE%AE%E6%9A%B4%E9%9C%B2-protocol-export"><span class="nav-text">步骤3、协议暴露 protocol.export()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AD%A5%E9%AA%A44%E3%80%81%E6%B3%A8%E5%86%8C%E6%9C%8D%E5%8A%A1%E5%88%B0%E6%B3%A8%E5%86%8C%E4%B8%AD%E5%BF%83"><span class="nav-text">步骤4、注册服务到注册中心</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E5%AE%8C%E6%95%B4%E6%B5%81%E7%A8%8B%E5%9B%BE%E7%A4%BA"><span class="nav-text">3.3、完整流程图示</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">187</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">140</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">25</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

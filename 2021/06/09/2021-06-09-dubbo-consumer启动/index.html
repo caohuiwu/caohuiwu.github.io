@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是dubbo系列的第3篇文章，主要介绍的是dubbo的Consumer启动流程。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、dubboDubbo 是一款微服务开发框架，它提供了 RPC通信">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《dubbo》Consumer启动">
+<meta property="og:url" content="http://yoursite.com/2021/06/09/2021-06-09-dubbo-consumer%E5%90%AF%E5%8A%A8/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content="这是dubbo系列的第3篇文章，主要介绍的是dubbo的Consumer启动流程。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、dubboDubbo 是一款微服务开发框架，它提供了 RPC通信">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/06/09/2021-06-09-dubbo-consumer%E5%90%AF%E5%8A%A8/cluster.png">
+<meta property="og:image" content="http://yoursite.com/2021/06/09/2021-06-09-dubbo-consumer%E5%90%AF%E5%8A%A8/%E5%B8%B8%E8%A7%81%E7%9A%84invoker.png">
+<meta property="article:published_time" content="2021-06-08T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-14T09:02:24.462Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/06/09/2021-06-09-dubbo-consumer%E5%90%AF%E5%8A%A8/cluster.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/06/09/2021-06-09-dubbo-consumer%E5%90%AF%E5%8A%A8/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《dubbo》Consumer启动 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/06/09/2021-06-09-dubbo-consumer%E5%90%AF%E5%8A%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《dubbo》Consumer启动
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-06-09 00:00:00" itemprop="dateCreated datePublished" datetime="2021-06-09T00:00:00+08:00">2021-06-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-14 17:02:24" itemprop="dateModified" datetime="2025-04-14T17:02:24+08:00">2025-04-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/dubbo/" itemprop="url" rel="index"><span itemprop="name">dubbo</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>28k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>1:11</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <pre><code>这是dubbo系列的第3篇文章，主要介绍的是dubbo的Consumer启动流程。
+</code></pre>
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、dubbo"><a href="#一、dubbo" class="headerlink" title="一、dubbo"></a>一、dubbo</h1><p>Dubbo 是一款微服务开发框架，它提供了 RPC通信 与 微服务治理 两大关键能力。这意味着，使用 Dubbo 开发的微服务，将具备相互之间的远程发现与通信能力， 同时利用 Dubbo 提供的丰富服务治理能力，可以实现诸如服务发现、负载均衡、流量调度等服务治理诉求。同时 Dubbo 是高度可扩展的，用户几乎可以在任意功能点去定制自己的实现，以改变框架的默认行为来满足自己的业务需求。</p>
+<span id="more"></span>
+
+<p>Dubbo主要提供了<code>3大核心功能</code>：面向接口的远程方法调用，智能容错和负载均衡，以及服务自动注册和发现。</p>
+<ol>
+<li><p><strong>远程方法调用</strong><br>网络通信框架，提供对多种NIO框架抽象封装，包括“同步转异步”和“请求-响应”模式的信息交换方式。</p>
+</li>
+<li><p><strong>智能容错和负载均衡</strong><br>提供基于接口方法的透明远程过程调用，包括多协议支持，以及软负载均衡，失败容错，地址路由，动态配置等集群支持。</p>
+</li>
+<li><p><strong>服务注册和发现</strong><br>服务注册，基于注册中心目录服务，使服务消费方能动态的查找服务提供方，使地址透明，使服务提供方可以平滑增加或减少机器。</p>
+</li>
+</ol>
+<h1 id="二、示例代码"><a href="#二、示例代码" class="headerlink" title="二、示例代码"></a>二、示例代码</h1><p><strong>启动类：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Consumer</span> &#123;</span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">    System.setProperty(<span class="string">&quot;java.net.preferIPv4Stack&quot;</span>, <span class="string">&quot;true&quot;</span>);</span><br><span class="line">    <span class="type">ClassPathXmlApplicationContext</span> <span class="variable">context</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ClassPathXmlApplicationContext</span>(<span class="keyword">new</span> <span class="title class_">String</span>[]&#123;<span class="string">&quot;META-INF/spring/dubbo-demo-consumer.xml&quot;</span>&#125;);</span><br><span class="line">    context.start();</span><br><span class="line">    <span class="type">DemoService</span> <span class="variable">demoService</span> <span class="operator">=</span> (DemoService) context.getBean(<span class="string">&quot;demoService&quot;</span>); <span class="comment">// get remote service proxy</span></span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">      <span class="keyword">try</span> &#123;</span><br><span class="line">        Thread.sleep(<span class="number">1000</span>);</span><br><span class="line">        <span class="type">String</span> <span class="variable">hello</span> <span class="operator">=</span> demoService.sayHello(<span class="string">&quot;world&quot;</span>); <span class="comment">// call remote method</span></span><br><span class="line">        System.out.println(hello); <span class="comment">// get result</span></span><br><span class="line"></span><br><span class="line">      &#125; <span class="keyword">catch</span> (Throwable throwable) &#123;</span><br><span class="line">        throwable.printStackTrace();</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>配置文件：</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">beans</span> <span class="attr">xmlns:xsi</span>=<span class="string">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span></span></span><br><span class="line"><span class="tag">       <span class="attr">xmlns:dubbo</span>=<span class="string">&quot;http://dubbo.apache.org/schema/dubbo&quot;</span></span></span><br><span class="line"><span class="tag">       <span class="attr">xmlns</span>=<span class="string">&quot;http://www.springframework.org/schema/beans&quot;</span></span></span><br><span class="line"><span class="tag">       <span class="attr">xsi:schemaLocation</span>=<span class="string">&quot;http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.3.xsd</span></span></span><br><span class="line"><span class="string"><span class="tag">       http://dubbo.apache.org/schema/dubbo http://dubbo.apache.org/schema/dubbo/dubbo.xsd&quot;</span>&gt;</span></span><br><span class="line"></span><br><span class="line">  <span class="tag">&lt;<span class="name">dubbo:application</span> <span class="attr">name</span>=<span class="string">&quot;demo-consumer&quot;</span>/&gt;</span></span><br><span class="line"></span><br><span class="line">  <span class="tag">&lt;<span class="name">dubbo:registry</span> <span class="attr">address</span>=<span class="string">&quot;multicast://224.5.6.7:1234&quot;</span>/&gt;</span></span><br><span class="line"></span><br><span class="line">  <span class="tag">&lt;<span class="name">dubbo:reference</span> <span class="attr">id</span>=<span class="string">&quot;demoService&quot;</span> <span class="attr">check</span>=<span class="string">&quot;false&quot;</span> <span class="attr">interface</span>=<span class="string">&quot;com.alibaba.dubbo.demo.DemoService&quot;</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">beans</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h1 id="三、Consumer启动流程"><a href="#三、Consumer启动流程" class="headerlink" title="三、Consumer启动流程"></a>三、Consumer启动流程</h1><p><code>Consumer</code>启动流程包括</p>
+<ul>
+<li><strong>配置解析</strong></li>
+<li><strong>服务订阅</strong></li>
+<li><strong>代理生成</strong></li>
+<li><strong>调用准备</strong></li>
+</ul>
+<h2 id="3-1、配置解析与初始化"><a href="#3-1、配置解析与初始化" class="headerlink" title="3.1、配置解析与初始化"></a>3.1、配置解析与初始化</h2><p>示例代码中，通过XML配置引入Dubbo。Dubbo的命名空间，相关的handler如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DubboNamespaceHandler</span> <span class="keyword">extends</span> <span class="title class_">NamespaceHandlerSupport</span> &#123;</span><br><span class="line">    <span class="keyword">static</span> &#123;</span><br><span class="line">        Version.checkDuplicate(DubboNamespaceHandler.class);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> &#123;</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;application&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ApplicationConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;module&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ModuleConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;registry&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(RegistryConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;monitor&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(MonitorConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;provider&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ProviderConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;consumer&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ConsumerConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;protocol&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ProtocolConfig.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;service&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ServiceBean.class, <span class="literal">true</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;reference&quot;</span>, <span class="keyword">new</span> <span class="title class_">DubboBeanDefinitionParser</span>(ReferenceBean.class, <span class="literal">false</span>));</span><br><span class="line">        registerBeanDefinitionParser(<span class="string">&quot;annotation&quot;</span>, <span class="keyword">new</span> <span class="title class_">AnnotationBeanDefinitionParser</span>());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在<code>init()</code>方法中，注册了多个<code>BeanDefinitionParser</code>，每个解析器负责处理特定的<code>Dubbo XML</code>标签。</p>
+<h3 id="3-1-1、标签解析器"><a href="#3-1-1、标签解析器" class="headerlink" title="3.1.1、标签解析器"></a>3.1.1、标签解析器</h3><table>
+<thead>
+<tr>
+<th>XML 标签</th>
+<th>解析器类</th>
+<th>对应配置类&#x2F;Bean 类</th>
+<th>关键参数说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>application</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ApplicationConfig</code></td>
+<td>应用全局配置（如应用名）</td>
+</tr>
+<tr>
+<td><code>module</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ModuleConfig</code></td>
+<td>模块配置（已逐渐废弃）</td>
+</tr>
+<tr>
+<td><code>registry</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>RegistryConfig</code></td>
+<td>注册中心配置（如 Zookeeper 地址）</td>
+</tr>
+<tr>
+<td><code>monitor</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>MonitorConfig</code></td>
+<td>监控中心配置</td>
+</tr>
+<tr>
+<td><code>provider</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ProviderConfig</code></td>
+<td>服务提供者默认配置</td>
+</tr>
+<tr>
+<td><code>consumer</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ConsumerConfig</code></td>
+<td>服务消费者默认配置</td>
+</tr>
+<tr>
+<td><code>protocol</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ProtocolConfig</code></td>
+<td>协议配置（如 Dubbo、HTTP）</td>
+</tr>
+<tr>
+<td><code>service</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ServiceBean</code></td>
+<td>服务暴露配置</td>
+</tr>
+<tr>
+<td><code>reference</code></td>
+<td><code>DubboBeanDefinitionParser</code></td>
+<td><code>ReferenceBean</code></td>
+<td>服务引用配置</td>
+</tr>
+<tr>
+<td><code>annotation</code></td>
+<td><code>AnnotationBeanDefinitionParser</code></td>
+<td>-</td>
+<td>注解驱动配置（如包扫描）</td>
+</tr>
+</tbody></table>
+<p>特殊解析器：<code>AnnotationBeanDefinitionParser</code></p>
+<ul>
+<li><strong>功能</strong>：处理 <code>&lt;dubbo:annotation&gt;</code> 标签，启用 <code>Dubbo</code> 注解扫描。</li>
+<li><strong>作用</strong>：扫描 <code>@DubboService</code>（服务提供者）和 <code>@DubboReference</code>（服务消费者）注解，自动注册 Bean。</li>
+<li><strong>配置示例</strong>：<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dubbo:annotation</span> <span class="attr">package</span>=<span class="string">&quot;com.example.service&quot;</span> /&gt;</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="3-2、核心类解析ReferenceBean"><a href="#3-2、核心类解析ReferenceBean" class="headerlink" title="3.2、核心类解析ReferenceBean"></a>3.2、核心类解析<code>ReferenceBean</code></h2><ul>
+<li><strong>作用</strong>：存储服务引用配置（接口、注册中心、负载均衡策略等），继承 <code>ReferenceConfig</code>。</li>
+</ul>
+<p><code>ReferenceBean</code>实现了<code>InitializingBean</code>接口，在Bean的初始化时，执行其<code>afterPropertiesSet()</code>方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReferenceBean</span>&lt;T&gt; <span class="keyword">extends</span> <span class="title class_">ReferenceConfig</span>&lt;T&gt; <span class="keyword">implements</span> <span class="title class_">FactoryBean</span>&lt;T&gt;, ApplicationContextAware, InitializingBean &#123;</span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">afterPropertiesSet</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="comment">// 1. 检查必要配置是否缺失（如接口名）</span></span><br><span class="line">    <span class="keyword">if</span> (getInterface() == <span class="literal">null</span>) &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalStateException</span>(<span class="string">&quot;interface not specified&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 2. 合并全局配置（如 ConsumerConfig、ApplicationConfig）</span></span><br><span class="line">    checkAndUpdateSubConfigs();</span><br><span class="line">    <span class="comment">// 3. 初始化服务引用（生成代理对象）</span></span><br><span class="line">    <span class="keyword">if</span> (shouldInit()) &#123;</span><br><span class="line">      getObject(); <span class="comment">// 触发服务引用流程</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="keyword">public</span> T <span class="title function_">getObject</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> get(); <span class="comment">// 调用父类 ReferenceConfig 的 get() 方法</span></span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">private</span> <span class="type">boolean</span> <span class="title function_">shouldInit</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 根据配置判断是否需要立即初始化（例如 lazy=false）</span></span><br><span class="line">    <span class="keyword">return</span> !isLazy() || (isLazy() &amp;&amp; isInitialized());</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>核心操作详解</p>
+<ul>
+<li><strong>必要属性校验</strong>：确保<code>interface</code>（服务接口）已正确设置，否则抛出异常。</li>
+<li><strong>合并全局配置</strong>：<ul>
+<li>若未显示配置<code>consumer, application</code>等属性，从<code>spring</code>容器或<code>Dubbo</code>全局配置管理器（<code>ConfigManager</code>）中获取默认值。</li>
+<li>例如：未指定<code>&lt;dubbo:consumer&gt;</code>时，自动使用默认的<code>Consumer</code>配置（如超时时间）</li>
+</ul>
+</li>
+<li><strong>触发服务引用</strong><code>get()</code><ul>
+<li><strong>关键方法</strong>：<code>getObject()</code>调用父类<code>ReferenceConfig</code>的<code>get()</code>方法，触发服务引用流程。<ul>
+<li><strong>订阅服务地址</strong>：从注册中心（如）获取<code>provider</code>地址列表</li>
+<li><strong>生成动态代理</strong>：通过<code>ProxyFactory</code>创建远程服务调用的代理对象。</li>
+<li><strong>初始化调用链</strong>：加载<code>filter</code>链（如日志、鉴权）、集群容错策略（<code>Cluster</code>）、负载均衡策略（<code>loadBalance</code>）。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>解析<code>get()</code>方法，其继承自<code>ReferenceConfig</code>，服务引用的核心流程:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">synchronized</span> T <span class="title function_">get</span><span class="params">()</span> &#123;</span><br><span class="line">  <span class="comment">// 1. 检查并更新缺省配置</span></span><br><span class="line">  checkAndUpdateSubConfigs();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (destroyed) &#123;</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalStateException</span>(<span class="string">&quot;Already destroyed!&quot;</span>);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 如果ref 为null 则说明没有初始化，进行初始化。</span></span><br><span class="line">  <span class="keyword">if</span> (ref == <span class="literal">null</span>) &#123;</span><br><span class="line">    <span class="comment">//2. 服务初始化</span></span><br><span class="line">    init();</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> ref;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>ReferenceConfig#init</code>，消费者服务的初始化，核心逻辑。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 如果消费者服务已经初始化过，则直接返回</span></span><br><span class="line">    <span class="keyword">if</span> (initialized) &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    initialized = <span class="literal">true</span>;</span><br><span class="line">    <span class="comment">// 检查存根合法性</span></span><br><span class="line">    checkStubAndLocal(interfaceClass);</span><br><span class="line">    <span class="comment">// 检查mock合法性</span></span><br><span class="line">    checkMock(interfaceClass);</span><br><span class="line">    <span class="comment">// 拼接参数</span></span><br><span class="line">    Map&lt;String, String&gt; map = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;String, String&gt;();</span><br><span class="line">    <span class="comment">// 添加 side、协议版本信息、时间戳和进程号等信息到 map 中</span></span><br><span class="line">    map.put(Constants.SIDE_KEY, Constants.CONSUMER_SIDE);</span><br><span class="line">    appendRuntimeParameters(map);</span><br><span class="line">    <span class="comment">// 不是泛化调用</span></span><br><span class="line">    <span class="keyword">if</span> (!isGeneric()) &#123;</span><br><span class="line">        <span class="comment">// 获取版本</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">revision</span> <span class="operator">=</span> Version.getVersion(interfaceClass, version);</span><br><span class="line">        <span class="keyword">if</span> (revision != <span class="literal">null</span> &amp;&amp; revision.length() &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            map.put(<span class="string">&quot;revision&quot;</span>, revision);</span><br><span class="line">        &#125;</span><br><span class="line">         <span class="comment">// 获取接口方法列表，并添加到 map 中</span></span><br><span class="line">        String[] methods = Wrapper.getWrapper(interfaceClass).getMethodNames();</span><br><span class="line">        <span class="keyword">if</span> (methods.length == <span class="number">0</span>) &#123;</span><br><span class="line">            logger.warn(<span class="string">&quot;NO method found in service interface &quot;</span> + interfaceClass.getName());</span><br><span class="line">            map.put(<span class="string">&quot;methods&quot;</span>, Constants.ANY_VALUE);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            map.put(<span class="string">&quot;methods&quot;</span>, StringUtils.join(<span class="keyword">new</span> <span class="title class_">HashSet</span>&lt;String&gt;(Arrays.asList(methods)), <span class="string">&quot;,&quot;</span>));</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    map.put(Constants.INTERFACE_KEY, interfaceName);</span><br><span class="line">    <span class="comment">// 添加参数到 map中</span></span><br><span class="line">    appendParameters(map, application);</span><br><span class="line">    appendParameters(map, <span class="keyword">module</span>);</span><br><span class="line">    appendParameters(map, consumer, Constants.DEFAULT_KEY);</span><br><span class="line">    appendParameters(map, <span class="built_in">this</span>);</span><br><span class="line">    Map&lt;String, Object&gt; attributes = <span class="literal">null</span>;</span><br><span class="line">    <span class="comment">// 对 &lt;method&gt; 标签的解析</span></span><br><span class="line">    <span class="keyword">if</span> (methods != <span class="literal">null</span> &amp;&amp; !methods.isEmpty()) &#123;</span><br><span class="line">        attributes = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;String, Object&gt;();</span><br><span class="line">        <span class="keyword">for</span> (MethodConfig methodConfig : methods) &#123;</span><br><span class="line">            appendParameters(map, methodConfig, methodConfig.getName());</span><br><span class="line">            <span class="comment">// 重试参数解析</span></span><br><span class="line">            <span class="type">String</span> <span class="variable">retryKey</span> <span class="operator">=</span> methodConfig.getName() + <span class="string">&quot;.retry&quot;</span>;</span><br><span class="line">            <span class="keyword">if</span> (map.containsKey(retryKey)) &#123;</span><br><span class="line">                <span class="type">String</span> <span class="variable">retryValue</span> <span class="operator">=</span> map.remove(retryKey);</span><br><span class="line">                <span class="keyword">if</span> (<span class="string">&quot;false&quot;</span>.equals(retryValue)) &#123;</span><br><span class="line">                    map.put(methodConfig.getName() + <span class="string">&quot;.retries&quot;</span>, <span class="string">&quot;0&quot;</span>);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            attributes.put(methodConfig.getName(), convertMethodConfig2AyncInfo(methodConfig));</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">     <span class="comment">// 获取消费者要使用注册的 ip 地址，多网卡情况下需要可以指定ip</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">hostToRegistry</span> <span class="operator">=</span> ConfigUtils.getSystemProperty(Constants.DUBBO_IP_TO_REGISTRY);</span><br><span class="line">    <span class="keyword">if</span> (hostToRegistry == <span class="literal">null</span> || hostToRegistry.length() == <span class="number">0</span>) &#123;</span><br><span class="line">        hostToRegistry = NetUtils.getLocalHost();</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (isInvalidLocalHost(hostToRegistry)) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(<span class="string">&quot;Specified invalid registry ip from property:&quot;</span> + Constants.DUBBO_IP_TO_REGISTRY + <span class="string">&quot;, value:&quot;</span> + hostToRegistry);</span><br><span class="line">    &#125;</span><br><span class="line">    map.put(Constants.REGISTER_IP_KEY, hostToRegistry);</span><br><span class="line">    <span class="comment">// 创建提供者代理</span></span><br><span class="line">    ref = createProxy(map);</span><br><span class="line">    <span class="comment">// 根据服务名，ReferenceConfig，代理类构建 ConsumerModel，</span></span><br><span class="line">    <span class="comment">// 并将 ConsumerModel 存入到 ApplicationModel 中</span></span><br><span class="line">    <span class="type">ConsumerModel</span> <span class="variable">consumerModel</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ConsumerModel</span>(getUniqueServiceName(), interfaceClass, ref, interfaceClass.getMethods(), attributes);</span><br><span class="line">    ApplicationModel.initConsumerModel(getUniqueServiceName(), consumerModel);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面的代码很多都和服务提供者的类似，前期工作都是对配置参数的处理，关键内容在于 代理的创建 <code>createProxy(map);</code>，这一步创建了引用服务的代理。</p>
+<p>下面我们来看看 <code>ReferenceConfig#createProxy</code> 的实现过程。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> T <span class="title function_">createProxy</span><span class="params">(Map&lt;String, String&gt; map)</span> &#123;</span><br><span class="line">  <span class="type">URL</span> <span class="variable">tmpUrl</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">URL</span>(<span class="string">&quot;temp&quot;</span>, <span class="string">&quot;localhost&quot;</span>, <span class="number">0</span>, map);</span><br><span class="line">  <span class="keyword">final</span> <span class="type">boolean</span> isJvmRefer;</span><br><span class="line">  <span class="comment">/*******  1. 服务引用判断  ******/</span></span><br><span class="line">  <span class="comment">// 根据 isInjvm 参数判断是否指定了本地引用</span></span><br><span class="line">  <span class="keyword">if</span> (isInjvm() == <span class="literal">null</span>) &#123;</span><br><span class="line">    <span class="comment">// 如果没有指定是否本地引用则 需要根据下面逻辑判断</span></span><br><span class="line">    <span class="comment">// 在指定本地引用的时候，但是 url 配置被指定，则不当做本地引用。</span></span><br><span class="line">    <span class="comment">// 该 url 在 ReferenceConfig#init 中 调用ReferenceConfig#resolveFile 方法解析获取。</span></span><br><span class="line">    <span class="keyword">if</span> (url != <span class="literal">null</span> &amp;&amp; url.length() &gt; <span class="number">0</span>) &#123; <span class="comment">// if a url is specified, don&#x27;t do local reference</span></span><br><span class="line">      isJvmRefer = <span class="literal">false</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="comment">// by default, reference local service if there is</span></span><br><span class="line">      <span class="comment">// 根据 url 的协议、scope 以及 injvm 等参数检测是否需要本地引用</span></span><br><span class="line">      <span class="comment">// 比如如果用户显式配置了 scope=local，此时 isInjvmRefer 返回 true</span></span><br><span class="line">      isJvmRefer = InjvmProtocol.getInjvmProtocol().isInjvmRefer(tmpUrl);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">//如果进行了本地引用配置，则按照配置的决定</span></span><br><span class="line">    isJvmRefer = isInjvm();</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 确定了本地引用</span></span><br><span class="line">  <span class="keyword">if</span> (isJvmRefer) &#123;</span><br><span class="line">    <span class="comment">/*******  2. 本地服务调用  ******/</span></span><br><span class="line">    <span class="comment">// 生成一个本地引用的URL，协议类型为 injvm</span></span><br><span class="line">    <span class="type">URL</span> <span class="variable">url</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">URL</span>(Constants.LOCAL_PROTOCOL, NetUtils.LOCALHOST, <span class="number">0</span>, interfaceClass.getName()).addParameters(map);</span><br><span class="line">    <span class="comment">// 调用 refer 方法构建 InjvmInvoker 实例</span></span><br><span class="line">    invoker = refprotocol.refer(interfaceClass, url);</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">/*******  3. 远程服务调用  ******/</span></span><br><span class="line">    <span class="comment">// 如果 url不为空，则说明可能会进行点对点调用，即服务直连</span></span><br><span class="line">    <span class="comment">// 这里的 url 是在 ReferenceConfig#init 中 调用 ReferenceConfig#resolveFile 方法解析获取。</span></span><br><span class="line">    <span class="keyword">if</span> (url != <span class="literal">null</span> &amp;&amp; url.length() &gt; <span class="number">0</span>) &#123; <span class="comment">// user specified URL, could be peer-to-peer address, or register center&#x27;s address.</span></span><br><span class="line">      <span class="comment">// 当需要配置多个 url 时，可用分号进行分割，这里会进行切分</span></span><br><span class="line">      String[] us = Constants.SEMICOLON_SPLIT_PATTERN.split(url);</span><br><span class="line">      <span class="keyword">if</span> (us != <span class="literal">null</span> &amp;&amp; us.length &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">for</span> (String u : us) &#123;</span><br><span class="line"></span><br><span class="line">          <span class="type">URL</span> <span class="variable">url</span> <span class="operator">=</span> URL.valueOf(u);</span><br><span class="line">          <span class="keyword">if</span> (url.getPath() == <span class="literal">null</span> || url.getPath().length() == <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="comment">// 设置接口全限定名为 url 路径</span></span><br><span class="line">            url = url.setPath(interfaceName);</span><br><span class="line">          &#125;</span><br><span class="line">          <span class="comment">// 如果 url 协议类型是 Registry，则说明需要使用指定的注册中心</span></span><br><span class="line">          <span class="keyword">if</span> (Constants.REGISTRY_PROTOCOL.equals(url.getProtocol())) &#123;</span><br><span class="line">            <span class="comment">// 将 map 转换为查询字符串，并作为 refer 参数的值添加到 url 中,与服务暴露时的url 异曲同工</span></span><br><span class="line">            urls.add(url.addParameterAndEncoded(Constants.REFER_KEY, StringUtils.toQueryString(map)));</span><br><span class="line">          &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">// 合并 url，移除服务提供者的一些配置（这些配置来源于用户配置的 url 属性），</span></span><br><span class="line">            <span class="comment">// 比如线程池相关配置。并保留服务提供者的部分配置，比如版本，group，时间戳等</span></span><br><span class="line">            <span class="comment">// 最后将合并后的配置设置为 url 查询字符串中</span></span><br><span class="line">            urls.add(ClusterUtils.mergeUrl(url, map));</span><br><span class="line">          &#125;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123; <span class="comment">// assemble URL from register center&#x27;s configuration</span></span><br><span class="line">      <span class="comment">// 如果没有服务直连，则需要从注册中心中获取提供者信息</span></span><br><span class="line">      <span class="comment">// 检查注册中心配置</span></span><br><span class="line">      checkRegistry();</span><br><span class="line">      <span class="comment">// 加载注册中心 URL</span></span><br><span class="line">      List&lt;URL&gt; us = loadRegistries(<span class="literal">false</span>);</span><br><span class="line">      <span class="keyword">if</span> (us != <span class="literal">null</span> &amp;&amp; !us.isEmpty()) &#123;</span><br><span class="line">        <span class="keyword">for</span> (URL u : us) &#123;</span><br><span class="line">          <span class="comment">// 加载监控中心</span></span><br><span class="line">          <span class="type">URL</span> <span class="variable">monitorUrl</span> <span class="operator">=</span> loadMonitor(u);</span><br><span class="line">          <span class="keyword">if</span> (monitorUrl != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="comment">// 添加监控中心信息</span></span><br><span class="line">            map.put(Constants.MONITOR_KEY, URL.encode(monitorUrl.toFullString()));</span><br><span class="line">          &#125;</span><br><span class="line">          <span class="comment">// 到这里说明存在注册中心， 则添加 refer 参数到 url 中，并将 url 添加到 urls </span></span><br><span class="line">          urls.add(u.addParameterAndEncoded(Constants.REFER_KEY, StringUtils.toQueryString(map)));</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="comment">// 未配置注册中心，抛出异常</span></span><br><span class="line">      <span class="keyword">if</span> (urls.isEmpty()) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalStateException</span>(<span class="string">&quot;No such any registry to reference &quot;</span> + interfaceName + <span class="string">&quot; on the consumer &quot;</span> + NetUtils.getLocalHost() + <span class="string">&quot; use dubbo version &quot;</span> + Version.getVersion() + <span class="string">&quot;, please config &lt;dubbo:registry address=\&quot;...\&quot; /&gt; to your spring config.&quot;</span>);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 单个注册中心或服务提供者(服务直连)</span></span><br><span class="line">    <span class="keyword">if</span> (urls.size() == <span class="number">1</span>) &#123;</span><br><span class="line">      <span class="comment">/*******  3.1 单URL场景的远程调用  ******/</span></span><br><span class="line">      <span class="comment">// 调用 RegistryProtocol 的 refer 构建 Invoker 实例</span></span><br><span class="line">      invoker = refprotocol.refer(interfaceClass, urls.get(<span class="number">0</span>));</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="comment">/*******  3.2 多URL场景的远程调用  ******/</span></span><br><span class="line">      <span class="comment">// 多个注册中心或多个服务提供者，或者两者混合</span></span><br><span class="line">      List&lt;Invoker&lt;?&gt;&gt; invokers = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;Invoker&lt;?&gt;&gt;();</span><br><span class="line">      <span class="type">URL</span> <span class="variable">registryURL</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">      <span class="comment">// 获取所有的 Invoker</span></span><br><span class="line">      <span class="keyword">for</span> (URL url : urls) &#123;</span><br><span class="line">        <span class="comment">// 通过 refprotocol 调用 refer 构建 Invoker，refprotocol 会在运行时</span></span><br><span class="line">        <span class="comment">// 根据 url 协议头加载指定的 Protocol 实例，并调用实例的 refer 方法</span></span><br><span class="line">        <span class="comment">// 这里 refprotocol 是 Protocol$Adaptive 适配器类型</span></span><br><span class="line">        invokers.add(refprotocol.refer(interfaceClass, url));</span><br><span class="line">        <span class="keyword">if</span> (Constants.REGISTRY_PROTOCOL.equals(url.getProtocol())) &#123;</span><br><span class="line">          registryURL = url; <span class="comment">// use last registry url</span></span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">if</span> (registryURL != <span class="literal">null</span>) &#123; <span class="comment">// registry url is available</span></span><br><span class="line">        <span class="comment">// use RegistryAwareCluster only when register&#x27;s cluster is available</span></span><br><span class="line">        <span class="comment">// 如果注册中心链接不为空，则将使用 RegistryAwareCluster</span></span><br><span class="line">        <span class="type">URL</span> <span class="variable">u</span> <span class="operator">=</span> registryURL.addParameter(Constants.CLUSTER_KEY, RegistryAwareCluster.NAME);</span><br><span class="line">        <span class="comment">// The invoker wrap relation would be: RegistryAwareClusterInvoker(StaticDirectory) -&gt; FailoverClusterInvoker(RegistryDirectory, will execute route) -&gt; Invoker</span></span><br><span class="line">        <span class="comment">// 创建 StaticDirectory 实例，并由 Cluster 对多个 Invoker 进行合并</span></span><br><span class="line">        invoker = cluster.join(<span class="keyword">new</span> <span class="title class_">StaticDirectory</span>(u, invokers));</span><br><span class="line">      &#125; <span class="keyword">else</span> &#123; <span class="comment">// not a registry url, must be direct invoke.</span></span><br><span class="line">        invoker = cluster.join(<span class="keyword">new</span> <span class="title class_">StaticDirectory</span>(invokers));</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 是否检查提供者的可用性</span></span><br><span class="line">  <span class="type">Boolean</span> <span class="variable">c</span> <span class="operator">=</span> check;</span><br><span class="line">  <span class="keyword">if</span> (c == <span class="literal">null</span> &amp;&amp; consumer != <span class="literal">null</span>) &#123;</span><br><span class="line">    c = consumer.isCheck();</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (c == <span class="literal">null</span>) &#123;</span><br><span class="line">    c = <span class="literal">true</span>; <span class="comment">// default true</span></span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 如果 为true，则消费者启动时对 invoker 进行可用性检查</span></span><br><span class="line">  <span class="keyword">if</span> (c &amp;&amp; !invoker.isAvailable()) &#123;</span><br><span class="line">    <span class="comment">// make it possible for consumer to retry later if provider is temporarily unavailable</span></span><br><span class="line">    initialized = <span class="literal">false</span>;</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalStateException</span>(<span class="string">&quot;Failed to check the status of the service &quot;</span> + interfaceName + <span class="string">&quot;. No provider available for the service &quot;</span> + (group == <span class="literal">null</span> ? <span class="string">&quot;&quot;</span> : group + <span class="string">&quot;/&quot;</span>) + interfaceName + (version == <span class="literal">null</span> ? <span class="string">&quot;&quot;</span> : <span class="string">&quot;:&quot;</span> + version) + <span class="string">&quot; from the url &quot;</span> + invoker.getUrl() + <span class="string">&quot; to the consumer &quot;</span> + NetUtils.getLocalHost() + <span class="string">&quot; use dubbo version &quot;</span> + Version.getVersion());</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * <span class="doctag">@since</span> 2.7.0</span></span><br><span class="line"><span class="comment">   * ServiceData Store</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="comment">// 2.7.0 版本后，元数据中心发布消费者服务信息</span></span><br><span class="line">  <span class="comment">/*******  4. 元数据中心服务发布  ******/</span></span><br><span class="line">  <span class="type">MetadataReportService</span> <span class="variable">metadataReportService</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">  <span class="keyword">if</span> ((metadataReportService = getMetadataReportService()) != <span class="literal">null</span>) &#123;</span><br><span class="line">    <span class="type">URL</span> <span class="variable">consumerURL</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">URL</span>(Constants.CONSUMER_PROTOCOL, map.remove(Constants.REGISTER_IP_KEY), <span class="number">0</span>, map.get(Constants.INTERFACE_KEY), map);</span><br><span class="line">    metadataReportService.publishConsumer(consumerURL);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// create service proxy</span></span><br><span class="line">  <span class="comment">/*******  5. 代理类的创建  ******/</span></span><br><span class="line">  <span class="comment">// 生成代理类</span></span><br><span class="line">  <span class="keyword">return</span> (T) proxyFactory.getProxy(invoker);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>我们这里可以总结为五个过程：</p>
+<ol>
+<li><code>服务引用判断</code> ：首先需要根据用户参数确定当前服务引用是本地引用还是远程引用。二者的逻辑并不相同。</li>
+<li><code>本地服务调用</code> ：首先根据配置检查是否为本地调用，若是，则调用 <code>InjvmProtocol#refer</code> 方法生成 <code>InjvmInvoker</code> 实例。若不是，则读取直连配置项或注册中心 url，并将读取到的 url 存储到 urls 中。</li>
+<li><code>远程服务调用</code> ：远程服务的调用，分为两种情况，单URL 或 多URL场景。(这里的URL 指的是用户指定的注册中心或者直连URL)。通过这一步，将 URL 转化为了 <code>Invoker</code>。</li>
+<li><code>单URL场景的远程调用</code> ：根据 <code>urls</code> 元素数量进行后续操作。若 urls 元素数量为1，则说明注册中心或直连URL只有一个，则直接通过 <code>Protocol</code> 自适应拓展类构建 Invoker 实例接口。</li>
+<li><code>多URL的远程调用</code>：若 <code>urls</code> 元素数量大于1，即存在多个注册中心或服务直连 url，此时先根据 url 构建 <code>Invoker</code>。然后再通过 <code>Cluster</code> 合并多个 <code>Invoker</code>。</li>
+<li><code>元数据中心服务发布</code> ：<code>Dubbo 2.7</code> 版本之后新增了元数据中心和配置中心，其中元数据中心会存储当前暴露的服务信息。</li>
+<li><code>代理类的创建</code> ：在获取到Ref 的Invoker 后调用 <code>ProxyFactory</code> 生成代理类。</li>
+</ol>
+<blockquote>
+<p>其中 ：Invoker 是 Dubbo 的核心模型，代表一个可执行体。在服务提供方，Invoker 用于调用服务提供类。在服务消费方，Invoker 用于执行远程调用。Invoker 是由 Protocol 实现类构建而来。</p>
+</blockquote>
+<h3 id="3-2-1、服务订阅（directory-list-）"><a href="#3-2-1、服务订阅（directory-list-）" class="headerlink" title="3.2.1、服务订阅（directory.list()）"></a>3.2.1、服务订阅（<code>directory.list()</code>）</h3><p><strong>注册中心交互</strong>：通过<code>RegistryDirectory</code>订阅服务地址，注册中心推送<code>provider</code>列表变更。<br><strong>地址缓存</strong>：<code>Consumer</code>本地缓存<code>provider</code>地址，并监听注册中心事件动态更新。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RegistryProtocol</span> <span class="keyword">implements</span> <span class="title class_">Protocol</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> &lt;T&gt; Invoker&lt;T&gt; <span class="title function_">doRefer</span><span class="params">(Cluster cluster, Registry registry, Class&lt;T&gt; type, URL url)</span> &#123;</span><br><span class="line">        RegistryDirectory&lt;T&gt; directory = <span class="keyword">new</span> <span class="title class_">RegistryDirectory</span>&lt;T&gt;(type, url);</span><br><span class="line">        directory.setRegistry(registry);</span><br><span class="line">        directory.setProtocol(protocol);</span><br><span class="line">        <span class="comment">// all attributes of REFER_KEY</span></span><br><span class="line">        Map&lt;String, String&gt; parameters = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;String, String&gt;(directory.getUrl().getParameters());</span><br><span class="line">        <span class="type">URL</span> <span class="variable">subscribeUrl</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">URL</span>(Constants.CONSUMER_PROTOCOL, parameters.remove(Constants.REGISTER_IP_KEY), <span class="number">0</span>, type.getName(), parameters);</span><br><span class="line">        <span class="keyword">if</span> (!Constants.ANY_VALUE.equals(url.getServiceInterface())</span><br><span class="line">                &amp;&amp; url.getParameter(Constants.REGISTER_KEY, <span class="literal">true</span>)) &#123;</span><br><span class="line">            <span class="type">URL</span> <span class="variable">registeredConsumerUrl</span> <span class="operator">=</span> getRegisteredConsumerUrl(subscribeUrl, url);</span><br><span class="line">            registry.register(registeredConsumerUrl);</span><br><span class="line">            directory.setRegisteredConsumerUrl(registeredConsumerUrl);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//向注册中心发起订阅</span></span><br><span class="line">        directory.subscribe(subscribeUrl.addParameter(Constants.CATEGORY_KEY,</span><br><span class="line">                Constants.PROVIDERS_CATEGORY</span><br><span class="line">                        + <span class="string">&quot;,&quot;</span> + Constants.CONFIGURATORS_CATEGORY</span><br><span class="line">                        + <span class="string">&quot;,&quot;</span> + Constants.ROUTERS_CATEGORY));</span><br><span class="line"></span><br><span class="line">        <span class="type">Invoker</span> <span class="variable">invoker</span> <span class="operator">=</span> cluster.join(directory);</span><br><span class="line">        ProviderConsumerRegTable.registerConsumer(invoker, url, subscribeUrl, directory);</span><br><span class="line">        <span class="keyword">return</span> invoker;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>向注册中心（如ZK）订阅服务路径（如&#x2F;dubbo&#x2F;com.example.UserService&#x2F;providers）。<br>注册中心返回当前provider地址列表，并持续推送变更事件。</p>
+</blockquote>
+<h3 id="3-2-2、集群容错（Cluster-join-）"><a href="#3-2-2、集群容错（Cluster-join-）" class="headerlink" title="3.2.2、集群容错（Cluster.join()）"></a>3.2.2、集群容错（<code>Cluster.join()</code>）</h3><p><strong>策略选择</strong>：根据<code>cluster</code>配置（如<code>failover、failfast</code>）创建集群<code>invoker</code>。<br><strong>负载均衡</strong>：在调用时通过<code>loadbalance</code>策略（如<code>random</code>）选择目标<code>provider</code>。</p>
+<p>集群容错<code>Cluster</code>的实现类如下：<br><img src="/2021/06/09/2021-06-09-dubbo-consumer%E5%90%AF%E5%8A%A8/cluster.png" alt="cluster"></p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>功能</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Failover Cluster</td>
+<td>失败自动切换，当出现失败，重试其它服务器。<code>通常用于读操作</code>，但重试会带来更长延迟。可通过 retries&#x3D;”2” 来设置重试次数(不含第一次)</td>
+</tr>
+<tr>
+<td>Failfast Cluster</td>
+<td>快速失败，只发起一次调用，失败立即报错。通常用于非幂等性的<code>写操作</code>，比如新增记录</td>
+</tr>
+<tr>
+<td>Failsafe Cluster</td>
+<td>失败安全，出现异常时，直接忽略。通常用于写入审计日志等操作</td>
+</tr>
+<tr>
+<td>Failback Cluster</td>
+<td>失败自动恢复，后台记录失败请求，定时重发。通常用于消息通知操作</td>
+</tr>
+<tr>
+<td>Forking Cluster</td>
+<td>并行调用多个服务器，只要一个成功即返回。通常用于实时性要求较高的<code>读操作</code>，但需要浪费更多服务资源。可通过 forks&#x3D;”2” 来设置最大并行数</td>
+</tr>
+</tbody></table>
+<p><strong>如何配置？</strong>（默认的策略是Failover，即失败自动切换）</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 服务提供者配置 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dubbo:service</span> <span class="attr">interface</span>=<span class="string">&quot;com.example.DemoService&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;demoServiceImpl&quot;</span> <span class="attr">cluster</span>=<span class="string">&quot;failover&quot;</span> <span class="attr">retries</span>=<span class="string">&quot;2&quot;</span> /&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- 服务消费者配置 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dubbo:reference</span> <span class="attr">interface</span>=<span class="string">&quot;com.example.DemoService&quot;</span> <span class="attr">id</span>=<span class="string">&quot;demoService&quot;</span> <span class="attr">cluster</span>=<span class="string">&quot;failover&quot;</span> <span class="attr">retries</span>=<span class="string">&quot;2&quot;</span> /&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>注意事项：</strong></p>
+<ul>
+<li><strong>重试次数</strong>：重试次数需要根据业务场景进行调整，过多的重试可能会增加系统负担，甚至导致雪崩效应。</li>
+<li><strong>非幂等操作</strong>：对于非幂等的写操作，需要谨慎使用<code>failover</code>策略，避免因重试导致数据不一致。</li>
+</ul>
+<h3 id="3-2-3、动态代理生成（proxyFactory-getProxy-）"><a href="#3-2-3、动态代理生成（proxyFactory-getProxy-）" class="headerlink" title="3.2.3、动态代理生成（proxyFactory.getProxy()）"></a>3.2.3、动态代理生成（proxyFactory.getProxy()）</h3><p><strong>实现方式</strong>：默认使用<code>JavassistProxyFactory</code>生成字节码代理类。<br><strong>代理逻辑</strong>：将本地方法调用转发到远程<code>provider</code>，处理序列化、网络通信等细节。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">AbstractProxyFactory</span> <span class="keyword">implements</span> <span class="title class_">ProxyFactory</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; T <span class="title function_">getProxy</span><span class="params">(Invoker&lt;T&gt; invoker, <span class="type">boolean</span> generic)</span> <span class="keyword">throws</span> RpcException &#123;</span><br><span class="line">        Class&lt;?&gt;[] interfaces = <span class="literal">null</span>;</span><br><span class="line">        <span class="type">String</span> <span class="variable">config</span> <span class="operator">=</span> invoker.getUrl().getParameter(<span class="string">&quot;interfaces&quot;</span>);</span><br><span class="line">        <span class="keyword">if</span> (config != <span class="literal">null</span> &amp;&amp; config.length() &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            String[] types = Constants.COMMA_SPLIT_PATTERN.split(config);</span><br><span class="line">            <span class="keyword">if</span> (types != <span class="literal">null</span> &amp;&amp; types.length &gt; <span class="number">0</span>) &#123;</span><br><span class="line">                interfaces = <span class="keyword">new</span> <span class="title class_">Class</span>&lt;?&gt;[types.length + <span class="number">2</span>];</span><br><span class="line">                interfaces[<span class="number">0</span>] = invoker.getInterface();</span><br><span class="line">                interfaces[<span class="number">1</span>] = EchoService.class;</span><br><span class="line">                <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; types.length; i++) &#123;</span><br><span class="line">                    interfaces[i + <span class="number">2</span>] = ReflectUtils.forName(types[i]);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (interfaces == <span class="literal">null</span>) &#123;</span><br><span class="line">            interfaces = <span class="keyword">new</span> <span class="title class_">Class</span>&lt;?&gt;[]&#123;invoker.getInterface(), EchoService.class&#125;;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!invoker.getInterface().equals(GenericService.class) &amp;&amp; generic) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">len</span> <span class="operator">=</span> interfaces.length;</span><br><span class="line">            Class&lt;?&gt;[] temp = interfaces;</span><br><span class="line">            interfaces = <span class="keyword">new</span> <span class="title class_">Class</span>&lt;?&gt;[len + <span class="number">1</span>];</span><br><span class="line">            System.arraycopy(temp, <span class="number">0</span>, interfaces, <span class="number">0</span>, len);</span><br><span class="line">            interfaces[len] = GenericService.class;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> getProxy(invoker, interfaces);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>JavassistProxyFactory</code>执行逻辑如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">JavassistProxyFactory</span> <span class="keyword">extends</span> <span class="title class_">AbstractProxyFactory</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; T <span class="title function_">getProxy</span><span class="params">(Invoker&lt;T&gt; invoker, Class&lt;?&gt;[] interfaces)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> (T) Proxy.getProxy(interfaces).newInstance(<span class="keyword">new</span> <span class="title class_">InvokerInvocationHandler</span>(invoker));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; Invoker&lt;T&gt; <span class="title function_">getInvoker</span><span class="params">(T proxy, Class&lt;T&gt; type, URL url)</span> &#123;</span><br><span class="line">        <span class="comment">// TODO Wrapper cannot handle this scenario correctly: the classname contains &#x27;$&#x27;</span></span><br><span class="line">        <span class="keyword">final</span> <span class="type">Wrapper</span> <span class="variable">wrapper</span> <span class="operator">=</span> Wrapper.getWrapper(proxy.getClass().getName().indexOf(<span class="string">&#x27;$&#x27;</span>) &lt; <span class="number">0</span> ? proxy.getClass() : type);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">AbstractProxyInvoker</span>&lt;T&gt;(proxy, type, url) &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">protected</span> Object <span class="title function_">doInvoke</span><span class="params">(T proxy, String methodName,</span></span><br><span class="line"><span class="params">                                      Class&lt;?&gt;[] parameterTypes,</span></span><br><span class="line"><span class="params">                                      Object[] arguments)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">                <span class="keyword">return</span> wrapper.invokeMethod(proxy, methodName, parameterTypes, arguments);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-3、ConsumerModel"><a href="#3-3、ConsumerModel" class="headerlink" title="3.3、ConsumerModel"></a>3.3、ConsumerModel</h2><p>代理对象生成后，会初始化<code>ConsumerModel</code>对象。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">//创建代理对象</span></span><br><span class="line">    ref = createProxy(map);</span><br><span class="line">    <span class="type">ConsumerModel</span> <span class="variable">consumerModel</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ConsumerModel</span>(getUniqueServiceName(), <span class="built_in">this</span>, ref, interfaceClass.getMethods());</span><br><span class="line">    ApplicationModel.initConsumerModel(getUniqueServiceName(), consumerModel);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>ConsumerModel</code>是一个重要概念，它代表了服务消费者的模型，用于管理和配置消费者的各种属性和行为。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ConsumerModel</span> &#123;</span><br><span class="line">    <span class="comment">//配置管理：集中管理服务消费者的配置信息，包括服务接口、协议、负载均衡策略、超时时间、重试次数</span></span><br><span class="line">    <span class="keyword">private</span> ReferenceConfig metadata;</span><br><span class="line">    <span class="comment">//动态代理对象（如UserService的代理实例）</span></span><br><span class="line">    <span class="keyword">private</span> Object proxyObject;</span><br><span class="line">    <span class="keyword">private</span> String serviceName;</span><br><span class="line">  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Map&lt;Method, ConsumerMethodModel&gt; methodModels = <span class="keyword">new</span> <span class="title class_">IdentityHashMap</span>&lt;Method, ConsumerMethodModel&gt;();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReferenceConfig</span>&lt;T&gt; <span class="keyword">extends</span> <span class="title class_">AbstractReferenceConfig</span> &#123;</span><br><span class="line">    <span class="comment">//通信协议：如Dubbo协议、HTTP协议、gRPC协议等。</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Protocol</span> <span class="variable">refprotocol</span> <span class="operator">=</span> ExtensionLoader.getExtensionLoader(Protocol.class).getAdaptiveExtension();</span><br><span class="line">    <span class="comment">//负载均衡</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Cluster</span> <span class="variable">cluster</span> <span class="operator">=</span> ExtensionLoader.getExtensionLoader(Cluster.class).getAdaptiveExtension();</span><br><span class="line">  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">ProxyFactory</span> <span class="variable">proxyFactory</span> <span class="operator">=</span> ExtensionLoader.getExtensionLoader(ProxyFactory.class).getAdaptiveExtension();</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> List&lt;URL&gt; urls = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;URL&gt;();</span><br><span class="line">    <span class="comment">// interface name</span></span><br><span class="line">    <span class="keyword">private</span> String interfaceName;</span><br><span class="line">    <span class="keyword">private</span> Class&lt;?&gt; interfaceClass;</span><br><span class="line">    <span class="comment">// client type</span></span><br><span class="line">    <span class="keyword">private</span> String client;</span><br><span class="line">    <span class="comment">// url for peer-to-peer invocation</span></span><br><span class="line">    <span class="keyword">private</span> String url;</span><br><span class="line">    <span class="comment">// method configs</span></span><br><span class="line">    <span class="keyword">private</span> List&lt;MethodConfig&gt; methods;</span><br><span class="line">    <span class="comment">// default config</span></span><br><span class="line">    <span class="keyword">private</span> ConsumerConfig consumer;</span><br><span class="line">    <span class="keyword">private</span> String protocol;</span><br><span class="line">    <span class="comment">// 创建的代理对象</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> T ref;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> Invoker&lt;?&gt; invoker;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> <span class="type">boolean</span> initialized;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> <span class="type">boolean</span> destroyed;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="四、代理对象"><a href="#四、代理对象" class="headerlink" title="四、代理对象"></a>四、代理对象</h1><p><code>Dubbo</code>通过<code>JavassistProxyFactory</code>创建代理对象：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">JavassistProxyFactory</span> <span class="keyword">extends</span> <span class="title class_">AbstractProxyFactory</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; T <span class="title function_">getProxy</span><span class="params">(Invoker&lt;T&gt; invoker, Class&lt;?&gt;[] interfaces)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> (T) Proxy.getProxy(interfaces).newInstance(<span class="keyword">new</span> <span class="title class_">InvokerInvocationHandler</span>(invoker));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; Invoker&lt;T&gt; <span class="title function_">getInvoker</span><span class="params">(T proxy, Class&lt;T&gt; type, URL url)</span> &#123;</span><br><span class="line">        <span class="comment">// TODO Wrapper cannot handle this scenario correctly: the classname contains &#x27;$&#x27;</span></span><br><span class="line">        <span class="keyword">final</span> <span class="type">Wrapper</span> <span class="variable">wrapper</span> <span class="operator">=</span> Wrapper.getWrapper(proxy.getClass().getName().indexOf(<span class="string">&#x27;$&#x27;</span>) &lt; <span class="number">0</span> ? proxy.getClass() : type);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">AbstractProxyInvoker</span>&lt;T&gt;(proxy, type, url) &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">protected</span> Object <span class="title function_">doInvoke</span><span class="params">(T proxy, String methodName,</span></span><br><span class="line"><span class="params">                                      Class&lt;?&gt;[] parameterTypes,</span></span><br><span class="line"><span class="params">                                      Object[] arguments)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">                <span class="keyword">return</span> wrapper.invokeMethod(proxy, methodName, parameterTypes, arguments);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="4-1、核心类与接口"><a href="#4-1、核心类与接口" class="headerlink" title="4.1、核心类与接口"></a>4.1、核心类与接口</h2><ul>
+<li><code>com.alibaba.dubbo.rpc.ProxyFactory</code>：代理工厂类，负责生成Proxy代理类</li>
+<li><code>com.alibaba.dubbo.common.bytecode.Proxy</code>：代理类，负责生成动态代理类</li>
+<li><code>com.alibaba.dubbo.rpc.Invoker</code>：封装调用逻辑，动态代理对象调用方法时最终委托给<code>Invoker</code>执行。</li>
+<li><code>com.alibaba.dubbo.rpc.proxy.InvokerInvocationHandler</code>：</li>
+</ul>
+<h3 id="4-1-1、Proxy"><a href="#4-1-1、Proxy" class="headerlink" title="4.1.1、Proxy"></a>4.1.1、Proxy</h3><p>Dubbo的<code>Proxy</code>类（通过<code>ProxyFactory</code>接口实现）负责生成代理对象。其核心职责包括：</p>
+<ul>
+<li><code>接口代理生成</code>：为服务接口创建动态代理大小。</li>
+<li><code>调用拦截与转发</code>：将本地方法调用转换为Invoker的调用。</li>
+<li><code>参数与返回值的序列化/反序列化</code>：处理网络传输的数据格式：</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">Proxy</span> &#123;</span><br><span class="line">    <span class="comment">// JDK动态代理的逻辑处理器</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">InvocationHandler</span> <span class="variable">RETURN_NULL_INVOKER</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">InvocationHandler</span>() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="keyword">public</span> Object <span class="title function_">invoke</span><span class="params">(Object proxy, Method method, Object[] args)</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">InvocationHandler</span> <span class="variable">THROW_UNSUPPORTED_INVOKER</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">InvocationHandler</span>() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="keyword">public</span> Object <span class="title function_">invoke</span><span class="params">(Object proxy, Method method, Object[] args)</span> &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">UnsupportedOperationException</span>(<span class="string">&quot;Method [&quot;</span> + ReflectUtils.getName(method) + <span class="string">&quot;] unimplemented.&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">AtomicLong</span> <span class="variable">PROXY_CLASS_COUNTER</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">AtomicLong</span>(<span class="number">0</span>);</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">PACKAGE_NAME</span> <span class="operator">=</span> Proxy.class.getPackage().getName();</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Map&lt;ClassLoader, Map&lt;String, Object&gt;&gt; ProxyCacheMap = <span class="keyword">new</span> <span class="title class_">WeakHashMap</span>&lt;ClassLoader, Map&lt;String, Object&gt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Object</span> <span class="variable">PendingGenerationMarker</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Object</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">protected</span> <span class="title function_">Proxy</span><span class="params">()</span> &#123;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Proxy <span class="title function_">getProxy</span><span class="params">(ClassLoader cl, Class&lt;?&gt;... ics)</span> &#123;</span><br><span class="line">      <span class="comment">//省略部分代码</span></span><br><span class="line">      <span class="comment">//创建ClassGenerator，用于生成代理工厂类字节码</span></span><br><span class="line">      <span class="type">ClassGenerator</span> <span class="variable">ccp</span> <span class="operator">=</span> <span class="literal">null</span>, ccm = <span class="literal">null</span>;</span><br><span class="line">      <span class="keyword">try</span> &#123;</span><br><span class="line">        ccp = ClassGenerator.newInstance(cl);</span><br><span class="line">        <span class="comment">//省略了</span></span><br><span class="line">        Class&lt;?&gt; pc = ccm.toClass();</span><br><span class="line">        proxy = (Proxy) pc.newInstance();</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">return</span> proxy;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">abstract</span> <span class="keyword">public</span> Object <span class="title function_">newInstance</span><span class="params">(InvocationHandler handler)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>abstract public Object newInstance()</code>方法：是动态代理生成的核心入口，用于创建代理对象实例，并将调用逻辑（由InvocationHandler实现）注入到代理对象中。</p>
+<blockquote>
+<p>看似是抽象方法，但实际上通过SPI机制由具体实现类（如JavassistProxyFactory或JdkProxyFactory）提供具体实现。</p>
+</blockquote>
+<h3 id="4-1-2、ProxyFactory"><a href="#4-1-2、ProxyFactory" class="headerlink" title="4.1.2、ProxyFactory"></a>4.1.2、ProxyFactory</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@SPI(&quot;javassist&quot;)</span> <span class="comment">// 默认使用 Javassist 实现</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">ProxyFactory</span> &#123;</span><br><span class="line">    <span class="comment">// 创建代理对象（Consumer 侧）</span></span><br><span class="line">    <span class="meta">@Adaptive(&#123;Constants.PROXY_KEY&#125;)</span></span><br><span class="line">    &lt;T&gt; T <span class="title function_">getProxy</span><span class="params">(Invoker&lt;T&gt; invoker)</span> <span class="keyword">throws</span> RpcException;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 创建 Invoker（Provider 侧）</span></span><br><span class="line">    <span class="meta">@Adaptive(&#123;Constants.PROXY_KEY&#125;)</span></span><br><span class="line">    &lt;T&gt; Invoker&lt;T&gt; <span class="title function_">getInvoker</span><span class="params">(T proxy, Class&lt;T&gt; type, URL url)</span> <span class="keyword">throws</span> RpcException;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>SPI配置文件，通过META-INF&#x2F;dubbo&#x2F;org.apache.dubbo.rpc.ProxyFactory文件声明扩展实现：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">javassist=org.apache.dubbo.rpc.proxy.javassist.JavassistProxyFactory</span><br><span class="line">jdk=org.apache.dubbo.rpc.proxy.jdk.JdkProxyFactory</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-1-3、Invoker"><a href="#4-1-3、Invoker" class="headerlink" title="4.1.3、Invoker"></a>4.1.3、Invoker</h3><p>Dubbo内部定义的类，封装调用逻辑，动态代理对象调用方法时最终委托给<code>Invoker</code>执行。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Invoker</span>&lt;T&gt; <span class="keyword">extends</span> <span class="title class_">Node</span> &#123;</span><br><span class="line">    Class&lt;T&gt; <span class="title function_">getInterface</span><span class="params">()</span>;</span><br><span class="line">    Result <span class="title function_">invoke</span><span class="params">(Invocation invocation)</span> <span class="keyword">throws</span> RpcException;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="4-1-3-1、Invoker相关实现"><a href="#4-1-3-1、Invoker相关实现" class="headerlink" title="4.1.3.1、Invoker相关实现"></a>4.1.3.1、Invoker相关实现</h4><p><code>dubbo</code>中常用的<code>Invoker</code>类，如下：<br><img src="/2021/06/09/2021-06-09-dubbo-consumer%E5%90%AF%E5%8A%A8/%E5%B8%B8%E8%A7%81%E7%9A%84invoker.png" alt="常见的invoker"></p>
+<ul>
+<li><code>AbstractProxyInvoker</code> 本地执行类的<code>Invoker</code>，实际通过Java反射的方式执行原始对象的方法。为<code>proxyFactory.getInvoker</code>生成的被<code>wrapper</code>包装过的<code>Invoker</code>——-<code>InvokerWrapper</code>。</li>
+<li><code>AbstractInvoker</code>: 远程通信类的<code>Invoker</code>，实际通过通信协议发起远程调用请求，并接收响应。</li>
+<li><code>AbstraceClusterInvoker</code> 多个远程通信类的<code>Invoker</code>聚合成的集群<code>Invoker</code>，加入了集群容错和负载均衡策略。<code>cluster</code>集群下的<code>Invoker</code>实现，采用模板方法设计模式，<code>abstract</code>定义方法框架，具体方法实现由子类实现。</li>
+</ul>
+<h3 id="4-1-4、InvokerInvocationHandler"><a href="#4-1-4、InvokerInvocationHandler" class="headerlink" title="4.1.4、InvokerInvocationHandler"></a>4.1.4、InvokerInvocationHandler</h3><p>实现了JDK动态代理的<code>InvocationHandler</code>接口，动态代理对象的执行，执行其<code>invoke()</code>方法，内部会调用<code>invoker</code>的<code>invoke()</code>方法。</p>
+<ul>
+<li><code>Invoker</code>：Dubbo内部定义的类，封装具体的调用逻辑。</li>
+<li><code>InvocationHandler</code>：JDK动态代理的接口</li>
+<li><code>InvokerInvocationHandler</code>：Dubbo中对JDK动态代理的实现<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.alibaba.dubbo.rpc.proxy;</span><br><span class="line"><span class="keyword">import</span> com.alibaba.dubbo.rpc.Invoker;</span><br><span class="line"><span class="keyword">import</span> com.alibaba.dubbo.rpc.RpcInvocation;</span><br><span class="line"><span class="keyword">import</span> java.lang.reflect.InvocationHandler;</span><br><span class="line"><span class="keyword">import</span> java.lang.reflect.Method;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">InvokerInvocationHandler</span> <span class="keyword">implements</span> <span class="title class_">InvocationHandler</span> &#123;</span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> Invoker&lt;?&gt; invoker;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">public</span> <span class="title function_">InvokerInvocationHandler</span><span class="params">(Invoker&lt;?&gt; handler)</span> &#123;</span><br><span class="line">    <span class="built_in">this</span>.invoker = handler;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="keyword">public</span> Object <span class="title function_">invoke</span><span class="params">(Object proxy, Method method, Object[] args)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">methodName</span> <span class="operator">=</span> method.getName();</span><br><span class="line">    Class&lt;?&gt;[] parameterTypes = method.getParameterTypes();</span><br><span class="line">    <span class="keyword">if</span> (method.getDeclaringClass() == Object.class) &#123;</span><br><span class="line">      <span class="keyword">return</span> method.invoke(invoker, args);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="string">&quot;toString&quot;</span>.equals(methodName) &amp;&amp; parameterTypes.length == <span class="number">0</span>) &#123;</span><br><span class="line">      <span class="keyword">return</span> invoker.toString();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="string">&quot;hashCode&quot;</span>.equals(methodName) &amp;&amp; parameterTypes.length == <span class="number">0</span>) &#123;</span><br><span class="line">      <span class="keyword">return</span> invoker.hashCode();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="string">&quot;equals&quot;</span>.equals(methodName) &amp;&amp; parameterTypes.length == <span class="number">1</span>) &#123;</span><br><span class="line">      <span class="keyword">return</span> invoker.equals(args[<span class="number">0</span>]);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> invoker.invoke(<span class="keyword">new</span> <span class="title class_">RpcInvocation</span>(method, args)).recreate();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h1 id="五、小结"><a href="#五、小结" class="headerlink" title="五、小结"></a>五、小结</h1><p>消费者定义的类在spring中的具体存储是咋样的？</p>
+<p><strong>示例如下</strong>：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dubbo:reference</span> <span class="attr">id</span>=<span class="string">&quot;demoService&quot;</span> <span class="attr">check</span>=<span class="string">&quot;false&quot;</span> <span class="attr">interface</span>=<span class="string">&quot;com.alibaba.dubbo.demo.DemoService&quot;</span>/&gt;</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TestService</span> &#123;</span><br><span class="line">    <span class="meta">@Resource</span></span><br><span class="line">    <span class="keyword">private</span> DemoService demoService;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">get</span><span class="params">()</span> &#123;</span><br><span class="line">        demoSercice.sayHello(<span class="string">&quot;String name&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>XML配置解析过程</strong>：<br><code>DubboBeanDefinitionParser</code>将该配置，解析成<code>ReferenceBean</code>类型.</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ReferenceBean</span>&lt;T&gt; <span class="keyword">extends</span> <span class="title class_">ReferenceConfig</span>&lt;T&gt; <span class="keyword">implements</span> <span class="title class_">FactoryBean</span>, ApplicationContextAware, InitializingBean, DisposableBean &#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>ReferenceBean</code>，实现了<code>FactoryBean</code>和<code>InitializingBean</code></p>
+<ul>
+<li><code>InitializingBean</code>，在对象的创建流程中，当Bean的属性完成依赖注入后，执行初始化逻辑，例如资源加载、连接初始化</li>
+<li><code>FactoryBean</code>是Spring框架提供的一个接口，用于自定义Bean的实例化逻辑。通过实现<code>FactoryBean</code>接口，可以返回一个复杂对象（通过<code>getObject()</code>方法），而<code>FactoryBean</code>本身也是一个Spring管理的Bean。</li>
+</ul>
+<p><strong>注入过程</strong>：<br><code>TestService</code>属性注入时，会去获取<code>demoService</code>实例，如果未创建，则走创建链路，返回<code>ReferenceBean</code>类型实例，创建完成后，会判断是否是<code>FactoryBean</code>类型，如果是的话，调用其<code>getObject()</code>方法，返回代理对象。</p>
+<ul>
+<li>所以实际填充到<code>TestService</code>的<code>demoService</code>对象，是代理对象。<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">AbstractBeanFactory</span> <span class="keyword">extends</span> <span class="title class_">FactoryBeanRegistrySupport</span> <span class="keyword">implements</span> <span class="title class_">ConfigurableBeanFactory</span> &#123;</span><br><span class="line">  <span class="keyword">protected</span> &lt;T&gt; T <span class="title function_">doGetBean</span><span class="params">(</span></span><br><span class="line"><span class="params">          <span class="keyword">final</span> String name, <span class="keyword">final</span> Class&lt;T&gt; requiredType, <span class="keyword">final</span> Object[] args, <span class="type">boolean</span> typeCheckOnly)</span></span><br><span class="line">          <span class="keyword">throws</span> BeansException &#123;</span><br><span class="line">    <span class="comment">// Create bean instance.</span></span><br><span class="line">    <span class="keyword">if</span> (mbd.isSingleton()) &#123;</span><br><span class="line">      sharedInstance = getSingleton(beanName, <span class="keyword">new</span> <span class="title class_">ObjectFactory</span>&lt;Object&gt;() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="keyword">public</span> Object <span class="title function_">getObject</span><span class="params">()</span> <span class="keyword">throws</span> BeansException &#123;</span><br><span class="line">          <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> createBean(beanName, mbd, args);</span><br><span class="line">          &#125;</span><br><span class="line">          <span class="keyword">catch</span> (BeansException ex) &#123;</span><br><span class="line">            destroySingleton(beanName);</span><br><span class="line">            <span class="keyword">throw</span> ex;</span><br><span class="line">          &#125;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;);</span><br><span class="line">      <span class="comment">//判断实例是不是FactoryBean类型，如果是，则调用其getObject()方法</span></span><br><span class="line">      bean = getObjectForBeanInstance(sharedInstance, name, beanName, mbd);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+代理对象的示例：<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">proxy0</span> <span class="keyword">implements</span> <span class="title class_">ClassGenerator</span>.DC, EchoService, DemoService &#123;</span><br><span class="line">    <span class="comment">// 方法数组</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Method[] methods;</span><br><span class="line">    <span class="keyword">private</span> InvocationHandler handler;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">proxy0</span><span class="params">(InvocationHandler invocationHandler)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.handler = invocationHandler;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">proxy0</span><span class="params">()</span> &#123;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">sayHello</span><span class="params">(String string)</span> &#123;</span><br><span class="line">        <span class="comment">// 将参数存储到 Object 数组中</span></span><br><span class="line">        Object[] arrobject = <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;string&#125;;</span><br><span class="line">        <span class="comment">// 调用 InvocationHandler 实现类的 invoke 方法得到调用结果</span></span><br><span class="line">        <span class="type">Object</span> <span class="variable">object</span> <span class="operator">=</span> <span class="built_in">this</span>.handler.invoke(<span class="built_in">this</span>, methods[<span class="number">0</span>], arrobject);</span><br><span class="line">        <span class="comment">// 返回调用结果</span></span><br><span class="line">        <span class="keyword">return</span> (String)object;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 回声测试方法 */</span></span><br><span class="line">    <span class="keyword">public</span> Object $echo(Object object) &#123;</span><br><span class="line">        Object[] arrobject = <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;object&#125;;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">object2</span> <span class="operator">=</span> <span class="built_in">this</span>.handler.invoke(<span class="built_in">this</span>, methods[<span class="number">1</span>], arrobject);</span><br><span class="line">        <span class="keyword">return</span> object2;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>参考文章：<br><a href="https://nnkwrik.github.io/2019/04/16/20190416/">Dubbo源码跟踪</a><br><a href="https://cn.dubbo.apache.org/zh-cn/docsv2.7/dev/source/service-invoking-process/#21-%E6%9C%8D%E5%8A%A1%E8%B0%83%E7%94%A8%E6%96%B9%E5%BC%8F">服务调用方式</a><br><a href="https://blog.csdn.net/qq_36882793/article/details/115726433">消费者启动流程</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/05/2021-06-05-dubbo-provide%E5%90%AF%E5%8A%A8/" rel="prev" title="《dubbo》provider启动">
+      <i class="fa fa-chevron-left"></i> 《dubbo》provider启动
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/10/2021-06-10-dubbo-protocol/" rel="next" title="《dubbo》Protocol">
+      《dubbo》Protocol <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81dubbo"><span class="nav-text">一、dubbo</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="nav-text">二、示例代码</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81Consumer%E5%90%AF%E5%8A%A8%E6%B5%81%E7%A8%8B"><span class="nav-text">三、Consumer启动流程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E9%85%8D%E7%BD%AE%E8%A7%A3%E6%9E%90%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-text">3.1、配置解析与初始化</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E6%A0%87%E7%AD%BE%E8%A7%A3%E6%9E%90%E5%99%A8"><span class="nav-text">3.1.1、标签解析器</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E6%A0%B8%E5%BF%83%E7%B1%BB%E8%A7%A3%E6%9E%90ReferenceBean"><span class="nav-text">3.2、核心类解析ReferenceBean</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1%E3%80%81%E6%9C%8D%E5%8A%A1%E8%AE%A2%E9%98%85%EF%BC%88directory-list-%EF%BC%89"><span class="nav-text">3.2.1、服务订阅（directory.list()）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-2%E3%80%81%E9%9B%86%E7%BE%A4%E5%AE%B9%E9%94%99%EF%BC%88Cluster-join-%EF%BC%89"><span class="nav-text">3.2.2、集群容错（Cluster.join()）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-3%E3%80%81%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E7%94%9F%E6%88%90%EF%BC%88proxyFactory-getProxy-%EF%BC%89"><span class="nav-text">3.2.3、动态代理生成（proxyFactory.getProxy()）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81ConsumerModel"><span class="nav-text">3.3、ConsumerModel</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1"><span class="nav-text">四、代理对象</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E6%A0%B8%E5%BF%83%E7%B1%BB%E4%B8%8E%E6%8E%A5%E5%8F%A3"><span class="nav-text">4.1、核心类与接口</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-1%E3%80%81Proxy"><span class="nav-text">4.1.1、Proxy</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-2%E3%80%81ProxyFactory"><span class="nav-text">4.1.2、ProxyFactory</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-3%E3%80%81Invoker"><span class="nav-text">4.1.3、Invoker</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-3-1%E3%80%81Invoker%E7%9B%B8%E5%85%B3%E5%AE%9E%E7%8E%B0"><span class="nav-text">4.1.3.1、Invoker相关实现</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-4%E3%80%81InvokerInvocationHandler"><span class="nav-text">4.1.4、InvokerInvocationHandler</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%B0%8F%E7%BB%93"><span class="nav-text">五、小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">187</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">140</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">25</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
