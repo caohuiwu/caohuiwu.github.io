@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、限流-熔断-降级限流、熔断、降级是微服务架构中常用的保护机制。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="sentinel">
+<meta property="og:url" content="http://yoursite.com/2021/07/28/2021-07-28-sentinel/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、限流-熔断-降级限流、熔断、降级是微服务架构中常用的保护机制。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/07/28/2021-07-28-sentinel/%E8%B5%84%E6%BA%90.png">
+<meta property="og:image" content="http://yoursite.com/2021/07/28/2021-07-28-sentinel/%E8%B5%84%E6%BA%902.png">
+<meta property="og:image" content="http://yoursite.com/2021/07/28/2021-07-28-sentinel/%E6%B5%81%E6%8E%A7%E8%A7%84%E5%88%99.png">
+<meta property="og:image" content="http://yoursite.com/2021/07/28/2021-07-28-sentinel/%E7%86%94%E6%96%AD.png">
+<meta property="og:image" content="http://yoursite.com/2021/07/28/2021-07-28-sentinel/%E4%BB%A3%E7%A0%81%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2021/07/28/2021-07-28-sentinel/%E6%9E%B6%E6%9E%84%E5%9B%BE.png">
+<meta property="article:published_time" content="2021-07-27T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-17T08:22:31.578Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/07/28/2021-07-28-sentinel/%E8%B5%84%E6%BA%90.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/07/28/2021-07-28-sentinel/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>sentinel | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/07/28/2021-07-28-sentinel/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          sentinel
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-28 00:00:00" itemprop="dateCreated datePublished" datetime="2021-07-28T00:00:00+08:00">2021-07-28</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-17 16:22:31" itemprop="dateModified" datetime="2025-04-17T16:22:31+08:00">2025-04-17</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/sentinel/" itemprop="url" rel="index"><span itemprop="name">sentinel</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>9.2k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>23 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、限流-熔断-降级"><a href="#一、限流-熔断-降级" class="headerlink" title="一、限流-熔断-降级"></a>一、限流-熔断-降级</h1><p>限流、熔断、降级是微服务架构中常用的保护机制。</p>
+<span id="more"></span>
+
+
+<h1 id="二、sentinel"><a href="#二、sentinel" class="headerlink" title="二、sentinel"></a>二、sentinel</h1><p>流量治理组件，主要以流量为切入点，从<strong>流量控制、流量路由、熔断降级、系统自适应保护</strong>等多个维度来帮助用户保障微服务的稳定性</p>
+<h2 id="2-1、核心功能包括"><a href="#2-1、核心功能包括" class="headerlink" title="2.1、核心功能包括"></a>2.1、核心功能包括</h2><h3 id="2-1-1、限流（流量控制）"><a href="#2-1-1、限流（流量控制）" class="headerlink" title="2.1.1、限流（流量控制）"></a>2.1.1、限流（流量控制）</h3><p>支持维度</p>
+<ul>
+<li><strong>QPS限流</strong>：限制每秒请求数。</li>
+<li><strong>线程数限流</strong>：限制并发线程数（防止资源耗尽）。</li>
+<li><strong>关联限流</strong>：A服务限流触发后联动限制B服务。</li>
+<li><strong>链路限流</strong>：基于调用链路进行限流。</li>
+</ul>
+<p>算法：令牌桶、漏桶</p>
+<h3 id="2-1-2、熔断降级"><a href="#2-1-2、熔断降级" class="headerlink" title="2.1.2、熔断降级"></a>2.1.2、熔断降级</h3><p>熔断策略</p>
+<ul>
+<li><strong>异常比例</strong>(<code>ERROR_RATIO</code>)：如1秒内40%的请求失败</li>
+<li><strong>慢调用比例</strong>(<code>SLOW_REQUEST_RATIO</code>)：如响应时间超过100ms的请求占比超过阈值。</li>
+<li><strong>异常数</strong>(<code>ERROR_COUNT</code>)：单位时间内异常数超过阈值。</li>
+</ul>
+<p>熔断状态</p>
+<ul>
+<li><strong>关闭（closed）</strong>：正常调用，统计指标。</li>
+<li><strong>打开（open）</strong>：拒绝请求，触发降级逻辑。</li>
+<li><strong>半开（half-open）</strong>：允许少量请求试探，决定是否恢复。</li>
+</ul>
+<h3 id="2-1-3、系统保护"><a href="#2-1-3、系统保护" class="headerlink" title="2.1.3、系统保护"></a>2.1.3、系统保护</h3><p>保护维度</p>
+<ul>
+<li><strong>CPU使用率</strong>：超过阈值（如80%）自动限流。</li>
+<li><strong>线程数</strong>：防止线程池耗尽。</li>
+<li><strong>响应时间（RT）</strong>：平均响应时间过长时触发降级。</li>
+</ul>
+<h1 id="三、架构"><a href="#三、架构" class="headerlink" title="三、架构"></a>三、架构</h1><h2 id="3-1、核心概念"><a href="#3-1、核心概念" class="headerlink" title="3.1、核心概念"></a>3.1、核心概念</h2><h3 id="3-1-1、资源（Resource）"><a href="#3-1-1、资源（Resource）" class="headerlink" title="3.1.1、资源（Resource）"></a>3.1.1、资源（Resource）</h3><p><strong>定义</strong>：被保护的接口、服务、方法名或代码块。<br><strong>作用</strong>：通过<code>sentinel API</code>定义资源，使其能够被<code>sentinel</code>监控和保护。<br><strong>示例</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@SentinelResource(value = &quot;getUser&quot;, blockHandler = &quot;handleBlock&quot;)</span></span><br><span class="line"><span class="keyword">public</span> String <span class="title function_">getUser</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;正常访问&quot;</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="资源示例"><a href="#资源示例" class="headerlink" title="资源示例"></a>资源示例</h4><p>簇点链路（单机调用链路）页面实时的去拉取指定客户端<strong>资源</strong>的运行情况。提供两种展示模式：一种用树状结构展示资源的调用链路，另外一种则不区分调用链路展示资源的运行情况。</p>
+<table>
+<thead>
+<tr>
+<th>树状链路</th>
+<th>平铺链路</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><img src="/2021/07/28/2021-07-28-sentinel/%E8%B5%84%E6%BA%90.png" alt="资源"></td>
+<td><img src="/2021/07/28/2021-07-28-sentinel/%E8%B5%84%E6%BA%902.png" alt="资源"></td>
+</tr>
+</tbody></table>
+<h3 id="3-1-2、规则（Rule）"><a href="#3-1-2、规则（Rule）" class="headerlink" title="3.1.2、规则（Rule）"></a>3.1.2、规则（Rule）</h3><p><strong>定义</strong>：围绕资源设定的规则，包括流控规则、熔断规则、系统规则等。<br><strong>类型</strong>：</p>
+<ul>
+<li><strong>流量控制规则</strong>：QPS、线程数、热点参数限流。</li>
+<li><strong>熔断降级规则</strong>：基于异常比例、RT（响应时间）、异常数。</li>
+<li><strong>系统保护规则</strong>：CPU使用率、系统负载、平均RT。</li>
+<li><strong>授权规则</strong>：控制资源的访问权限。</li>
+</ul>
+<h4 id="规则示例"><a href="#规则示例" class="headerlink" title="规则示例"></a>规则示例</h4><table>
+<thead>
+<tr>
+<th>流控规则</th>
+<th>熔断降级规则</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><img src="/2021/07/28/2021-07-28-sentinel/%E6%B5%81%E6%8E%A7%E8%A7%84%E5%88%99.png" alt="流控规则"></td>
+<td><img src="/2021/07/28/2021-07-28-sentinel/%E7%86%94%E6%96%AD.png" alt="熔断"></td>
+</tr>
+</tbody></table>
+<h2 id="3-2、相关类定义"><a href="#3-2、相关类定义" class="headerlink" title="3.2、相关类定义"></a>3.2、相关类定义</h2><p><img src="/2021/07/28/2021-07-28-sentinel/%E4%BB%A3%E7%A0%81%E7%BB%93%E6%9E%84.png" alt="代码结构"></p>
+<h3 id="3-2-1、资源与上下文"><a href="#3-2-1、资源与上下文" class="headerlink" title="3.2.1、资源与上下文"></a>3.2.1、资源与上下文</h3><h4 id="3-2-1-1、ResourceWrapper"><a href="#3-2-1-1、ResourceWrapper" class="headerlink" title="3.2.1.1、ResourceWrapper"></a>3.2.1.1、<code>ResourceWrapper</code></h4><ul>
+<li><strong>定义</strong>：资源的包装类，抽象了资源的名称和类型（如方法调用、HTTP接口等）。</li>
+<li><strong>实现类</strong>：<ul>
+<li><code>StringResourceWrapper</code>：通用资源包装（通过字符串标识资源）</li>
+<li><code>MethodResourceWrapper</code>：针对方法调用的资源包装。</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.alibaba.csp.sentinel.slotchain;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">ResourceWrapper</span> &#123;</span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">final</span> String name;</span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">final</span> EntryType entryType;</span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">final</span> <span class="type">int</span> resourceType;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-2-1-2、Context"><a href="#3-2-1-2、Context" class="headerlink" title="3.2.1.2、Context"></a>3.2.1.2、<code>Context</code></h4><ul>
+<li><strong>定义</strong>：请求的上下文环境，每个资源操作（如<code>entry/exit</code>）必须属于一个<code>Context</code></li>
+<li><strong>作用</strong>：管理资源操作的生命周期，保存线程级别的上下文信息（通过<code>ThreadLocal</code>）。<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.alibaba.csp.sentinel.context;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Context</span> &#123;</span><br><span class="line">    <span class="comment">//上下文名称</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String name;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * The entrance node of current invocation tree.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> DefaultNode entranceNode;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Current processing entry.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> Entry curEntry;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * The origin of this context (usually indicate different invokers, e.g. service consumer name or origin IP).</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">String</span> <span class="variable">origin</span> <span class="operator">=</span> <span class="string">&quot;&quot;</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">boolean</span> async;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h4 id="3-2-1-3、Entry"><a href="#3-2-1-3、Entry" class="headerlink" title="3.2.1.3、Entry"></a>3.2.1.3、<code>Entry</code></h4><p>定义：表示一次资源操作的入口（Entry可以理解为每次进入资源的一个凭证），通过<code>SphU.entry()</code>或<code>SphO.entry()</code>创建。<br>作用：记录请求的入口信息（如开始时间、资源名），并在exit()时统计请求的完成情况。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.alibaba.csp.sentinel;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">Entry</span> <span class="keyword">implements</span> <span class="title class_">AutoCloseable</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Object[] OBJECTS0 = <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">long</span> createTimestamp;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">long</span> completeTimestamp;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Node curNode;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * &#123;<span class="doctag">@link</span> Node&#125; of the specific origin, Usually the origin is the Service Consumer.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> Node originNode;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Throwable error;</span><br><span class="line">    <span class="keyword">private</span> BlockException blockError;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">final</span> ResourceWrapper resourceWrapper;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-2、统计与节点类"><a href="#3-2-2、统计与节点类" class="headerlink" title="3.2.2、统计与节点类"></a>3.2.2、统计与节点类</h3><h4 id="3-2-2-1、StatisticNode"><a href="#3-2-2-1、StatisticNode" class="headerlink" title="3.2.2.1、StatisticNode"></a>3.2.2.1、StatisticNode</h4><ul>
+<li><strong>定义</strong>：统计节点的基类，用于记录资源的实时指标（如QPS、线程数、响应时间）。<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">StatisticNode</span> <span class="keyword">implements</span> <span class="title class_">Node</span> &#123;</span><br><span class="line">    <span class="comment">//秒级滑动时间窗口统计（如QPS）</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> <span class="type">Metric</span> <span class="variable">rollingCounterInSecond</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ArrayMetric</span>(SampleCountProperty.SAMPLE_COUNT,</span><br><span class="line">            IntervalProperty.INTERVAL);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//分钟级统计（如分钟级QPS）</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="type">Metric</span> <span class="variable">rollingCounterInMinute</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ArrayMetric</span>(<span class="number">60</span>, <span class="number">60</span> * <span class="number">1000</span>, <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//当前并发线程数（用于线程数限流）</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">LongAdder</span> <span class="variable">curThreadNum</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">LongAdder</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * The last timestamp when metrics were fetched.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">long</span> <span class="variable">lastFetchTime</span> <span class="operator">=</span> -<span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li><strong>子类</strong>：<ul>
+<li><code>DefaultNode</code>：记录单个链路中资源的统计信息（用于链路模式限流）</li>
+<li><code>ClusterNode</code>：记录所有链路中资源的统计信息（用于全局或关联模式限流）</li>
+</ul>
+</li>
+</ul>
+<h4 id="3-2-2-2、Metric-MetricBucket"><a href="#3-2-2-2、Metric-MetricBucket" class="headerlink" title="3.2.2.2、Metric &amp; MetricBucket"></a>3.2.2.2、Metric &amp; MetricBucket</h4><ul>
+<li><strong>Metric</strong>：统计指标的容器，基于滑动时间窗口（ArrayMetric实现）<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Metric</span> <span class="keyword">extends</span> <span class="title class_">DebugSupport</span> &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Get total success count.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">long</span> <span class="title function_">success</span><span class="params">()</span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Get max success count.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">long</span> <span class="title function_">maxSuccess</span><span class="params">()</span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Get total exception count.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">long</span> <span class="title function_">exception</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Get total block count.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">long</span> <span class="title function_">block</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li><strong>MetricBucket</strong>：存储具体统计值（如请求次数、响应时间）的桶。<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MetricBucket</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> LongAdder[] counters;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">long</span> minRt;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">MetricBucket</span><span class="params">()</span> &#123;</span><br><span class="line">        MetricEvent[] events = MetricEvent.values();</span><br><span class="line">        <span class="built_in">this</span>.counters = <span class="keyword">new</span> <span class="title class_">LongAdder</span>[events.length];</span><br><span class="line">        <span class="keyword">for</span> (MetricEvent event : events) &#123;</span><br><span class="line">            counters[event.ordinal()] = <span class="keyword">new</span> <span class="title class_">LongAdder</span>();</span><br><span class="line">        &#125;</span><br><span class="line">        initMinRt();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li><strong>作用</strong>：通过滑动窗口机制实时统计资源的运行指标，为限流、熔断决策提供数据支持。</li>
+</ul>
+<h3 id="3-2-3、核心类"><a href="#3-2-3、核心类" class="headerlink" title="3.2.3、核心类"></a>3.2.3、核心类</h3><h4 id="3-2-3-1、SlotChain"><a href="#3-2-3-1、SlotChain" class="headerlink" title="3.2.3.1、SlotChain"></a>3.2.3.1、SlotChain</h4><ul>
+<li><strong>定义</strong>：sentinel的核心执行模型，以链式结构（类似责任链模式）处理请求。每个请求会经过多个<code>ProcessorSlot</code>（处理槽）的处理，完成流量控制、熔断、系统保护等逻辑。</li>
+<li><strong>作用</strong>：将请求拦截并传递给各个处理槽，逐层执行限流、降级等规则。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">SlotChainBuilder</span> &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Build the processor slot chain.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    ProcessorSlotChain <span class="title function_">build</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">ProcessorSlotChain</span> <span class="keyword">extends</span> <span class="title class_">AbstractLinkedProcessorSlot</span>&lt;Object&gt; &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Add a processor to the head of this slot chain.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title function_">addFirst</span><span class="params">(AbstractLinkedProcessorSlot&lt;?&gt; protocolProcessor)</span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Add a processor to the tail of this slot chain.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title function_">addLast</span><span class="params">(AbstractLinkedProcessorSlot&lt;?&gt; protocolProcessor)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-2-3-2、ProcessorSlot"><a href="#3-2-3-2、ProcessorSlot" class="headerlink" title="3.2.3.2、ProcessorSlot"></a>3.2.3.2、ProcessorSlot</h4><ul>
+<li><p><strong>定义</strong>：处理槽的基类，是<strong>Sentinel核心逻辑</strong>的实现单元。每个处理槽负责特定的流量治理功能（如流控、熔断、热点参数限流等）。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">ProcessorSlot</span>&lt;T&gt; &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">entry</span><span class="params">(Context context, ResourceWrapper resourceWrapper, T param, <span class="type">int</span> count, <span class="type">boolean</span> prioritized,</span></span><br><span class="line"><span class="params">               Object... args)</span> <span class="keyword">throws</span> Throwable;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">fireEntry</span><span class="params">(Context context, ResourceWrapper resourceWrapper, Object obj, <span class="type">int</span> count, <span class="type">boolean</span> prioritized,</span></span><br><span class="line"><span class="params">                   Object... args)</span> <span class="keyword">throws</span> Throwable;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>子类</strong>：</p>
+<ul>
+<li><code class="red">NodeSelectorSlot</code>：调用链路<br>该节点的作用就是收集资源路径，并将资源路径以树状结构存储起来，用于根据调用路径来限流降级</li>
+<li><code class="red">ClusterBuilderSlot</code>：统计簇点<br>此插槽用于构建资源的 <code>ClusterNode</code> 以及调用来源节点。<code>ClusterNode</code> 保持资源运行统计信息（响应时间、<code>QPS</code>、<code>block</code> 数目、线程数、异常数等）以及原始调用者统计信息列表。来源调用者的名字由 ContextUtil.enter(contextName，origin) 中的 origin 标记</li>
+<li><code class="red">LogSlot</code>：日志<br>根据名字可知该节点是个日志记录节点，不过收集的是发生<code>BlockException</code>异常后的日志</li>
+<li><code class="red">StatisticSlot</code>：统计<br>该节点是个用于统计实时的调用数据。比如资源节点通过的请求数量、线程数量等等。</li>
+<li><code class="red">AuthoritySlot</code>：来源访问控制<br>在该节点中，可以配置我们应用的黑白名单<br>授权规则中<code>RequestOriginParser</code>类的做用是什么<br>对流控应用值进行解析，检查服务访问时传入的值是否与<code>RequestOriginParser的parseOrigin</code>方法返回值是否相同</li>
+<li><code class="red">SystemSlot</code>：系统保护<br>该节点会根据对于当前系统的整体情况，对入口资源的调用进行动态调配</li>
+<li><code class="red">FlowSlot</code>：流量控制<br>该节点主要根据预设的资源的统计信息，按照固定的次序，依次生效</li>
+<li><code class="red">DegradeSlot</code>：熔断降级<br>该节点主要针对资源的平均响应时间（<code>RT</code>）以及异常比率，来决定资源是否在接下来的时间被自动熔断掉</li>
+<li><code class="red">ParamFlowSlot</code>：热点参数限流<br>热点数据的访问出现限流以后底层异常是什么，<code>ParamFlowException</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="3-2-4、熔断与降级类"><a href="#3-2-4、熔断与降级类" class="headerlink" title="3.2.4、熔断与降级类"></a>3.2.4、熔断与降级类</h3><h4 id="3-2-4-1、CircuitBreaker"><a href="#3-2-4-1、CircuitBreaker" class="headerlink" title="3.2.4.1、CircuitBreaker"></a>3.2.4.1、CircuitBreaker</h4><ul>
+<li><strong>定义</strong>：熔断器接口，定义熔断逻辑的核心方法（如状态切换、规则判断）<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">CircuitBreaker</span> &#123;</span><br><span class="line">    DegradeRule <span class="title function_">getRule</span><span class="params">()</span>;</span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">tryPass</span><span class="params">(Context context)</span>;</span><br><span class="line">    State <span class="title function_">currentState</span><span class="params">()</span>;</span><br><span class="line">    <span class="keyword">enum</span> <span class="title class_">State</span> &#123;</span><br><span class="line">        OPEN,<span class="comment">//熔断状态，直接拒绝请求。</span></span><br><span class="line">        HALF_OPEN,<span class="comment">//试探性恢复，允许少量请求通过</span></span><br><span class="line">        CLOSED<span class="comment">//正常状态，统计指标</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="3-2-5、规则类"><a href="#3-2-5、规则类" class="headerlink" title="3.2.5、规则类"></a>3.2.5、规则类</h3><h4 id="3-2-5-1、FlowRule"><a href="#3-2-5-1、FlowRule" class="headerlink" title="3.2.5.1、FlowRule"></a>3.2.5.1、FlowRule</h4><ul>
+<li><strong>定义</strong>：流量控制规则类，定义限流策略。<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">FlowRule</span> <span class="keyword">extends</span> <span class="title class_">AbstractRule</span> &#123;</span><br><span class="line">    <span class="comment">//</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> <span class="variable">grade</span> <span class="operator">=</span> RuleConstant.FLOW_GRADE_QPS;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Flow control threshold count.</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">double</span> count;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Flow control strategy based on invocation chain.</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> <span class="variable">strategy</span> <span class="operator">=</span> RuleConstant.STRATEGY_DIRECT;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Reference resource in flow control with relevant resource or context.</span></span><br><span class="line">    <span class="keyword">private</span> String refResource;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h4 id="3-2-5-2、DegradeRule"><a href="#3-2-5-2、DegradeRule" class="headerlink" title="3.2.5.2、DegradeRule"></a>3.2.5.2、DegradeRule</h4><ul>
+<li><strong>定义</strong>：熔断降级规则类，包含触发条件和策略<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DegradeRule</span> <span class="keyword">extends</span> <span class="title class_">AbstractRule</span> &#123;</span><br><span class="line">    <span class="comment">//资源</span></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">DegradeRule</span><span class="params">(String resourceName)</span> &#123;</span><br><span class="line">        setResource(resourceName);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 降级策略（ERROR_RATIO、EXCEPTION_COUNT、SLOW_REQUEST_RATIO）</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> <span class="variable">grade</span> <span class="operator">=</span> RuleConstant.DEGRADE_GRADE_RT;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 阈值（如异常比例0.5表示50%</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">double</span> count;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 熔断持续时间（秒）</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> timeWindow;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="3-2-6、SphU"><a href="#3-2-6、SphU" class="headerlink" title="3.2.6、SphU"></a>3.2.6、SphU</h3><ul>
+<li><strong>定义</strong>：构造Entry的工具类<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SphU</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Object[] OBJECTS0 = <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="title function_">SphU</span><span class="params">()</span> &#123;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Record statistics and perform rule checking for the given resource.</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Entry <span class="title function_">entry</span><span class="params">(String name)</span> <span class="keyword">throws</span> BlockException &#123;</span><br><span class="line">        <span class="keyword">return</span> Env.sph.entry(name, EntryType.OUT, <span class="number">1</span>, OBJECTS0);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Checking all &#123;@link Rule&#125;s about the protected method.</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Entry <span class="title function_">entry</span><span class="params">(Method method)</span> <span class="keyword">throws</span> BlockException &#123;</span><br><span class="line">        <span class="keyword">return</span> Env.sph.entry(method, EntryType.OUT, <span class="number">1</span>, OBJECTS0);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li><strong>使用示例</strong><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SphUTest</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Test</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testStringEntryNormal</span><span class="params">()</span> <span class="keyword">throws</span> BlockException &#123;</span><br><span class="line">        <span class="type">Entry</span> <span class="variable">e</span> <span class="operator">=</span> SphU.entry(<span class="string">&quot;resourceName&quot;</span>);</span><br><span class="line"></span><br><span class="line">        assertNotNull(e);</span><br><span class="line">        assertEquals(e.resourceWrapper.getName(), <span class="string">&quot;resourceName&quot;</span>);</span><br><span class="line">        assertEquals(e.resourceWrapper.getEntryType(), EntryType.OUT);</span><br><span class="line">        assertEquals(ContextUtil.getContext().getName(), Constants.CONTEXT_DEFAULT_NAME);</span><br><span class="line"></span><br><span class="line">        e.exit();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Test</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">testMethodEntryNormal</span><span class="params">()</span> <span class="keyword">throws</span> BlockException, NoSuchMethodException, SecurityException &#123;</span><br><span class="line">        <span class="type">Method</span> <span class="variable">method</span> <span class="operator">=</span> SphUTest.class.getMethod(<span class="string">&quot;testMethodEntryNormal&quot;</span>);</span><br><span class="line">        <span class="type">Entry</span> <span class="variable">e</span> <span class="operator">=</span> SphU.entry(method);</span><br><span class="line"></span><br><span class="line">        assertNotNull(e);</span><br><span class="line">        assertTrue(StringUtil</span><br><span class="line">                .equalsIgnoreCase(e.resourceWrapper.getName(),</span><br><span class="line">                        <span class="string">&quot;com.alibaba.csp.sentinel.SphUTest:testMethodEntryNormal()&quot;</span>));</span><br><span class="line">        assertEquals(e.resourceWrapper.getEntryType(), EntryType.OUT);</span><br><span class="line">        assertEquals(ContextUtil.getContext().getName(), Constants.CONTEXT_DEFAULT_NAME);</span><br><span class="line"></span><br><span class="line">        e.exit();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h1 id="四、使用示例"><a href="#四、使用示例" class="headerlink" title="四、使用示例"></a>四、使用示例</h1><h2 id="4-1、定义资源"><a href="#4-1、定义资源" class="headerlink" title="4.1、定义资源"></a>4.1、定义资源</h2><p><strong>资源</strong> 是 <code>Sentinel</code> 中的核心概念之一。最常用的资源是我们代码中的 Java 方法。 当然，您也可以更灵活的定义你的资源，例如，把需要控制流量的代码用 <code>Sentinel API SphU.entry(&quot;HelloWorld&quot;)</code> 和 <code>entry.exit()</code> 包围起来即可。在下面的例子中，我们将 <code>System.out.println(&quot;hello world&quot;);</code> 作为资源（被保护的逻辑），用 <code>API</code> 包装起来。参考代码如下:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">    <span class="comment">// 配置规则.</span></span><br><span class="line">    initFlowRules();</span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="comment">// 1.5.0 版本开始可以直接利用 try-with-resources 特性</span></span><br><span class="line">        <span class="keyword">try</span> (<span class="type">Entry</span> <span class="variable">entry</span> <span class="operator">=</span> SphU.entry(<span class="string">&quot;HelloWorld&quot;</span>)) &#123;</span><br><span class="line">            <span class="comment">// 被保护的逻辑</span></span><br><span class="line">            System.out.println(<span class="string">&quot;hello world&quot;</span>);</span><br><span class="line">	&#125; <span class="keyword">catch</span> (BlockException ex) &#123;</span><br><span class="line">            <span class="comment">// 处理被流控的逻辑</span></span><br><span class="line">	    System.out.println(<span class="string">&quot;blocked!&quot;</span>);</span><br><span class="line">	&#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>也可以通过<strong>注解支持模块</strong>，来定义资源，类似于下面的代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@SentinelResource(&quot;HelloWorld&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">helloWorld</span><span class="params">()</span> &#123;</span><br><span class="line">  <span class="comment">// 资源中的逻辑</span></span><br><span class="line">  System.out.println(<span class="string">&quot;hello world&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这样，<code>helloWorld()</code> 方法就成了我们的一个资源。注意注解支持模块需要配合 <code>Spring AOP</code> 或者 <code>AspectJ</code> 一起使用。</p>
+</blockquote>
+<h2 id="4-2、定义规则"><a href="#4-2、定义规则" class="headerlink" title="4.2、定义规则"></a>4.2、定义规则</h2><p>接下来，通过<strong>流控规则</strong>来指定允许该资源通过的请求次数，例如下面的代码定义了资源 <code>HelloWorld</code> 每秒最多只能通过 <code>20</code> 个请求。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">initFlowRules</span><span class="params">()</span>&#123;</span><br><span class="line">  List&lt;FlowRule&gt; rules = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">  <span class="comment">//流控规则</span></span><br><span class="line">  <span class="type">FlowRule</span> <span class="variable">rule</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">FlowRule</span>();</span><br><span class="line">  rule.setResource(<span class="string">&quot;HelloWorld&quot;</span>);</span><br><span class="line">  rule.setGrade(RuleConstant.FLOW_GRADE_QPS);<span class="comment">//QPS</span></span><br><span class="line">  <span class="comment">// Set limit QPS to 20.</span></span><br><span class="line">  rule.setCount(<span class="number">20</span>);</span><br><span class="line">  rules.add(rule);</span><br><span class="line">  FlowRuleManager.loadRules(rules);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>如上就是一个完整的使用示例。</p>
+<h1 id="五、总结"><a href="#五、总结" class="headerlink" title="五、总结"></a>五、总结</h1><p>组件之间的合作，可以参考下图：<br><img src="/2021/07/28/2021-07-28-sentinel/%E6%9E%B6%E6%9E%84%E5%9B%BE.png" alt="架构图"></p>
+<blockquote>
+<p>参考文章：<br><a href="https://sentinelguard.io/zh-cn/docs/quick-start.html">快速开始</a><br><a href="https://sentinelguard.io/zh-cn/docs/dashboard.html">控制台</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/23/2021-07-23-%E9%99%90%E6%B5%81-%E7%86%94%E6%96%AD-%E9%99%8D%E7%BA%A7/" rel="prev" title="限流-熔断-降级">
+      <i class="fa fa-chevron-left"></i> 限流-熔断-降级
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/08/01/2021-08-01-sentinel-%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B/" rel="next" title="《sentinel》执行流程">
+      《sentinel》执行流程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E9%99%90%E6%B5%81-%E7%86%94%E6%96%AD-%E9%99%8D%E7%BA%A7"><span class="nav-text">一、限流-熔断-降级</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81sentinel"><span class="nav-text">二、sentinel</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E6%A0%B8%E5%BF%83%E5%8A%9F%E8%83%BD%E5%8C%85%E6%8B%AC"><span class="nav-text">2.1、核心功能包括</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-1%E3%80%81%E9%99%90%E6%B5%81%EF%BC%88%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%EF%BC%89"><span class="nav-text">2.1.1、限流（流量控制）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-2%E3%80%81%E7%86%94%E6%96%AD%E9%99%8D%E7%BA%A7"><span class="nav-text">2.1.2、熔断降级</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-3%E3%80%81%E7%B3%BB%E7%BB%9F%E4%BF%9D%E6%8A%A4"><span class="nav-text">2.1.3、系统保护</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%9E%B6%E6%9E%84"><span class="nav-text">三、架构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="nav-text">3.1、核心概念</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E8%B5%84%E6%BA%90%EF%BC%88Resource%EF%BC%89"><span class="nav-text">3.1.1、资源（Resource）</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%B5%84%E6%BA%90%E7%A4%BA%E4%BE%8B"><span class="nav-text">资源示例</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-2%E3%80%81%E8%A7%84%E5%88%99%EF%BC%88Rule%EF%BC%89"><span class="nav-text">3.1.2、规则（Rule）</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%A7%84%E5%88%99%E7%A4%BA%E4%BE%8B"><span class="nav-text">规则示例</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E7%9B%B8%E5%85%B3%E7%B1%BB%E5%AE%9A%E4%B9%89"><span class="nav-text">3.2、相关类定义</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1%E3%80%81%E8%B5%84%E6%BA%90%E4%B8%8E%E4%B8%8A%E4%B8%8B%E6%96%87"><span class="nav-text">3.2.1、资源与上下文</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-1%E3%80%81ResourceWrapper"><span class="nav-text">3.2.1.1、ResourceWrapper</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-2%E3%80%81Context"><span class="nav-text">3.2.1.2、Context</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-3%E3%80%81Entry"><span class="nav-text">3.2.1.3、Entry</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-2%E3%80%81%E7%BB%9F%E8%AE%A1%E4%B8%8E%E8%8A%82%E7%82%B9%E7%B1%BB"><span class="nav-text">3.2.2、统计与节点类</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-1%E3%80%81StatisticNode"><span class="nav-text">3.2.2.1、StatisticNode</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-2%E3%80%81Metric-MetricBucket"><span class="nav-text">3.2.2.2、Metric &amp; MetricBucket</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-3%E3%80%81%E6%A0%B8%E5%BF%83%E7%B1%BB"><span class="nav-text">3.2.3、核心类</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-3-1%E3%80%81SlotChain"><span class="nav-text">3.2.3.1、SlotChain</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-3-2%E3%80%81ProcessorSlot"><span class="nav-text">3.2.3.2、ProcessorSlot</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-4%E3%80%81%E7%86%94%E6%96%AD%E4%B8%8E%E9%99%8D%E7%BA%A7%E7%B1%BB"><span class="nav-text">3.2.4、熔断与降级类</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-4-1%E3%80%81CircuitBreaker"><span class="nav-text">3.2.4.1、CircuitBreaker</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-5%E3%80%81%E8%A7%84%E5%88%99%E7%B1%BB"><span class="nav-text">3.2.5、规则类</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-5-1%E3%80%81FlowRule"><span class="nav-text">3.2.5.1、FlowRule</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-5-2%E3%80%81DegradeRule"><span class="nav-text">3.2.5.2、DegradeRule</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-6%E3%80%81SphU"><span class="nav-text">3.2.6、SphU</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E4%BD%BF%E7%94%A8%E7%A4%BA%E4%BE%8B"><span class="nav-text">四、使用示例</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E5%AE%9A%E4%B9%89%E8%B5%84%E6%BA%90"><span class="nav-text">4.1、定义资源</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81%E5%AE%9A%E4%B9%89%E8%A7%84%E5%88%99"><span class="nav-text">4.2、定义规则</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">五、总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">191</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">142</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">25</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

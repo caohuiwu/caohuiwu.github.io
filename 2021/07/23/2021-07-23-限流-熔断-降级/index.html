@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、限流-熔断-降级限流、熔断、降级是微服务架构中常用的保护机制。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="限流-熔断-降级">
+<meta property="og:url" content="http://yoursite.com/2021/07/23/2021-07-23-%E9%99%90%E6%B5%81-%E7%86%94%E6%96%AD-%E9%99%8D%E7%BA%A7/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、限流-熔断-降级限流、熔断、降级是微服务架构中常用的保护机制。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-22T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-17T07:59:10.926Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2021/07/23/2021-07-23-%E9%99%90%E6%B5%81-%E7%86%94%E6%96%AD-%E9%99%8D%E7%BA%A7/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>限流-熔断-降级 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/07/23/2021-07-23-%E9%99%90%E6%B5%81-%E7%86%94%E6%96%AD-%E9%99%8D%E7%BA%A7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          限流-熔断-降级
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-23 00:00:00" itemprop="dateCreated datePublished" datetime="2021-07-23T00:00:00+08:00">2021-07-23</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-17 15:59:10" itemprop="dateModified" datetime="2025-04-17T15:59:10+08:00">2025-04-17</time>
+              </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>1.6k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>4 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: rgb(255, 53, 2)
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、限流-熔断-降级"><a href="#一、限流-熔断-降级" class="headerlink" title="一、限流-熔断-降级"></a>一、限流-熔断-降级</h1><p>限流、熔断、降级是微服务架构中常用的保护机制。</p>
+<span id="more"></span>
+
+
+
+<h1 id="二、限流（Rate-Limiting）"><a href="#二、限流（Rate-Limiting）" class="headerlink" title="二、限流（Rate Limiting）"></a>二、限流（Rate Limiting）</h1><h2 id="2-1、定义"><a href="#2-1、定义" class="headerlink" title="2.1、定义"></a>2.1、定义</h2><p>通过限制系统处理请求的速率，防止因突发流量或恶意攻击导致系统过载。</p>
+<h2 id="2-2、核心目标"><a href="#2-2、核心目标" class="headerlink" title="2.2、核心目标"></a>2.2、核心目标</h2><p>防御过载：确保系统在安全容量内运行。<br>保护资源：防止数据库、第三方服务等被过多请求压垮。</p>
+<h2 id="2-3、实现策略"><a href="#2-3、实现策略" class="headerlink" title="2.3、实现策略"></a>2.3、实现策略</h2><table>
+<thead>
+<tr>
+<th>算法</th>
+<th>原理</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>令牌桶算法</td>
+<td>以固定速率向桶中添加令牌，请求需获取令牌才能通过。允许突发流量</td>
+<td>需要支持突发流量的场景（如电商秒杀）</td>
+</tr>
+<tr>
+<td>漏桶算法</td>
+<td>以固定速率处理请求，多余的请求被丢弃。平滑流量，但无法应对突发流量</td>
+<td>需要一个限流的创建（如数据库写入）</td>
+</tr>
+<tr>
+<td>滑动窗口算法</td>
+<td>动态统计时间窗口内的请求数，避免固定窗口的“流量突刺”问题</td>
+<td>高精度限流需求（如API网关）</td>
+</tr>
+<tr>
+<td>固定窗口计数</td>
+<td>统计固定时间窗口内的请求数，超时阈值则拒绝。实现简单，但存在流量突刺</td>
+<td>简单场景（如接口调用限制）</td>
+</tr>
+</tbody></table>
+<h1 id="三、熔断（circuit-Breaker）"><a href="#三、熔断（circuit-Breaker）" class="headerlink" title="三、熔断（circuit Breaker）"></a>三、熔断（circuit Breaker）</h1><h2 id="3-1、定义"><a href="#3-1、定义" class="headerlink" title="3.1、定义"></a>3.1、定义</h2><p>当服务调用出现故障（如超时、异常）时，主动中断请求，防止故障扩散，类似电路中的保险丝。</p>
+<h2 id="3-2、核心目标"><a href="#3-2、核心目标" class="headerlink" title="3.2、核心目标"></a>3.2、核心目标</h2><p>防止故障扩散：避免因单个服务故障导致级联崩溃（雪崩效应）。<br>快速失效：直接返回错误，避免长时间等待。<br>自动恢复：通过半开状态试探性恢复服务。</p>
+<h2 id="3-3、工作状态"><a href="#3-3、工作状态" class="headerlink" title="3.3、工作状态"></a>3.3、工作状态</h2><table>
+<thead>
+<tr>
+<th>状态</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>关闭</td>
+<td>正常调用服务，统计错误率。当错误率超过阈值时切换为“打开”状态</td>
+</tr>
+<tr>
+<td>打开</td>
+<td>拒绝所有请求，直接返回错误（降级逻辑）。持续时间由预设时间窗口决定</td>
+</tr>
+<tr>
+<td>半开</td>
+<td>允许少量请求通过，若成功则恢复“关闭”状态，否则继续“打开”</td>
+</tr>
+</tbody></table>
+<h2 id="3-4、实现技术"><a href="#3-4、实现技术" class="headerlink" title="3.4、实现技术"></a>3.4、实现技术</h2><ul>
+<li>sentinel：支持RT（响应时间）、异常率等熔断策略，提供控制台配置。</li>
+<li>Hystrix：经典熔断库</li>
+<li>Resilience4j：轻量级替代Hystrix，支持响应式编程。</li>
+</ul>
+<h1 id="四、降级（Degradation）"><a href="#四、降级（Degradation）" class="headerlink" title="四、降级（Degradation）"></a>四、降级（Degradation）</h1><h2 id="4-1、定义"><a href="#4-1、定义" class="headerlink" title="4.1、定义"></a>4.1、定义</h2><p>在服务不可用或高负载时，主动返回默认值或简化逻辑，确保核心功能可用。</p>
+<h2 id="4-2、核心目标"><a href="#4-2、核心目标" class="headerlink" title="4.2、核心目标"></a>4.2、核心目标</h2><ul>
+<li>保障核心功能：牺牲非核心功能，保障用户体验。</li>
+<li>资源优先级：优先处理关键业务，释放系统资源。</li>
+</ul>
+<h2 id="4-3、实现方式"><a href="#4-3、实现方式" class="headerlink" title="4.3、实现方式"></a>4.3、实现方式</h2><table>
+<thead>
+<tr>
+<th>策略</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>返回默认值</td>
+<td>从缓存返回旧数据，或提供空值（如商品详情页显示静态图片）</td>
+</tr>
+<tr>
+<td>简化逻辑</td>
+<td>关闭推荐功能，仅返回基础数据（如商品详情页的推荐信息）</td>
+</tr>
+<tr>
+<td>提示用户</td>
+<td>返回“服务异常，请稍后再试”提示，避免空白页面</td>
+</tr>
+<tr>
+<td>限流结合降级</td>
+<td>超出限流阈值时返回降级响应（如“活动火爆，请稍后再试”）</td>
+</tr>
+<tr>
+<td>写降级</td>
+<td>比如秒杀抢购，我们可以只进行Cache的更新，然后异步同步扣减库存到DB，保证最终一致性即可，此时可以将DB降级为Cache</td>
+</tr>
+<tr>
+<td>读降级</td>
+<td>比如多级缓存模式，如果后端服务有问题，可以降级为只读缓存，这种方式适用于对读一致性要求不高的场景</td>
+</tr>
+</tbody></table>
+<h1 id="五、总结"><a href="#五、总结" class="headerlink" title="五、总结"></a>五、总结</h1><h2 id="5-1、三者的核心区别与联系"><a href="#5-1、三者的核心区别与联系" class="headerlink" title="5.1、三者的核心区别与联系"></a>5.1、三者的核心区别与联系</h2><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>限流</th>
+<th>熔断</th>
+<th>降级</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>触发条件</td>
+<td>请求速率超过阈值</td>
+<td>服务调用失败率或响应时间超过阈值</td>
+<td>服务不可用或系统过载</td>
+</tr>
+<tr>
+<td>核心目标</td>
+<td>控制流量，防止过载</td>
+<td>防止故障扩散，快速失败</td>
+<td>保证核心功能，牺牲非核心服务</td>
+</tr>
+<tr>
+<td>作用范围</td>
+<td>全局或接口级别的流量控制</td>
+<td>服务调用链路级别的保护</td>
+<td>业务功能级别的功能裁剪</td>
+</tr>
+<tr>
+<td>典型场景</td>
+<td>高峰流量、防攻击</td>
+<td>第三方服务超时、数据库响应慢</td>
+<td>非核心功能故障、系统资源不足</td>
+</tr>
+<tr>
+<td>技术实现</td>
+<td>令牌桶、漏桶算法</td>
+<td>熔断器三态机制（Sentinel、Hystrix）</td>
+<td>业务逻辑中的Fallback实现</td>
+</tr>
+<tr>
+<td>是否自动恢复</td>
+<td>需手动调整阈值或动态配置</td>
+<td>熔断器自动切换状态（如半开恢复）</td>
+<td>通常需要人工干预或配置开关</td>
+</tr>
+</tbody></table>
+<h2 id="5-2、小结"><a href="#5-2、小结" class="headerlink" title="5.2、小结"></a>5.2、小结</h2><ul>
+<li><strong>限流</strong>：控制流量入口，防止系统过载。</li>
+<li><strong>熔断</strong>：切断故障链路，防止级联崩溃。</li>
+<li><strong>降级</strong>：牺牲非核心功能，保障核心可用。</li>
+</ul>
+<p>三者需结合使用，形成完整的流量治理方案。例如：</p>
+<ul>
+<li><strong>限流+熔断</strong>：在高并发时限流，熔断不可用服务。</li>
+<li><strong>熔断+降级</strong>：熔断后返回降级逻辑，提升用户体验。</li>
+<li><strong>限流+降级</strong>：超出限流阈值时直接返回降级响应，避免资源浪费。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/02/2021-07-02-%E5%BA%8F%E5%88%97%E5%8C%96%E6%96%B9%E5%BC%8F/" rel="prev" title="序列化方式">
+      <i class="fa fa-chevron-left"></i> 序列化方式
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/28/2021-07-28-sentinel/" rel="next" title="sentinel">
+      sentinel <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E9%99%90%E6%B5%81-%E7%86%94%E6%96%AD-%E9%99%8D%E7%BA%A7"><span class="nav-text">一、限流-熔断-降级</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E9%99%90%E6%B5%81%EF%BC%88Rate-Limiting%EF%BC%89"><span class="nav-text">二、限流（Rate Limiting）</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E5%AE%9A%E4%B9%89"><span class="nav-text">2.1、定义</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E6%A0%B8%E5%BF%83%E7%9B%AE%E6%A0%87"><span class="nav-text">2.2、核心目标</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81%E5%AE%9E%E7%8E%B0%E7%AD%96%E7%95%A5"><span class="nav-text">2.3、实现策略</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E7%86%94%E6%96%AD%EF%BC%88circuit-Breaker%EF%BC%89"><span class="nav-text">三、熔断（circuit Breaker）</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E5%AE%9A%E4%B9%89"><span class="nav-text">3.1、定义</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E6%A0%B8%E5%BF%83%E7%9B%AE%E6%A0%87"><span class="nav-text">3.2、核心目标</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E5%B7%A5%E4%BD%9C%E7%8A%B6%E6%80%81"><span class="nav-text">3.3、工作状态</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4%E3%80%81%E5%AE%9E%E7%8E%B0%E6%8A%80%E6%9C%AF"><span class="nav-text">3.4、实现技术</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E9%99%8D%E7%BA%A7%EF%BC%88Degradation%EF%BC%89"><span class="nav-text">四、降级（Degradation）</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E5%AE%9A%E4%B9%89"><span class="nav-text">4.1、定义</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81%E6%A0%B8%E5%BF%83%E7%9B%AE%E6%A0%87"><span class="nav-text">4.2、核心目标</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"><span class="nav-text">4.3、实现方式</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">五、总结</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1%E3%80%81%E4%B8%89%E8%80%85%E7%9A%84%E6%A0%B8%E5%BF%83%E5%8C%BA%E5%88%AB%E4%B8%8E%E8%81%94%E7%B3%BB"><span class="nav-text">5.1、三者的核心区别与联系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-2%E3%80%81%E5%B0%8F%E7%BB%93"><span class="nav-text">5.2、小结</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">191</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">142</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">25</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
