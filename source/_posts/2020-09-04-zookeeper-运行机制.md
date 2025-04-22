@@ -19,6 +19,9 @@ categories:
 .red {
    color: red
 }
+code {
+   color: #0ABF5B;
+}
 </style>
 
 # 一、zookeeper
@@ -29,18 +32,18 @@ categories:
 <!-- more -->
 
 # 二、ZAB协议
-ZAB（Zookeeper Atomic Broadcast，zk原子广播协议）协议是zk实现分布式协调服务的关键，确保集群中各个节点的数据一致性。
+ZAB（`Zookeeper Atomic Broadcast`，zk原子广播协议）协议是zk实现分布式协调服务的关键，确保集群中各个节点的数据一致性。
 
 ## 2.1、概念介绍
 在介绍zab协议之前首先要知道zookeeper相关的几个概念，才能更好的了解zab协议。
 
 ### 2.1.1、集群角色
 - `Leader`：同一时间集群总只允许有一个Leader，提供对客户端的读写功能，负责将数据同步至各个节点；
-- `Follower`：提供对客户端读功能，写请求则转发给Leader处理，当Leader崩溃失联之后参与Leader选举；
-- `Observer`：与Follower不同的是但不参与Leader选举。
+- `Follower`：提供对客户端读功能，写请求则转发给`Leader`处理，当`Leader`崩溃失联之后参与`Leader`选举；
+- `Observer`：与`Follower`不同的是但不参与`Leader`选举。
 
 ### 2.1.2、服务状态
-- `LOOKING`：当节点认为群集中没有Leader，服务器会进入LOOKING状态，目的是为了查找或者选举Leader；
+- `LOOKING`：当节点认为群集中没有`Leader`，服务器会进入LOOKING状态，目的是为了查找或者选举Leader；
 - `FOLLOWING`：follower角色；
 - `LEADING`：leader角色；
 - `OBSERVING`：observer角色；
