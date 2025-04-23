@@ -28,7 +28,7 @@
 <meta property="og:description" content="这是Mybatis系列的第1篇文章，主要介绍的是Mybatis的启动过程。   .my-code {    color: orange; } .orange {    color: rgb(255, 53, 2) } .red {    color: red } code {    color: #0ABF5B; }   一、MybatisMybatis是持久层框架，通过XML或注解配置SQL映射">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-02-13T16:00:00.000Z">
-<meta property="article:modified_time" content="2025-04-02T14:04:58.340Z">
+<meta property="article:modified_time" content="2025-04-23T07:43:56.053Z">
 <meta property="article:author" content="chw">
 <meta property="article:tag" content="java">
 <meta name="twitter:card" content="summary">
@@ -191,7 +191,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2025-04-02 22:04:58" itemprop="dateModified" datetime="2025-04-02T22:04:58+08:00">2025-04-02</time>
+                <time title="修改时间：2025-04-23 15:43:56" itemprop="dateModified" datetime="2025-04-23T15:43:56+08:00">2025-04-23</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -216,14 +216,14 @@
                 <i class="far fa-file-word"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>15k</span>
+              <span>17k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="far fa-clock"></i>
               </span>
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>38 分钟</span>
+              <span>43 分钟</span>
             </span>
 
         </div>
@@ -307,7 +307,12 @@ code {
 <li>解析 <code>&lt;typeHandlers&gt;</code> 标签</li>
 <li>解析 <code>&lt;mappers&gt;</code> 标签</li>
 </ul>
-<h2 id="4-2、xmlMapperBuilder-parse"><a href="#4-2、xmlMapperBuilder-parse" class="headerlink" title="4.2、xmlMapperBuilder.parse()"></a>4.2、xmlMapperBuilder.parse()</h2><p>方法的主要作用是将Mapper映射器的xml配置文件解析为Spring容器能够识别的对象，并进行一些必要的处理和注册。这样，在后续的操作中，就可以通过Mapper接口来访问和执行相应的数据库操作。</p>
+<blockquote>
+<p>文件的具体解析工作</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">public Configuration parse() &#123;</span><br><span class="line">    if (parsed) &#123;</span><br><span class="line">      throw new BuilderException(&quot;Each XMLConfigBuilder can only be used once.&quot;);</span><br><span class="line">    &#125;</span><br><span class="line">    parsed = true;</span><br><span class="line">    parseConfiguration(parser.evalNode(&quot;/configuration&quot;));</span><br><span class="line">    return configuration;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  private void parseConfiguration(XNode root) &#123;</span><br><span class="line">    try &#123;</span><br><span class="line">      //issue #117 read properties first</span><br><span class="line">      propertiesElement(root.evalNode(&quot;properties&quot;));</span><br><span class="line">      Properties settings = settingsAsProperties(root.evalNode(&quot;settings&quot;));</span><br><span class="line">      loadCustomVfs(settings);</span><br><span class="line">      typeAliasesElement(root.evalNode(&quot;typeAliases&quot;));</span><br><span class="line">      pluginElement(root.evalNode(&quot;plugins&quot;));</span><br><span class="line">      objectFactoryElement(root.evalNode(&quot;objectFactory&quot;));</span><br><span class="line">      objectWrapperFactoryElement(root.evalNode(&quot;objectWrapperFactory&quot;));</span><br><span class="line">      reflectorFactoryElement(root.evalNode(&quot;reflectorFactory&quot;));</span><br><span class="line">      settingsElement(settings);</span><br><span class="line">      // read it after objectFactory and objectWrapperFactory issue #631</span><br><span class="line">      environmentsElement(root.evalNode(&quot;environments&quot;));</span><br><span class="line">      databaseIdProviderElement(root.evalNode(&quot;databaseIdProvider&quot;));</span><br><span class="line">      typeHandlerElement(root.evalNode(&quot;typeHandlers&quot;));</span><br><span class="line">      //解析mapper文件</span><br><span class="line">      mapperElement(root.evalNode(&quot;mappers&quot;));</span><br><span class="line">    &#125; catch (Exception e) &#123;</span><br><span class="line">      throw new BuilderException(&quot;Error parsing SQL Mapper Configuration. Cause: &quot; + e, e);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="4-2、xmlMapperBuilder-parse"><a href="#4-2、xmlMapperBuilder-parse" class="headerlink" title="4.2、xmlMapperBuilder.parse()"></a>4.2、xmlMapperBuilder.parse()</h2><p>方法的主要作用是将<code>Mapper</code>映射器的xml配置文件解析为Spring容器能够识别的对象，并进行一些必要的处理和注册。这样，在后续的操作中，就可以通过Mapper接口来访问和执行相应的数据库操作。</p>
 <h3 id="4-2-1、mapper文件的解析"><a href="#4-2-1、mapper文件的解析" class="headerlink" title="4.2.1、mapper文件的解析"></a>4.2.1、mapper文件的解析</h3><p>获取 <code>&lt;mapper&gt;</code> 标签中的 namespace 属性，同时会进行多种边界检查</p>
 <ul>
 <li>解析 <code>&lt;cache&gt;</code> 标签<br>获取 <code>&lt;cache&gt;</code> 标签中的各项属性（<code>type、flushInterval、size</code> 等属性）<br>读取 <code>&lt;cache&gt;</code> 标签下的子标签信息，这些信息将用于初始化二级缓存<br><code>MapperBuilderAssistant</code> 会根据上述配置信息，创建一个全新的Cache 对象并添加到 <code>Configuration.caches</code> 集合中保存<br>  这个 caches 字段是一个StrictMap 类型的集合，其中的 Key是Cache 对象的唯一标识，默认值是Mapper.xml 映射文件的namespace，Value 才是真正的<code>二级缓存对应的 Cache 对象</code></li>
@@ -321,11 +326,17 @@ code {
 <li><code>MappedStatement</code><br>每个<code>MappedStatement</code>对应了我们自定义Mapper接口中的一个方法，它保存了开发人员编写的SQL语句、参数结构、返回值结构、Mybatis对它的处理方式的配置等细节要素，是对一个SQL命令是什么、执行方式的完整定义。可以说，有了它Mybatis就知道如何去调度四大组件顺利的完成用户请求</li>
 <li>mapper id 不可重复</li>
 </ul>
-<h3 id="4-2-2、bindMapperForNamespace"><a href="#4-2-2、bindMapperForNamespace" class="headerlink" title="4.2.2、bindMapperForNamespace()"></a>4.2.2、bindMapperForNamespace()</h3><p>作用：动态绑定 Mapper 接口：</p>
+<blockquote>
+<p>占位符的替换工作</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">//解析文件中的占位符</span><br><span class="line">//&lt;property name=&quot;driverClassName&quot; value=&quot;com.mysql.jdbc.Driver&quot;/&gt;</span><br><span class="line">//&lt;property name=&quot;url&quot; value=&quot;$&#123;jdbc.url1&#125;&quot; /&gt;</span><br><span class="line">//&lt;property name=&quot;username&quot; value=&quot;$&#123;jdbc.username1&#125;&quot; /&gt;</span><br><span class="line">//&lt;property name=&quot;password&quot; value=&quot;$&#123;jdbc.password1&#125;&quot; /&gt;</span><br><span class="line">public class PropertyParser &#123;</span><br><span class="line">    public static String parse(String string, Properties variables) &#123;</span><br><span class="line">        VariableTokenHandler handler = new VariableTokenHandler(variables);</span><br><span class="line">        GenericTokenParser parser = new GenericTokenParser(&quot;$&#123;&quot;, &quot;&#125;&quot;, handler);</span><br><span class="line">        return parser.parse(string);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="4-2-2、bindMapperForNamespace"><a href="#4-2-2、bindMapperForNamespace" class="headerlink" title="4.2.2、bindMapperForNamespace()"></a>4.2.2、bindMapperForNamespace()</h3><p>作用：动态绑定 <code>Mapper</code> 接口：</p>
 <ul>
-<li>允许在运行时将特定的 Mapper 接口与SqlSession关联起来，而不是仅仅依赖于在配置文件中静态地定义 Mapper 接口与 SQL 映射关系。</li>
+<li>允许在运行时将特定的 <code>Mapper</code> 接口与<code>SqlSession</code>关联起来，而不是仅仅依赖于在配置文件中静态地定义 <code>Mapper</code> 接口与 SQL 映射关系。</li>
 </ul>
-<p>Mapper 接口的绑定过程</p>
+<p><code>Mapper</code> 接口的绑定过程</p>
 <ul>
 <li>获取命名空间，并根据命名空间解析 mapper 类型；</li>
 <li>将 type 和 <code>MapperProxyFactory</code> 实例存入 <code>knownMappers</code> 中；</li>
@@ -434,20 +445,20 @@ code {
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">197</span>
+          <span class="site-state-item-count">196</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">142</span>
+        <span class="site-state-item-count">36</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">25</span>
+        <span class="site-state-item-count">58</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
