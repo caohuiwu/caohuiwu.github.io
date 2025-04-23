@@ -2,7 +2,7 @@
 title: 《Java》运行时数据区（hotspot实现）
 date: 2020-04-19 12:19:31
 categories: 
-   - [java, jvm, 虚拟机规范, Java虚拟机结构, hotspot实现]
+   - [java, jvm]
 ---
 
 	这是Java虚拟机规范系列的第八篇文章，主要介绍的是虚拟机规范中的“运行时数据区”的hotspot实现。

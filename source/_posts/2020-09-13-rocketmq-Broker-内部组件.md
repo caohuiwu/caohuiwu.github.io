@@ -2,7 +2,9 @@
 title: 《rocketmq》Broker的内部核心组件
 date: 2020-09-13
 categories:
-  - [ rocketmq, broker ]
+  - [rocketmq]
+tags:
+  - [broker]
 ---
 
     这是rocketmq系列的第五篇文章，主要介绍的是Broker重要的内部组件。

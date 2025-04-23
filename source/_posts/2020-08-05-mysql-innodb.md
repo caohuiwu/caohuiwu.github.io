@@ -2,7 +2,9 @@
 title: 《mysql》innodb
 date: 2020-08-05 11:19:31
 categories:
-  - [ 数据库, mysql, innodb ]
+  - [mysql]
+tags:
+  - [innodb]
 ---
 
     这是“mysql”系列的第二篇文章，主要介绍的是innodb存储引擎。

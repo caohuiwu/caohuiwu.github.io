@@ -2,7 +2,9 @@
 title: 《Java》ThreadLocal
 date: 2020-05-23 12:19:31
 categories:
-  - [ java, 并发, ThreadLocal]
+  - [ java, 并发]
+tags:
+  - [ThreadLocal]
 ---
 
 	这是“并发”系列的第五篇文章，主要介绍的是ThreadLocal相关内容。

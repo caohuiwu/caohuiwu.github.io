@@ -2,8 +2,10 @@
 title: 《mysql》事务和MVCC
 date: 2020-08-20 23:09:31
 categories:
-  - [ 数据库, mysql, 事务 ]
-  - [ 数据库, mysql, mvcc ]
+  - [mysql]
+tags:
+  - [事务]
+  - [mvcc]
 ---
 
     这是“mysql”系列的第七篇文章，主要介绍的是事务和MVCC。

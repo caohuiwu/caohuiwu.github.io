@@ -2,7 +2,7 @@
 title: 《Java》class文件格式
 date: 2020-04-15 12:19:31
 categories: 
-   - [java, jvm, 虚拟机规范, class文件]
+   - [java, jvm]
 ---
 
 	这是Java虚拟机规范系列的第四篇文章，主要介绍的是虚拟机规范中的class文件格式。

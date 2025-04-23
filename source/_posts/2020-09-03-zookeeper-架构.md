@@ -2,8 +2,7 @@
 title: 《zookeeper》架构及数据结构
 date: 2020-09-03
 categories:
-  - [ zookeeper, 架构 ]
-  - [ zookeeper, 数据结构 ]
+  - [ zookeeper ]
 ---
 
     这是“zookeeper”系列的第一篇文章，主要介绍的是架构和数据结构。

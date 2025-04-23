@@ -2,7 +2,7 @@
 title: 《Java》JMM之“happens-before”
 date: 2020-05-12 12:19:31
 categories:
-  - [ java, jvm, 虚拟机规范, jmm, happens-before ]
+  - [ java, jmm]
 ---
 
 	这是Java内存模型（JMM）系列的第四篇文章，主要介绍的是happens-before特性。

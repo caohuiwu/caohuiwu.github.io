@@ -2,8 +2,9 @@
 title: 《rocketmq》producer的原理
 date: 2020-09-07
 categories:
-  - [ rocketmq, producer ]
-  - [ rocketmq, 事务消息 ]
+  - [rocketmq]
+tags:
+  - [producer]
 ---
 
     这是rocketmq系列的第二篇文章，主要介绍的是rocketmq的生产者。

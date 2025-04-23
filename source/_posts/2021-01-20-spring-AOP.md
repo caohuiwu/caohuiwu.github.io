@@ -2,7 +2,9 @@
 title: 《spring》AOP
 date: 2021-01-20
 categories:
-  - [spring, AOP]
+  - [spring]
+tags:
+  - [aop]
 ---
 
     这是spring系列的第十篇文章，主要介绍的是AOP。

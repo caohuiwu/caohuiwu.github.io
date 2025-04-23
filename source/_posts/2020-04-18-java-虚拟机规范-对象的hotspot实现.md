@@ -2,7 +2,7 @@
 title: 《Java》对象的hotspot实现
 date: 2020-04-18 12:19:31
 categories: 
-   - [java, jvm, 虚拟机规范, 对象, hotspot实现]
+   - [java, jvm]
 ---
 
 	这是Java虚拟机规范系列的第七篇文章，主要介绍的是虚拟机规范中的对象的hotspot实现。

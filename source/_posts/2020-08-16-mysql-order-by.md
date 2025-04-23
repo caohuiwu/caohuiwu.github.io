@@ -2,7 +2,7 @@
 title: 《mysql》order by
 date: 2020-08-16 22:01:31
 categories:
-  - [ 数据库, mysql, order_by ]
+  - [mysql]
 ---
 
     这是“mysql”系列的第五篇文章，主要介绍的是order by。

@@ -2,7 +2,9 @@
 title: 《spring》容器启动 -step2- 加载Bean定义
 date: 2021-01-03
 categories:
-  - [spring, 容器, 容器启动, 加载Bean定义]
+  - [spring, 容器]
+tags:
+  - [容器]
 ---
 
     这是spring系列的第二篇文章，主要介绍的是容器启动中的第2个步骤，加载Bean定义。

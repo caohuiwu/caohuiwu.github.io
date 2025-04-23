@@ -2,15 +2,30 @@
 title: 《Java》JMM之“final”
 date: 2020-05-13 12:19:31
 categories:
-  - [ java, jvm, 虚拟机规范, jmm, final ]
+  - [ java, jmm]
 ---
+
+<style>
+.my-code {
+   color: orange;
+}
+.orange {
+   color: orange
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
 
 	这是Java内存模型（JMM）系列的第五篇文章，主要介绍的是final特性。
 
 # 一、final
 
 <!-- more -->
-final
+`final`
 在构造函数内对一个 final 域的写入，与随后把这个被构造对象的引用赋值给一个引用变量，这两个操作之间不能重排序
 实现
 JMM 禁止编译器把 final 域的写重排序到构造函数之外

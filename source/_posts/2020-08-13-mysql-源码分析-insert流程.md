@@ -2,7 +2,7 @@
 title: 《mysql》源码分析-Insert流程
 date: 2020-08-13 22:01:31
 categories:
-  - [ 数据库, mysql, 源码, Insert流程 ]
+  - [mysql]
 ---
 
     这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。

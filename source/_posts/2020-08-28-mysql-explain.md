@@ -2,7 +2,9 @@
 title: 《mysql》explain
 date: 2020-08-28 12:09:31
 categories:
-  - [ 数据库, mysql, explain ]
+  - [mysql]
+tags:
+  - [explain]
 ---
 
     这是“mysql”系列的第十篇文章，主要介绍的是explain。

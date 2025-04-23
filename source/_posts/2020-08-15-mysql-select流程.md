@@ -2,8 +2,7 @@
 title: 《mysql》SQL执行过程
 date: 2020-08-15 22:01:31
 categories:
-  - [ 数据库, mysql, select ]
-  - [ 数据库, mysql, 源码, select ]
+  - [mysql]
 ---
 
     这是“mysql”系列的第五篇文章，主要介绍的是sql查询过程。

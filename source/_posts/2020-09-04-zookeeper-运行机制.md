@@ -2,9 +2,7 @@
 title: 《zookeeper》运行机制
 date: 2020-09-05
 categories:
-  - [ zookeeper, ZAB ]
-  - [ zookeeper, watch ]
-  - [ zookeeper, 脑裂 ]
+  - [ zookeeper ]
 ---
 
     这是“zookeeper”系列的第二篇文章，主要介绍的是相关协议及内部原理。

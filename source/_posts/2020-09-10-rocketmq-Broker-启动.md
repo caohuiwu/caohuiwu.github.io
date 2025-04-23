@@ -2,7 +2,9 @@
 title: 《rocketmq》Broker启动
 date: 2020-09-10
 categories:
-  - [ rocketmq, broker ]
+   - [rocketmq]
+tags:
+   - [broker]
 ---
 
     这是rocketmq系列的第四篇文章，主要介绍的是Broker启动。

@@ -2,8 +2,10 @@
 title: 《Java》synchronized
 date: 2020-05-21 12:19:31
 categories:
-  - [ java, 并发, synchronized]
-  - [java, jvm, 虚拟机规范, 对象]
+  - [ java, 并发]
+  - [java, jvm]
+tags:
+  - [synchronized]
 ---
 
 	这是“并发”系列的第四篇文章，主要介绍的是synchronized相关内容。

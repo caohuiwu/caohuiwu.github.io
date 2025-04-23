@@ -2,7 +2,7 @@
 title: 《mysql》limit
 date: 2020-08-15 12:09:31
 categories:
-  - [ 数据库, mysql, limit ]
+  - [mysql]
 ---
 
     这是“mysql”系列的第五篇文章，主要介绍的是limit。

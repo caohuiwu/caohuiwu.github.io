@@ -2,7 +2,7 @@
 title: 《Java》JMM之“volatile”
 date: 2020-05-11 12:19:31
 categories:
-  - [ java, jvm, 虚拟机规范, jmm, volatile ]
+	- [java, jmm]
 ---
 
 	这是Java内存模型（JMM）系列的第二篇文章，主要介绍的是volatile特性。

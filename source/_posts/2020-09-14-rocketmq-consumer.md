@@ -2,8 +2,9 @@
 title: 《rocketmq》consumer的原理
 date: 2020-09-14
 categories:
-  - [ rocketmq, consumer, 消息消费 ]
-  - [ rocketmq, rebalance ]
+  - [rocketmq]
+tags:
+  - [consumer]
 ---
 
     这是rocketmq系列的第六篇文章，主要介绍的是rocketmq的消费者。

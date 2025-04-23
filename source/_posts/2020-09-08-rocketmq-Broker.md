@@ -2,9 +2,9 @@
 title: 《rocketmq》Broker原理
 date: 2020-09-08
 categories:
-  - [ rocketmq, broker ]
-  - [ rocketmq, ha ]
-  - [ rocketmq, 刷盘时机 ]
+  - [rocketmq]
+tags:
+  - [broker]
 ---
 
     这是rocketmq系列的第三篇文章，主要介绍的是Broker。
