@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".my-code {    color: red; } .orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   一、分布式系统分布式系统，是由多台计算机通过网络互联组成的系统，各节点通过消息传递协作完成任务。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《分布式》分布式事务">
+<meta property="og:url" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".my-code {    color: red; } .orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   一、分布式系统分布式系统，是由多台计算机通过网络互联组成的系统，各节点通过消息传递协作完成任务。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/2pc.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/2pc_%E5%9B%9E%E6%BB%9A.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/2pc_%E5%8D%95%E7%82%B9%E6%95%85%E9%9A%9C.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_pre_yes.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_pre_no.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_pre_no.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_do_yes.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_do_no.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_do_no.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/%E6%9C%AC%E5%9C%B0%E6%B6%88%E6%81%AF%E8%A1%A8.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/MQ%E4%BA%8B%E5%8A%A1%E6%B6%88%E6%81%AF.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/saga.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/saga_%E7%BC%96%E6%8E%92.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/saga_%E7%BC%96%E6%8E%92_%E6%81%A2%E5%A4%8D.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/saga_%E6%8E%A7%E5%88%B6.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/saga_%E6%8E%A7%E5%88%B6_%E6%81%A2%E5%A4%8D.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/xa_tc_log.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/xa_mysql_2pc.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata_%E4%BA%A7%E5%93%81%E6%A8%A1%E5%9D%97.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata_at_1.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata_at_2.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata_at_2_rollback.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata_tcc.png">
+<meta property="article:published_time" content="2021-08-14T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-23T02:46:23.958Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/2pc.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《分布式》分布式事务 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《分布式》分布式事务
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-08-15 00:00:00" itemprop="dateCreated datePublished" datetime="2021-08-15T00:00:00+08:00">2021-08-15</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-23 10:46:23" itemprop="dateModified" datetime="2025-04-23T10:46:23+08:00">2025-04-23</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%A8%B3%E5%AE%9A%E6%80%A7/" itemprop="url" rel="index"><span itemprop="name">稳定性</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%A8%B3%E5%AE%9A%E6%80%A7/%E9%AB%98%E5%8F%AF%E7%94%A8/" itemprop="url" rel="index"><span itemprop="name">高可用</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>17k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>43 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.my-code {
+   color: red;
+}
+.orange {
+   color: orange
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、分布式系统"><a href="#一、分布式系统" class="headerlink" title="一、分布式系统"></a>一、分布式系统</h1><p>分布式系统，是由多台计算机通过网络互联组成的系统，各节点通过消息传递协作完成任务。</p>
+<span id="more"></span>
+
+<p><strong>核心特点</strong>：</p>
+<ul>
+<li><strong>分布性</strong>：节点物流上分散，逻辑上协同工作。</li>
+<li><strong>对等性</strong>：节点地位平等，无中心控制。</li>
+<li><strong>并发性</strong>：多个节点并行处理任务。</li>
+<li><strong>无全局时钟</strong>：节点间时间无法严格同步。</li>
+<li><strong>故障常态性</strong>：节点或网络故障随时可能发生。</li>
+</ul>
+<h1 id="二、分布式事务"><a href="#二、分布式事务" class="headerlink" title="二、分布式事务"></a>二、分布式事务</h1><p>分布式事务是指在分布式系统中，跨越多个服务、数据库或节点的事务操作，需保证ACID特性（原子性、一致性、隔离性、持久性）。</p>
+<h1 id="三、分布式事务的解决方案"><a href="#三、分布式事务的解决方案" class="headerlink" title="三、分布式事务的解决方案"></a>三、分布式事务的解决方案</h1><h2 id="3-1、2PC（强一致性）"><a href="#3-1、2PC（强一致性）" class="headerlink" title="3.1、2PC（强一致性）"></a>3.1、2PC（强一致性）</h2><p><code>2PC（Two-phase commit protocol）</code>，中文叫二阶段提交。</p>
+<ul>
+<li><strong>流程</strong>：引入一个<strong>事务协调者</strong>的角色来协调管理各参与者<ul>
+<li><strong>准备阶段</strong>：协调者询问参与者是否可提交。</li>
+<li><strong>提交&#x2F;回滚阶段</strong>：若所有参与者同意，协调者发送提交命令；否则回滚。</li>
+</ul>
+</li>
+<li><strong>优点</strong>：强一致性</li>
+<li><strong>缺点</strong>：同步阻塞、单点故障、性能低。</li>
+<li><strong>适用场景</strong>：传统数据库集群（如XA协议）</li>
+</ul>
+<p>假如在<strong>第一阶段</strong>所有参与者都返回准备成功，那么协调者则向所有参与者发送提交事务命令，然后等待所有事务都提交成功之后，返回事务执行成功。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/2pc.png" alt="2pc"></p>
+<p>假如在<strong>第一阶段</strong>有一个参与者返回<strong>失败</strong>，那么协调者就会向所有参与者发送回滚事务的请求，即分布式事务执行失败。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/2pc_%E5%9B%9E%E6%BB%9A.png" alt="2pc_回滚"></p>
+<h3 id="3-1-1、存在的问题"><a href="#3-1-1、存在的问题" class="headerlink" title="3.1.1、存在的问题"></a>3.1.1、存在的问题</h3><h4 id="3-2-1-1、单点故障"><a href="#3-2-1-1、单点故障" class="headerlink" title="3.2.1.1、单点故障"></a>3.2.1.1、单点故障</h4><p><strong>协调者故障</strong>：<code>2PC</code> 中协调者起着至关重要的作用。如果协调者出现故障，整个事务将无法进行下去。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/2pc_%E5%8D%95%E7%82%B9%E6%95%85%E9%9A%9C.png" alt="2pc_单点故障"></p>
+<blockquote>
+<p>例如，在第一阶段完成后，协调者发生故障，参与者无法收到提交或回滚的指令，就会一直处于锁定资源的状态，直到协调者恢复或者人工干预。</p>
+</blockquote>
+<h4 id="3-2-1-2、同步阻塞"><a href="#3-2-1-2、同步阻塞" class="headerlink" title="3.2.1.2、同步阻塞"></a>3.2.1.2、同步阻塞</h4><ol>
+<li><strong>资源锁定</strong>：在第一阶段，所有<strong>参与事务的节点</strong>都处于锁定资源的状态，等待协调者的指令。这意味着在事务执行过程中，这些资源无法被其他事务使用，极大地降低了系统的并发性能。</li>
+<li><strong>长时间等待</strong>：如果协调者出现故障或者网络延迟等问题，参与者可能会长时间处于等待状态，无法进行其他操作。这种长时间的阻塞可能会导致系统性能下降，甚至出现死锁的情况。</li>
+</ol>
+<h4 id="3-2-1-3、数据不一致"><a href="#3-2-1-3、数据不一致" class="headerlink" title="3.2.1.3、数据不一致"></a>3.2.1.3、数据不一致</h4><p>在<strong>第二阶段</strong>中，当协调者向参与者发送提交事务请求之后，发生了局部网络异常或者在发送提交事务请求过程中协调者发生了故障，这会导致只有一部分参与者接收到了提交事务请求。而在这部分参与者接到提交事务请求之后就会执行提交事务操作。但是其他部分未接收到提交事务请求的参与者则无法提交事务。从而导致分布式系统中的数据不一致</p>
+<h4 id="3-2-1-4、性能问题"><a href="#3-2-1-4、性能问题" class="headerlink" title="3.2.1.4、性能问题"></a>3.2.1.4、性能问题</h4><ol>
+<li><strong>多次通信</strong>：<code>2PC</code> 需要进行多次网络通信，包括协调者与参与者之间的请求和响应。这些通信会增加系统的开销，降低事务的执行效率。特别是在大规模分布式系统中，网络延迟和通信开销可能会更加明显。</li>
+<li><strong>事务规模限制</strong>：由于 <code>2PC</code> 的复杂性和性能问题，它通常不适合处理大规模的事务。对于涉及大量数据和复杂操作的事务，<code>2PC</code> 可能会导致系统性能急剧下降，甚至无法完成事务。</li>
+</ol>
+<h2 id="3-2、3PC（强一致性）"><a href="#3-2、3PC（强一致性）" class="headerlink" title="3.2、3PC（强一致性）"></a>3.2、3PC（强一致性）</h2><p><code>3PC（Three-phase commit protocol）</code>是 <code>2PC</code> 的改进版，将 <code>2PC</code> 的 “提交事务请求” 过程一分为二，共形成了由<code>CanCommit（能否提交）</code>、<code>PreCommit（预提交）</code>和<code>doCommit（执行提交或回滚）</code>三个阶段组成的事务处理协议<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc.png" alt="3pc"></p>
+<p>java代码示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 协调者（Coordinator）核心逻辑</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Coordinator</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> Map&lt;String, TransactionState&gt; transactions = <span class="keyword">new</span> <span class="title class_">ConcurrentHashMap</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 启动事务</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">beginTransaction</span><span class="params">(List&lt;ParticipantProxy&gt; participants)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">xid</span> <span class="operator">=</span> generateXID();</span><br><span class="line">        transactions.put(xid, <span class="keyword">new</span> <span class="title class_">TransactionState</span>(participants));</span><br><span class="line">        <span class="keyword">return</span> xid;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 提交事务（3PC流程入口）</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">commit</span><span class="params">(String xid)</span> &#123;</span><br><span class="line">        <span class="type">TransactionState</span> <span class="variable">state</span> <span class="operator">=</span> transactions.get(xid);</span><br><span class="line">        <span class="keyword">if</span> (state == <span class="literal">null</span>) <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// CanCommit阶段：询问参与者是否可提交</span></span><br><span class="line">        <span class="keyword">if</span> (!canCommit(xid, state)) &#123;</span><br><span class="line">            abortTransaction(xid);</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// PreCommit阶段：预提交并锁定资源</span></span><br><span class="line">        <span class="keyword">if</span> (!preCommit(xid, state)) &#123;</span><br><span class="line">            abortTransaction(xid);</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// DoCommit阶段：最终提交或回滚</span></span><br><span class="line">        <span class="keyword">return</span> doCommit(xid, state);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 其他方法（如回滚、超时处理等）</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 参与者（Participant）核心逻辑</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Participant</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> AckResponse <span class="title function_">handleCanCommit</span><span class="params">(String xid)</span> &#123;</span><br><span class="line">        <span class="comment">// 检查本地事务状态</span></span><br><span class="line">        <span class="keyword">if</span> (isReady()) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">AckResponse</span>(xid, AckType.YES);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">AckResponse</span>(xid, AckType.NO);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> AckResponse <span class="title function_">handlePreCommit</span><span class="params">(String xid)</span> &#123;</span><br><span class="line">        <span class="comment">// 执行本地事务并记录日志</span></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            executeLocalTransaction();</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">AckResponse</span>(xid, AckType.ACK);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">AckResponse</span>(xid, AckType.ERROR);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">handleDoCommit</span><span class="params">(String xid)</span> &#123;</span><br><span class="line">        <span class="comment">// 提交或回滚本地事务</span></span><br><span class="line">        <span class="keyword">if</span> (isCommitted()) &#123;</span><br><span class="line">            commit();</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            rollback();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="阶段一-CanCommit"><a href="#阶段一-CanCommit" class="headerlink" title="阶段一 CanCommit"></a>阶段一 CanCommit</h3><p><strong>事务询问</strong>：<code>Coordinator</code> 向各参与者发送 <code>CanCommit</code> 的请求，询问是否可以执行事务提交操作，并开始等待各参与者的响应；</p>
+<p>参与者向 <code>Coordinator</code> 反馈询问的响应：参与者收到 <code>CanCommit</code> 请求后，正常情况下，如果自身认为可以顺利执行事务，那么会反馈 <code>Yes</code> 响应，并进入预备状态，否则反馈 <code>No</code>。</p>
+<h3 id="阶段二-PreCommit"><a href="#阶段二-PreCommit" class="headerlink" title="阶段二 PreCommit"></a>阶段二 PreCommit</h3><p><strong>执行事务预提交</strong>：如果 <code>Coordinator</code> 接收到各参与者反馈都是<code>Yes</code>，那么执行事务预提交：</p>
+<ol>
+<li><strong>发送预提交请求</strong>：<code>Coordinator</code> 向各参与者发送 <code>preCommit</code> 请求，并进入 <code>prepared</code> 阶段；</li>
+<li><strong>事务预提交</strong>：参与者接收到 <code>preCommit</code> 请求后，会执行事务操作，并将 <code>Undo</code> 和 <code>Redo</code> 信息记录到事务日记中；</li>
+<li>各参与者向 <code>Coordinator</code> <strong>反馈事务执行的响应</strong>：如果各参与者都成功执行了事务操作，那么反馈给协调者 <code>ACK</code> 响应，同时等待最终指令，提交 <code>commit</code> 或者终止 <code>abort</code>，结束流程；</li>
+</ol>
+<p><strong>中断事务</strong>：如果任何一个参与者向 <code>Coordinator</code> 反馈了 <code>No</code> 响应，或者在<code>等待超时</code>后，<code>Coordinator</code> 无法接收到所有参与者的反馈，那么就会中断事务。</p>
+<ol>
+<li><strong>发送中断请求</strong>：<code>Coordinator</code> 向所有参与者发送 <code>abort</code> 请求；</li>
+<li><strong>中断事务</strong>：无论是收到来自 <code>Coordinator</code> 的 <code>abort</code> 请求，还是**<em>等待超时</em>**，参与者都中断事务。</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>场景1：都响应yes</th>
+<th>场景2：部分响应失败</th>
+<th>场景3：响应超时</th>
+</tr>
+</thead>
+<tbody><tr>
+<td></td>
+<td><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_pre_yes.png" alt="3pc"></td>
+<td><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_pre_no.png" alt="3pc"></td>
+<td><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_pre_no.png" alt="3pc"></td>
+</tr>
+<tr>
+<td>处理逻辑</td>
+<td>写redo, undo后，进入<strong>阶段三</strong></td>
+<td>中断事务，发送abort请求</td>
+<td>中断事务，发送abort请求</td>
+</tr>
+</tbody></table>
+<h3 id="阶段三-doCommit"><a href="#阶段三-doCommit" class="headerlink" title="阶段三 doCommit"></a>阶段三 doCommit</h3><p><strong>执行提交</strong></p>
+<ol>
+<li><strong>发送提交请求</strong>：假设 <code>Coordinator</code> 正常工作，接收到了所有参与者的 <code>ack</code> 响应，那么它将从预提交阶段进入提交状态，并向所有参与者发送 <code>doCommit</code> 请求；</li>
+<li><strong>事务提交</strong>：参与者收到 <code>doCommit</code> 请求后，正式提交事务，并在完成事务提交后释放占用的资源；</li>
+<li><strong>反馈事务提交结果</strong>：参与者完成事务提交后，向 <code>Coordinator</code> 发送 <code>ACK</code> 信息；</li>
+<li><strong>完成事务</strong>：<code>Coordinator</code> 接收到所有参与者 <code>ack</code> 信息，完成事务。</li>
+</ol>
+<p><strong>中断事务</strong>：假设 <code>Coordinator</code> 正常工作，并且有任一参与者反馈 <code>No</code>，或者在<em><strong>等待超时</strong></em>后无法接收所有参与者的反馈，都会中断事务</p>
+<ol>
+<li><strong>发送中断请求</strong>：<code>Coordinator</code> 向所有参与者节点发送 <code>abort</code> 请求；</li>
+<li><strong>事务回滚</strong>：参与者接收到 <code>abort</code> 请求后，利用 <code>undo</code> 日志执行事务回滚，并在完成事务回滚后释放占用的资源；</li>
+<li><strong>反馈事务回滚结果</strong>：参与者在完成事务回滚之后，向 <code>Coordinator</code> 发送 <code>ack</code> 信息；</li>
+<li><strong>中断事务</strong>：<code>Coordinator</code> 接收到所有参与者反馈的 <code>ack</code> 信息后，中断事务。</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>场景1：都响应yes</th>
+<th>场景2：部分响应失败</th>
+<th>场景3：响应超时</th>
+</tr>
+</thead>
+<tbody><tr>
+<td></td>
+<td><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_do_yes.png" alt="3pc"></td>
+<td><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_do_no.png" alt="3pc"></td>
+<td><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/3pc_do_no.png" alt="3pc"></td>
+</tr>
+<tr>
+<td>处理逻辑</td>
+<td>事务完成</td>
+<td>中断事务，发送abort请求</td>
+<td>中断事务，发送abort请求</td>
+</tr>
+<tr>
+<td>存在的问题</td>
+<td></td>
+<td>响应yes的参与者未收到abort请求，导致数据不一致</td>
+<td>例如部分参与者事务执行完成，未收到abort请求，导致数据不一致</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>分析：3PC 虽然解决了 Coordinator 与参与者都异常情况下导致数据不一致的问题，3PC 依然带来其他问题：比如，网络分区问题，在 preCommit 消息发送后突然两个机房断开，这时候 Coordinator 所在机房会 abort, 另外剩余参与者的机房则会 commit。</p>
+<p>而且由于3PC 的设计过于复杂，在解决2PC 问题的同时也引入了新的问题，所以在实际上应用不是很广泛。</p>
+</blockquote>
+<h2 id="3-3、TCC"><a href="#3-3、TCC" class="headerlink" title="3.3、TCC"></a>3.3、TCC</h2><p><code>TCC（Try-Confirm-Cancel）</code> 实际上是服务化的两阶段提交协议，业务开发者需要实现这<strong>三个服务接口</strong>：第一阶段服务由业务代码编排来调用 <code>Try</code> 接口进行资源预留，所有参与者的 <code>Try</code> 接口都成功了，事务管理器会提交事务，并调用每个参与者的 <code>Confirm</code> 接口真正提交业务操作，否则调用每个参与者的 <code>Cancel</code> 接口回滚事务。</p>
+<ul>
+<li><code>T</code>：try阶段，预留资源。</li>
+<li><code>C</code>：Confirm阶段，确认提交。</li>
+<li><code>C</code>：Cancel阶段，补偿回滚。</li>
+</ul>
+<p>代码示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 订单服务定义TCC接口</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">OrderServiceTCC</span> &#123;</span><br><span class="line">    <span class="comment">// Try阶段：冻结库存、预扣款</span></span><br><span class="line">    <span class="meta">@TccAction(</span></span><br><span class="line"><span class="meta">        tryMethod = &quot;tryCreateOrder&quot;,</span></span><br><span class="line"><span class="meta">        confirmMethod = &quot;confirmCreateOrder&quot;,</span></span><br><span class="line"><span class="meta">        cancelMethod = &quot;cancelCreateOrder&quot;</span></span><br><span class="line"><span class="meta">    )</span></span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">createOrder</span><span class="params">(OrderDTO order)</span>;</span><br><span class="line">    <span class="comment">// Try操作</span></span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">tryCreateOrder</span><span class="params">(OrderDTO order)</span>;</span><br><span class="line">    <span class="comment">// Confirm操作</span></span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">confirmCreateOrder</span><span class="params">(OrderDTO order)</span>;</span><br><span class="line">    <span class="comment">// Cancel操作</span></span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">cancelCreateOrder</span><span class="params">(OrderDTO order)</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 业务实现</span></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderServiceImpl</span> <span class="keyword">implements</span> <span class="title class_">OrderServiceTCC</span> &#123;</span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> InventoryClient inventoryClient;</span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> PaymentClient paymentClient;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">tryCreateOrder</span><span class="params">(OrderDTO order)</span> &#123;</span><br><span class="line">        <span class="comment">// 冻结库存</span></span><br><span class="line">        inventoryClient.freezeStock(order.getProductId(), order.getQuantity());</span><br><span class="line">        <span class="comment">// 预扣款</span></span><br><span class="line">        paymentClient.preDeduct(order.getUserId(), order.getAmount());</span><br><span class="line">        <span class="comment">// 创建订单（标记为“待支付”）</span></span><br><span class="line">        orderRepository.save(order);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">confirmCreateOrder</span><span class="params">(OrderDTO order)</span> &#123;</span><br><span class="line">        <span class="comment">// 确认扣减库存</span></span><br><span class="line">        inventoryClient.confirmStock(order.getProductId(), order.getQuantity());</span><br><span class="line">        <span class="comment">// 确认扣款</span></span><br><span class="line">        paymentClient.confirmPayment(order.getUserId(), order.getAmount());</span><br><span class="line">        <span class="comment">// 更新订单状态为“已支付”</span></span><br><span class="line">        order.setStatus(<span class="string">&quot;PAID&quot;</span>);</span><br><span class="line">        orderRepository.save(order);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">cancelCreateOrder</span><span class="params">(OrderDTO order)</span> &#123;</span><br><span class="line">        <span class="comment">// 解冻库存</span></span><br><span class="line">        inventoryClient.unfreezeStock(order.getProductId(), order.getQuantity());</span><br><span class="line">        <span class="comment">// 退回预扣款</span></span><br><span class="line">        paymentClient.rollbackPayment(order.getUserId(), order.getAmount());</span><br><span class="line">        <span class="comment">// 删除订单</span></span><br><span class="line">        orderRepository.delete(order);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>优点</p>
+<ul>
+<li><strong>高可靠性</strong>：通过分阶段操作保证数据一致性。</li>
+<li><strong>灵活性</strong>：可定制化补充逻辑，适应复杂业务场景。</li>
+<li><strong>减少资源锁定时间</strong>：try阶段仅预留资源，Confirm阶段才真正执行。</li>
+</ul>
+<p>缺点</p>
+<ul>
+<li><strong>业务侵入性强</strong>：需显示编写Try&#x2F;Confirm&#x2F;cancel逻辑</li>
+<li><strong>补偿逻辑复杂</strong>：需确保Cancel操作与try完全可逆。</li>
+<li><strong>开发成本高</strong>：需处理幂等性、超时、重试等细节。</li>
+</ul>
+<h3 id="3-3-1、TCC相关问题"><a href="#3-3-1、TCC相关问题" class="headerlink" title="3.3.1、TCC相关问题"></a>3.3.1、TCC相关问题</h3><ul>
+<li><em><strong>空回滚</strong></em><ul>
+<li>在没有调用 TCC 资源 Try 方法的情况下，调用了二阶段的 Cancel 方法，Cancel 方法需要识别出这是一个空回滚，然后直接返回成功。</li>
+<li><strong>解决方法</strong>：为了避免空回滚，可以在 Cancel 方法中判断是否已经执行了 Try 方法。如果没有执行 Try 方法，则直接返回，不进行任何操作。可以通过在数据库中记录事务的状态或者使用分布式锁等方式来实现这种判断。</li>
+</ul>
+</li>
+<li><strong><em>幂等</em></strong><ul>
+<li>定义：幂等是指同一个操作执行多次产生的效果与执行一次是相同的。在 <code>TCC</code> 模式中，由于网络异常或者服务故障等原因，可能会导致 <code>Try、Confirm</code> 或者 <code>Cancel</code> 方法被重复执行。因此，这些方法必须是幂等的，以保证事务的一致性。</li>
+<li><strong>解决方法</strong>：为了实现幂等性，可以在数据库中记录每个事务的执行状态，或者使用唯一的事务标识符来判断是否已经执行过某个操作。在执行 <code>Try</code>、<code>Confirm</code> 和 <code>Cancel</code> 方法时，首先检查事务的状态或者标识符，如果已经执行过，则直接返回，不进行任何操作。</li>
+</ul>
+</li>
+<li><strong><em>悬挂</em></strong><ul>
+<li>悬挂就是对于一个分布式事务，其二阶段 <code>Cancel</code> 接口比 <code>Try</code> 接口先执行。</li>
+<li>出现原因是在 <code>RPC</code> 调用分支事务try时，先注册分支事务，再执行RPC调用，如果此时 RPC 调用的网络发生拥堵，RPC 超时以后，TM就会通知RM回滚该分布式事务，可能回滚完成后，Try 的 RPC 请求才到达参与者真正执行</li>
+<li><strong>解决方案</strong><ul>
+<li>只需要去保证cancel接口执行完成以后，try接口不能再执行</li>
+<li><strong>如何判断</strong>：生成一条事务控制表，try接口执行过程中，去判断事务的执行状态，</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="3-4、本地消息表【最终一致性方案】"><a href="#3-4、本地消息表【最终一致性方案】" class="headerlink" title="3.4、本地消息表【最终一致性方案】"></a>3.4、本地消息表【最终一致性方案】</h2><p><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/%E6%9C%AC%E5%9C%B0%E6%B6%88%E6%81%AF%E8%A1%A8.png" alt="本地消息表"><br>基本思路</p>
+<ul>
+<li>消息生产方，需要额外建立一个消息表，并记录消息发送状态。消息表和业务数据要在一个事务里提交，保证了业务和发消息的原子性，要么他们全都成功，要么全都失败。然后消息会经过MQ发送到消息的消费方。如果消息发送失败，会进行重试发送。</li>
+</ul>
+<p><strong>一些缺陷</strong></p>
+<ul>
+<li>本地消息表与业务耦合在一起，难以做成通用性，不可独立伸缩。</li>
+<li>本地消息表是基于数据库来做的，而数据库是要读写磁盘IO的，因此在高并发下是有性能瓶颈的</li>
+</ul>
+<blockquote>
+<p>58dj：退款失败本地消息表，异步重试退款</p>
+</blockquote>
+<h2 id="3-5、MQ事务消息【可靠消息最终一致性方案】"><a href="#3-5、MQ事务消息【可靠消息最终一致性方案】" class="headerlink" title="3.5、MQ事务消息【可靠消息最终一致性方案】"></a>3.5、MQ事务消息【可靠消息最终一致性方案】</h2><p><strong>事务消息</strong>，是一种通过消息队列实现分布式事务一致性的机制，其核心目标是确保<strong>消息的可靠传递</strong>与<strong>本地事务的执行结果</strong>之间的一致性。如下是rocketmq的事务消息：<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/MQ%E4%BA%8B%E5%8A%A1%E6%B6%88%E6%81%AF.png" alt="MQ事务消息"><br>通过两阶段提交（2PC）实现分布式事务最终一致性。</p>
+<ul>
+<li>特点：<ul>
+<li>消息发送分为 <code>PREPARED</code> 和 <code>COMMIT</code> 两个阶段。</li>
+<li>支持事务状态回查机制。</li>
+</ul>
+</li>
+<li>使用场景：<ul>
+<li>跨系统事务操作（如：扣减库存 + 生成订单）</li>
+<li>金融系统中的资金转账。</li>
+</ul>
+</li>
+</ul>
+<p>示例代码：</p>
+<ul>
+<li>事务日志表<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> `transaction_log` (</span><br><span class="line">    `id` <span class="type">BIGINT</span> AUTO_INCREMENT <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    `tx_id` <span class="type">VARCHAR</span>(<span class="number">64</span>) <span class="keyword">NOT NULL</span> <span class="keyword">UNIQUE</span> COMMENT <span class="string">&#x27;RocketMQ事务ID&#x27;</span>,</span><br><span class="line">    `biz_id` <span class="type">VARCHAR</span>(<span class="number">64</span>) <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;订单ID&#x27;</span>,</span><br><span class="line">    `status` TINYINT <span class="keyword">NOT NULL</span> <span class="keyword">DEFAULT</span> <span class="number">0</span> COMMENT <span class="string">&#x27;0:处理中 1:成功 2:失败&#x27;</span>,</span><br><span class="line">    `create_time` DATETIME <span class="keyword">NOT NULL</span>,</span><br><span class="line">    `update_time` DATETIME <span class="keyword">NOT NULL</span>,</span><br><span class="line">    <span class="keyword">UNIQUE</span> KEY `uk_biz_id` (`biz_id`)</span><br><span class="line">);</span><br></pre></td></tr></table></figure></li>
+<li>生产者<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. 配置RocketMQ事务生产者</span></span><br><span class="line"><span class="type">TransactionMQProducer</span> <span class="variable">producer</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">TransactionMQProducer</span>(<span class="string">&quot;OrderProducerGroup&quot;</span>);</span><br><span class="line">producer.setNamesrvAddr(<span class="string">&quot;localhost:9876&quot;</span>);</span><br><span class="line">producer.setTransactionListener(<span class="keyword">new</span> <span class="title class_">OrderTransactionListener</span>());</span><br><span class="line">producer.start();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. 发送事务消息方法</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">createOrder</span><span class="params">(OrderDTO orderDTO)</span> &#123;</span><br><span class="line">    <span class="comment">// (1) 创建订单（本地事务第一步）</span></span><br><span class="line">    <span class="type">Order</span> <span class="variable">order</span> <span class="operator">=</span> orderService.createOrder(orderDTO); <span class="comment">// 返回订单ID</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// (2) 构造消息体</span></span><br><span class="line">    <span class="type">Message</span> <span class="variable">msg</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Message</span>(<span class="string">&quot;OrderTopic&quot;</span>, <span class="string">&quot;TagA&quot;</span>, order.toJson().getBytes());</span><br><span class="line">    msg.putUserProperty(<span class="string">&quot;biz_id&quot;</span>, order.getOrderId());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// (3) 发送事务消息</span></span><br><span class="line">    producer.sendMessageInTransaction(msg, <span class="literal">null</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 3. 实现TransactionListener</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">OrderTransactionListener</span> <span class="keyword">implements</span> <span class="title class_">TransactionListener</span> &#123;</span><br><span class="line">    <span class="comment">//半消息发送成功后，执行本地事务</span></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> LocalTransactionState <span class="title function_">executeLocalTransaction</span><span class="params">(Message msg, Object arg)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 从消息中解析订单信息</span></span><br><span class="line">            <span class="type">OrderDTO</span> <span class="variable">orderDTO</span> <span class="operator">=</span> JSON.parseObject(msg.getBody(), OrderDTO.class);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// (1) 执行本地事务：扣减库存（假设库存服务通过API调用）</span></span><br><span class="line">            <span class="type">boolean</span> <span class="variable">stockSuccess</span> <span class="operator">=</span> stockService.reduceStock(orderDTO.getProductID(), orderDTO.getQuantity());</span><br><span class="line"></span><br><span class="line">            <span class="comment">// (2) 记录事务状态到事务日志表</span></span><br><span class="line">            transactionService.logTransaction(</span><br><span class="line">                msg.getTransactionId(), <span class="comment">// RocketMQ事务ID</span></span><br><span class="line">                orderDTO.getOrderId(), <span class="comment">// 业务ID</span></span><br><span class="line">                stockSuccess ? TransactionStatus.SUCCESS : TransactionStatus.FAILED</span><br><span class="line">            );</span><br><span class="line"></span><br><span class="line">            <span class="keyword">return</span> stockSuccess ? LocalTransactionState.COMMIT_MESSAGE : LocalTransactionState.ROLLBACK_MESSAGE;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            <span class="comment">// 异常时回滚</span></span><br><span class="line">            <span class="keyword">return</span> LocalTransactionState.ROLLBACK_MESSAGE;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> LocalTransactionState <span class="title function_">checkLocalTransaction</span><span class="params">(MessageExt msg)</span> &#123;</span><br><span class="line">        <span class="comment">// 回查时根据biz_id查询事务状态</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">bizId</span> <span class="operator">=</span> msg.getUserProperty(<span class="string">&quot;biz_id&quot;</span>);</span><br><span class="line">        <span class="type">TransactionStatus</span> <span class="variable">status</span> <span class="operator">=</span> transactionService.getStatusByBizId(bizId);</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">if</span> (status == TransactionStatus.SUCCESS) &#123;</span><br><span class="line">            <span class="keyword">return</span> LocalTransactionState.COMMIT_MESSAGE;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (status == TransactionStatus.FAILED) &#123;</span><br><span class="line">            <span class="keyword">return</span> LocalTransactionState.ROLLBACK_MESSAGE;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">// 状态未知，可重试或超时处理</span></span><br><span class="line">            <span class="keyword">return</span> LocalTransactionState.UNKNOW;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li>消费者<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 消费者配置（Spring Boot示例）</span></span><br><span class="line"><span class="meta">@RocketMQMessageListener(</span></span><br><span class="line"><span class="meta">        topic = &quot;OrderTopic&quot;,</span></span><br><span class="line"><span class="meta">        consumerGroup = &quot;StockConsumerGroup&quot;</span></span><br><span class="line"><span class="meta">)</span></span><br><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">StockConsumer</span> <span class="keyword">implements</span> <span class="title class_">RocketMQListener</span>&lt;MessageExt&gt; &#123;</span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onMessage</span><span class="params">(MessageExt msg)</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      <span class="comment">// 解析订单信息</span></span><br><span class="line">      <span class="type">String</span> <span class="variable">body</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">String</span>(msg.getBody(), <span class="string">&quot;UTF-8&quot;</span>);</span><br><span class="line">      <span class="type">OrderDTO</span> <span class="variable">orderDTO</span> <span class="operator">=</span> JSON.parseObject(body, OrderDTO.class);</span><br><span class="line"></span><br><span class="line">      <span class="comment">// 执行扣减库存（幂等性设计）</span></span><br><span class="line">      stockService.reduceStock(orderDTO.getProductID(), orderDTO.getQuantity());</span><br><span class="line"></span><br><span class="line">      <span class="comment">// 更新库存状态到数据库</span></span><br><span class="line">      stockService.updateStockStatus(orderDTO.getProductID(), <span class="string">&quot;DEDUCTED&quot;</span>);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">      <span class="comment">// 消息重试或补偿</span></span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;库存扣减失败，消息重试&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="3-6、saga模式"><a href="#3-6、saga模式" class="headerlink" title="3.6、saga模式"></a>3.6、saga模式</h2><p><code>Saga</code>是这一篇数据库论文<code>sagas</code>提到的一个方案。其核心思想是将<strong>长事务拆分为多个本地短事务</strong>，由<strong>Saga事务协调器</strong>协调，如果正常结束那就正常完成，如果某个步骤失败，则根据相反顺序一次调用补偿操作。Saga 是一种补偿协议<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/saga.png" alt="saga"></p>
+<ul>
+<li>每个<code>Saga</code>由一系列<code>sub-transaction Ti</code>组成。每个<code>Ti</code>都有对应的补偿动作<code>Ci</code></li>
+</ul>
+<p><strong>saga</strong>事务有两种恢复策略：</p>
+<ul>
+<li><strong>向前恢复（<code>forward recovery</code>）</strong>，也就是“勇往直前”。对于执行不通过的事务，会尝试重试事务，这里有一个假设就是每个子事务最终都会成功。这种方式适用于必须要成功的场景。如上图的第一个流程。</li>
+<li><strong>向后恢复（<code>backward recovery</code>）</strong>，在执行事务失败时，补偿所有已完成的事务，是“一退到底”的方式。如图2所示，下面的图例，子事务依旧从左往右执行，在执行到事务T3的时候，该事务执行失败了，于是按照红线的方向开始执行补偿事务，先执行C3、然后是C2和C1，直到T0、T1、T2的补偿事务C1、C2、C3都执行完毕。也就是回滚整个Saga的执行结果。</li>
+</ul>
+<h3 id="3-6-1、协调逻辑"><a href="#3-6-1、协调逻辑" class="headerlink" title="3.6.1、协调逻辑"></a>3.6.1、协调逻辑</h3><p>如果在执行子事务的过程中遇到子事务对应的本地事务失败，则<code>Saga</code>会按照相反的顺序执行补偿事务。通常来说我们把这种<code>Saga</code>执行事务的顺序称为个<code>Saga</code>的协调逻辑。这种协调逻辑有两种模式，编排（<code>Choreography</code>）和控制（<code>Orchestration</code>）分别如下：</p>
+<ul>
+<li><code>编排（Choreography）</code>：参与者（子事务）之间的调用、分配、决策和排序，通过交换事件进行进行。是一种去中心化的模式，参与者之间通过消息机制进行沟通，通过监听器的方式监听其他参与者发出的消息，从而执行后续的逻辑处理。由于没有中间协调点，靠参与靠自己进行相互协调。</li>
+<li><code>控制（Orchestration）</code>：<code>Saga</code>提供一个控制类，其方便参与者之前的协调工作。事务执行的命令从控制类发起，按照逻辑顺序请求<code>Saga</code>的参与者，从参与者那里接受到反馈以后，控制类在发起向其他参与者的调用。所有<code>Saga</code>的参与者都围绕这个控制类进行沟通和协调工作。</li>
+</ul>
+<p><code>编排（Choreography）</code>示例如下：</p>
+<ul>
+<li>由于没有中心的控制类参与参与者操作之间的协调工作，因此通过消息发送的方式进行协调。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/saga_%E7%BC%96%E6%8E%92.png" alt="saga_编排"></li>
+<li><strong>编排恢复</strong><br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/saga_%E7%BC%96%E6%8E%92_%E6%81%A2%E5%A4%8D.png" alt="saga_编排_恢复"></li>
+<li><strong>编排缺点</strong><ul>
+<li>存在服务的循环依赖</li>
+<li>紧耦合风险：每个参与者执行的方法都依赖于上一步参与者发出的消息，但是上一步的参与者的所有消息都需要被订阅，才能了解参与者的真实状态，无形中增加了两个服务的耦合度。</li>
+</ul>
+</li>
+</ul>
+<p><code>控制（Orchestration）</code>示例如下：</p>
+<ul>
+<li>其核心是定义一个控制类，它会告诉参与者（服务）应该执行哪些操作（子事务）。 Saga控制类通过命令以及异步回复的方式与参与者进行交互。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/saga_%E6%8E%A7%E5%88%B6.png" alt="saga_控制"></li>
+<li>控制恢复<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/saga_%E6%8E%A7%E5%88%B6_%E6%81%A2%E5%A4%8D.png" alt="saga_控制_恢复"></li>
+</ul>
+<h2 id="3-7、XA协议"><a href="#3-7、XA协议" class="headerlink" title="3.7、XA协议"></a>3.7、XA协议</h2><p><code>XA</code> 协议本就是为一个分布式事务协议，它规定了 <code>XA PREPARE、XA COMMIT、XA ROLLBACK</code> 等命令。<code>XA</code> 协议规定了<strong>事务管理器（协调者）</strong>和<strong>资源管理器（数据节点）</strong>如何交互，共同完成分布式 <code>2PC</code> 过程。</p>
+<blockquote>
+<p><strong>具体实现</strong>：需依赖支持XA协议的数据库（如oracle、MySQL 8.0+）和事务管理器（如Bitronix、seata的XA模式）</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>XA</th>
+<th>2PC</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>定位</td>
+<td>基于<code>2PC</code>的具体实现标准</td>
+<td>分布式事务的通用协议模型</td>
+</tr>
+<tr>
+<td>实现方式</td>
+<td>通过数据库驱动和事务管理器完成两阶段提交</td>
+<td>一种理论模型，不依赖具体技术栈</td>
+</tr>
+<tr>
+<td>角色划分</td>
+<td><code>TM</code>（事务管理器）协调全局事务，<code>RM</code>（如MySQL、Oracle）管理本地事务</td>
+<td>协调者（<code>Coordinate</code>）、参与者（<code>participant</code>）</td>
+</tr>
+<tr>
+<td>应用场景</td>
+<td>数据库集群、传统单体应用的事务扩展</td>
+<td>任何需要跨节点强一致性的场景</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>关键结论：</strong><br><code>XA</code>是<code>2PC</code>的工业级实现，<code>XA</code>协议依赖<code>2PC</code>的流程，但通过标准化接口（如<code>X/OPEN DTP(Distributed Transaction Processing)</code>模型）将事务管理解构，使不同数据库厂商（RM）能兼容同一套事务协调机制。</li>
+</ul>
+<h3 id="3-7-1、XA-事务语法介绍"><a href="#3-7-1、XA-事务语法介绍" class="headerlink" title="3.7.1、XA 事务语法介绍"></a>3.7.1、XA 事务语法介绍</h3><p>xa 事务的语法如下：</p>
+<ul>
+<li><strong>三阶段的第一阶段</strong>：开启 xa 事务，这里 xid 为全局事务 id：<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">XA &#123;START|BEGIN&#125; xid [JOIN|RESUME]</span><br></pre></td></tr></table></figure></li>
+<li>结束 xa 事务：<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">XA END xid [SUSPEND [FOR MIGRATE]]</span><br></pre></td></tr></table></figure></li>
+<li><strong>三阶段的第二阶段</strong>，即 <code>prepare</code>：<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">XA PREPARE xid</span><br></pre></td></tr></table></figure></li>
+<li><strong>三阶段的第三阶段</strong>，即 <code>commit/rollback</code>：<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">XA COMMIT xid [ONE PHASE]</span><br><span class="line">XA ROLLBACK xid</span><br></pre></td></tr></table></figure></li>
+<li>查看处于 PREPARE 阶段的所有事务：<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">XA RECOVER XA RECOVER [CONVERT XID]</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="3-7-2、事务协调器"><a href="#3-7-2、事务协调器" class="headerlink" title="3.7.2、事务协调器"></a>3.7.2、事务协调器</h3><p>MySQL 启动时，<code>init_server_components()</code> 函数按以下规则选择<strong>事务协调器</strong>（本文代码都取自 MySQL 8.0.21，为了方便阅读会做适当精简。下同）：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">tc_log = &amp;tc_log_dummy;</span><br><span class="line">if (total_ha_2pc &gt; 1 || (1 == total_ha_2pc &amp;&amp; opt_bin_log)) &#123;</span><br><span class="line">  if (opt_bin_log)</span><br><span class="line">    tc_log = &amp;mysql_bin_log;</span><br><span class="line">  else</span><br><span class="line">    tc_log = &amp;tc_log_mmap;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li>如果 <code>binlog</code> 开启，使用 <code>mysql_binlog</code> 事务日志</li>
+<li>否则，如果支持 <code>2PC</code> 的存储引擎多于 <code>1</code> 个，使用 <code>tc_log_mmap</code> 事务日志</li>
+<li>否则，使用 <code>tc_log_dummy</code> 事务日志，它是一个空的实现，实际上就是不记日志</li>
+</ol>
+<p>而 <code>TC_LOG</code> 是这三种事务日志具体实现的基类，它定义了事务日志需要实现的接口：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">/** Transaction Coordinator Log */</span><br><span class="line">class TC_LOG &#123;</span><br><span class="line"> public:</span><br><span class="line">  virtual int open(const char *opt_name) = 0;</span><br><span class="line">  virtual void close() = 0;</span><br><span class="line">  virtual enum_result commit(THD *thd, bool all) = 0;</span><br><span class="line">  virtual int rollback(THD *thd, bool all) = 0;</span><br><span class="line">  virtual int prepare(THD *thd, bool all) = 0;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>其中 <code>tc_log_mmap</code> 协调器是一个比较标准的<strong>事务协调器</strong>实现，它会创建一个名为 <code>tc.log</code> 的日志并使用操作系统的内存映射（<code>memory-map，mmap</code>）机制将内容映射到内存中。<code>tc.log</code> 文件中分为一个一个 <code>PAGE</code>，每个 <code>PAGE</code> 上有多个事务 <code>ID（xid）</code>，这些就是由它记录的已经确定提交的事务。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/xa_tc_log.png" alt="xa_tc_log"><br>更多的时候，我们用到的都是 <code>mysql_bin_log</code> 这个基于 <code>binlog</code> 实现的事务日志：既然 <code>binlog</code> 反正都是要写的，不妨所有的 <code>Engine</code> 都统一以 <code>binlog</code> 为准，这的确是个很聪明的主意。<code>binlog</code> 中除了 <code>XID</code> 以外还包含许多的信息（比如所有的写入），但对于 <code>TC_LOG</code> 来说只要存在 <code>XID</code> 就足以胜任了。</p>
+<h3 id="3-7-3、内部-2PC-事务提交-——-以-binlog-协调器为例"><a href="#3-7-3、内部-2PC-事务提交-——-以-binlog-协调器为例" class="headerlink" title="3.7.3、内部 2PC 事务提交 —— 以 binlog 协调器为例"></a>3.7.3、内部 2PC 事务提交 —— 以 binlog 协调器为例</h3><p>事务的提交过程入口点位于 <code>ha_commit_trans</code> 函数，事务提交的过程如下：</p>
+<ol>
+<li>首先调用存储引擎的 <code>prepare</code> 接口</li>
+<li>调用 <code>TC_LOG</code> 的 <code>commit</code> 接口写入事务日志</li>
+<li>调用存储引擎的 <code>commit</code> 接口<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/xa_mysql_2pc.png" alt="xa_mysql_2pc"></li>
+</ol>
+<p>各个存储引擎会将自己的 <code>prepare</code>、<code>commit</code> 等函数注册到 <code>MySQL Server</code> 层，也就是 <code>handlerton</code> 这个结构体，注册的过程在 <code>ha_innodb.cc</code> 中：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">innobase_hton-&gt;commit = innobase_commit;</span><br><span class="line">innobase_hton-&gt;rollback = innobase_rollback;</span><br><span class="line">innobase_hton-&gt;prepare = innobase_xa_prepare;</span><br><span class="line">// 省略了很多其他函数</span><br></pre></td></tr></table></figure>
+<ul>
+<li>首先是 2PC 的 prepare 阶段，trans_commit_stmt 调用 <code>binlog</code> 协调器的 <code>prepare</code> 接口，但是它什么也不会做，直接去调用存储引擎（以 <code>InnoDB</code> 为例）的 <code>prepare</code> 接口。<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">trans_commit_stmt(THD * thd, bool ignore_global_read_lock) (sql/transaction.cc:532)</span><br><span class="line">  ha_commit_trans(THD * thd, bool all, bool ignore_global_read_lock) (sql/handler.cc:1740)</span><br><span class="line">    MYSQL_BIN_LOG::prepare(MYSQL_BIN_LOG * const this, THD * thd, bool all) (sql/binlog.cc:7911)</span><br><span class="line">      ha_prepare_low(THD * thd, bool all) (sql/handler.cc:2320)    </span><br><span class="line">        innobase_xa_prepare(handlerton * hton, THD * thd, bool prepare_trx) (storage/innobase/handler/ha_innodb.cc:19084)</span><br></pre></td></tr></table></figure></li>
+<li><code>2PC</code> 的 <code>commit</code> 阶段，<code>trans_commit_stmt</code> 调用 <code>binlog</code> 协调器的 <code>commit</code> 接口写入 <code>binlog</code>，事务日志被持久化。这一步之后，即使节点宕机，重启恢复时也会将事务恢复至已提交的状态。<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">trans_commit_stmt(THD * thd, bool ignore_global_read_lock) (sql/transaction.cc:532)</span><br><span class="line">  ha_commit_trans(THD * thd, bool all, bool ignore_global_read_lock) (sql/handler.cc:1755)</span><br><span class="line">    MYSQL_BIN_LOG::commit(MYSQL_BIN_LOG * const this, THD * thd, bool all) (sql/binlog.cc:7943)</span><br></pre></td></tr></table></figure></li>
+<li>最后 <code>binlog</code> 协调器调用存储引擎的 <code>commit</code> 接口，完成事务提交：<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">trans_commit_stmt(THD * thd, bool ignore_global_read_lock) (sql/transaction.cc:532)</span><br><span class="line">  ha_commit_trans(THD * thd, bool all, bool ignore_global_read_lock) (sql/handler.cc:1755)</span><br><span class="line">    MYSQL_BIN_LOG::commit(MYSQL_BIN_LOG * const this, THD * thd, bool all) (sql/binlog.cc:8171)</span><br><span class="line">      MYSQL_BIN_LOG::ordered_commit(MYSQL_BIN_LOG * const this, THD * thd, bool all, bool skip_commit) (sql/binlog.cc:8924)</span><br><span class="line">        MYSQL_BIN_LOG::process_commit_stage_queue(MYSQL_BIN_LOG * const this, THD * thd, THD * first) (sql/binlog.cc:8407)</span><br><span class="line">          ha_commit_low(THD * thd, bool all, bool run_after_commit) (sql/handler.cc:1935)</span><br><span class="line">            innobase_commit(handlerton * hton, THD * thd, bool commit_trx) (storage/innobase/handler/ha_innodb.cc:5283)</span><br></pre></td></tr></table></figure>
+以上仅仅是一条更新语句执行的行为，如果是多个事物并发提交，MySQL 会通过 <code>group commit</code> 的方式优化性能，推荐这篇 《<a href="https://developer.aliyun.com/article/617776"><code>图解 MySQL 组提交(group commit)</code></a>》。</li>
+</ul>
+<h3 id="3-7-4、分布式-XA-事务"><a href="#3-7-4、分布式-XA-事务" class="headerlink" title="3.7.4、分布式 XA 事务"></a>3.7.4、分布式 XA 事务</h3><p>回到分布式事务上，我们知道 XA 协议本就是为一个分布式事务协议，它规定了 XA PREPARE、XA COMMIT、XA ROLLBACK 等命令。XA 协议规定了事务管理器（协调者）和资源管理器（数据节点）如何交互，共同完成分布式 2PC 过程。</p>
+<p>为了验证这一点，我们执行一条 XA PREPARE 命令，可以看到果然又来到了 innobase_xa_prepare。没错，上文中 InnoDB handlerton 中的 prepare 的接口就叫 innobase_xa_prepare，名字中还带着 xa 的字样。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Sql_cmd_xa_prepare::execute(Sql_cmd_xa_prepare * const this, THD * thd) (sql/xa.cc:1228)</span><br><span class="line">  Sql_cmd_xa_prepare::trans_xa_prepare(Sql_cmd_xa_prepare * const this, THD * thd) (sql/xa.cc:1194)</span><br><span class="line">    ha_xa_prepare(THD * thd) (sql/handler.cc:1412)</span><br><span class="line">      prepare_one_ht(THD * thd, handlerton * ht) (sql/handler.cc:1345)</span><br><span class="line">        innobase_xa_prepare(handlerton * hton, THD * thd, bool prepare_trx) (storage/innobase/handler/ha_innodb.cc:19084)</span><br></pre></td></tr></table></figure>
+<p><strong>对于存储引擎来说，外部 <code>XA</code> 还是内部 <code>XA</code> 并没有什么区别，都走的是同一条代码路径。</strong></p>
+<p>那为什么之前很多人认为 <code>XA</code> 事务性能差呢？我认为主要有两个原因：</p>
+<ul>
+<li>一是分布式本身引入的<strong>网络代价</strong>，例如事务协调者和存储节点往往不在同一个节点上，这必然会增加少许延迟，并引入更多的 <code>IO</code> 中断代价。</li>
+<li>二是因为提交延迟增加导致事务从开始到 <code>commit</code> 之间的持有锁的时间增加了。熟悉并发编程的老手一定知道，加锁并不会让性能下降，锁竞争才是性能的最大敌人。</li>
+</ul>
+<ol>
+<li>对于原因一，很大程度上是无可避免的，我们认为这就是“分布式的代价”之一。</li>
+<li>对于原因二，其实无论是在单机还是在分布式数据库中，都应该尽可能在业务上避免锁竞争。</li>
+</ol>
+<h2 id="3-8、seata框架"><a href="#3-8、seata框架" class="headerlink" title="3.8、seata框架"></a>3.8、seata框架</h2><p><code>seata</code>(<code>simple extensible autonomous transaction architecture</code>)是一个分布式事务框架（整合多种模式，包括<code>AT、TCC、SAGA、XA</code> 四种模式），是分布式事务的工程化解决方案。</p>
+<h3 id="3-8-1、Seata-产品模块"><a href="#3-8-1、Seata-产品模块" class="headerlink" title="3.8.1、Seata 产品模块"></a>3.8.1、Seata 产品模块</h3><p><code>Seata</code> 中有三大模块，分别是 <code>TM</code>、<code>RM</code> 和 <code>TC</code>。 其中 <code>TM</code> 和 <code>RM</code> 是作为 <code>Seata</code> 的客户端与业务系统集成在一起，<code>TC</code> 作为 <code>Seata</code> 的服务端独立部署。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata_%E4%BA%A7%E5%93%81%E6%A8%A1%E5%9D%97.png" alt="seata_产品模块"><br>在 <code>Seata</code> 中，分布式事务的执行流程：</p>
+<ul>
+<li><code>TM</code> 开启分布式事务（<code>TM</code> 向 <code>TC</code> 注册全局事务记录）；</li>
+<li>按业务场景，编排数据库、服务等事务内资源（<code>RM</code> 向 <code>TC</code> 汇报资源准备状态 ）；</li>
+<li><code>TM</code> 结束分布式事务，事务一阶段结束（<code>TM</code> 通知 <code>TC</code> 提交&#x2F;回滚分布式事务）；</li>
+<li><code>TC</code> 汇总事务信息，决定分布式事务是提交还是回滚；</li>
+<li><code>TC</code> 通知所有 <code>RM</code> 提交&#x2F;回滚 资源，事务二阶段结束；</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>TM</th>
+<th>RM</th>
+<th>TC</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>名称</td>
+<td><code>transaction manager</code>（事务管理器）</td>
+<td><code>resource manager</code>（资源管理器）</td>
+<td><code>transaction Coordinate</code>（事务协调器）</td>
+</tr>
+<tr>
+<td>功能</td>
+<td>定义全局事务的边界，控制提交&#x2F;回滚</td>
+<td>管理本地资源，记录undo日志，响应TC的指令执行</td>
+<td>维护全局事务状态（初始化、提交、回滚），协调各分支事务的提交&#x2F;回滚</td>
+</tr>
+<tr>
+<td>部署方式</td>
+<td>与业务系统集成在一起</td>
+<td>与业务系统集成在一起</td>
+<td>服务端独立部署</td>
+</tr>
+</tbody></table>
+<p>如下示例：<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata.png" alt="seata"><br>例如<code>Business</code>(下单系统)作为事务发起者<code>TM</code>发起事务，订单、库存、账户作为<code>RM</code>参与事务。</p>
+<h3 id="3-8-2、AT-模式"><a href="#3-8-2、AT-模式" class="headerlink" title="3.8.2、AT 模式"></a>3.8.2、AT 模式</h3><p>AT 模式是一种无侵入的分布式事务解决方案。在 <code>AT</code> 模式下，用户只需关注自己的“业务 SQL”，用户的 “业务 SQL” 作为一阶段，<code>Seata</code> 框架会自动生成事务的二阶段提交和回滚操作。</p>
+<ul>
+<li><strong>一阶段</strong>：<br>在一阶段，<code>Seata</code> 会拦截“业务 SQL”，首先解析 <code>SQL</code> 语义，找到“业务 SQL”要更新的业务数据，在业务数据被更新前，将其保存成“<code>before image</code>”，然后执行“业务 SQL”更新业务数据，在业务数据更新之后，再将其保存成“<code>after image</code>”，最后生成行锁。以上操作全部在一个数据库事务内完成，这样保证了一阶段操作的原子性。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata_at_1.png" alt="seata_at_1"></li>
+<li><strong>二阶段提交</strong>：<br>二阶段如果是提交的话，因为“业务 SQL”在一阶段已经提交至数据库， 所以 <code>Seata</code> 框架只需将一阶段保存的快照数据和行锁删掉，完成数据清理即可。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata_at_2.png" alt="seata_at_2"></li>
+<li><strong>二阶段回滚</strong>：<br>二阶段如果是回滚的话，<code>Seata</code> 就需要回滚一阶段已经执行的“业务 SQL”，还原业务数据。回滚方式便是用“<code>before image</code>”还原业务数据；但在还原前要首先要校验脏写，对比“数据库当前业务数据”和 “<code>after image</code>”，如果两份数据完全一致就说明没有脏写，可以还原业务数据，如果不一致就说明有脏写，出现脏写就需要转人工处理。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata_at_2_rollback.png" alt="seata_at_2_rollback"></li>
+</ul>
+<p><code>AT</code> 模式的一阶段、二阶段提交和回滚均由 <code>Seata</code> 框架自动生成，用户只需编写“业务 SQL”，便能轻松接入分布式事务，<code>AT</code> 模式是一种对业务无任何侵入的分布式事务解决方案。</p>
+<h3 id="3-8-3、TCC-模式"><a href="#3-8-3、TCC-模式" class="headerlink" title="3.8.3、TCC 模式"></a>3.8.3、TCC 模式</h3><p>TCC 三个方法描述：</p>
+<ul>
+<li><code>Try</code>：资源的检测和预留；</li>
+<li><code>Confirm</code>：执行的业务操作提交；要求 <code>Try</code> 成功 <code>Confirm</code> 一定要能成功；</li>
+<li><code>Cancel</code>：预留资源释放；</li>
+</ul>
+<p>以“扣钱”场景为例，在接入 <code>TCC</code> 前，对 <code>A</code> 账户的扣钱，只需一条更新账户余额的 <code>SQL</code> 便能完成；但是在接入 <code>TCC</code> 之后，用户就需要考虑如何将原来一步就能完成的扣钱操作，拆成<strong>两阶段</strong>，实现成三个方法，并且保证一阶段 <code>Try</code> 成功的话 二阶段 <code>Confirm</code> 一定能成功。<br><img src="/2021/08/15/2021-08-15-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/seata_tcc.png" alt="seata_tcc"></p>
+<p>参考文章：<br><a href="https://zhuanlan.zhihu.com/p/372300181">无处不在的 MySQL XA 事务</a><br><a href="https://cloud.tencent.com/developer/article/1839642">10分钟说透Saga分布式事务</a><br><a href="https://seata.apache.org/zh-cn/blog/seata-at-tcc-saga/">分布式事务 Seata 及其三种模式详解</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/08/12/2021-08-12-%E5%88%86%E5%B8%83%E5%BC%8F%E7%90%86%E8%AE%BA-%E7%AE%97%E6%B3%95/" rel="prev" title="《分布式》算法">
+      <i class="fa fa-chevron-left"></i> 《分布式》算法
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/" rel="next" title="《TIDB》架构">
+      《TIDB》架构 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F"><span class="nav-text">一、分布式系统</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1"><span class="nav-text">二、分布式事务</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1%E7%9A%84%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88"><span class="nav-text">三、分布式事务的解决方案</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%812PC%EF%BC%88%E5%BC%BA%E4%B8%80%E8%87%B4%E6%80%A7%EF%BC%89"><span class="nav-text">3.1、2PC（强一致性）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E5%AD%98%E5%9C%A8%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-text">3.1.1、存在的问题</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-1%E3%80%81%E5%8D%95%E7%82%B9%E6%95%85%E9%9A%9C"><span class="nav-text">3.2.1.1、单点故障</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-2%E3%80%81%E5%90%8C%E6%AD%A5%E9%98%BB%E5%A1%9E"><span class="nav-text">3.2.1.2、同步阻塞</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-3%E3%80%81%E6%95%B0%E6%8D%AE%E4%B8%8D%E4%B8%80%E8%87%B4"><span class="nav-text">3.2.1.3、数据不一致</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-4%E3%80%81%E6%80%A7%E8%83%BD%E9%97%AE%E9%A2%98"><span class="nav-text">3.2.1.4、性能问题</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%813PC%EF%BC%88%E5%BC%BA%E4%B8%80%E8%87%B4%E6%80%A7%EF%BC%89"><span class="nav-text">3.2、3PC（强一致性）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%98%B6%E6%AE%B5%E4%B8%80-CanCommit"><span class="nav-text">阶段一 CanCommit</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%98%B6%E6%AE%B5%E4%BA%8C-PreCommit"><span class="nav-text">阶段二 PreCommit</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%98%B6%E6%AE%B5%E4%B8%89-doCommit"><span class="nav-text">阶段三 doCommit</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81TCC"><span class="nav-text">3.3、TCC</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-1%E3%80%81TCC%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98"><span class="nav-text">3.3.1、TCC相关问题</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4%E3%80%81%E6%9C%AC%E5%9C%B0%E6%B6%88%E6%81%AF%E8%A1%A8%E3%80%90%E6%9C%80%E7%BB%88%E4%B8%80%E8%87%B4%E6%80%A7%E6%96%B9%E6%A1%88%E3%80%91"><span class="nav-text">3.4、本地消息表【最终一致性方案】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-5%E3%80%81MQ%E4%BA%8B%E5%8A%A1%E6%B6%88%E6%81%AF%E3%80%90%E5%8F%AF%E9%9D%A0%E6%B6%88%E6%81%AF%E6%9C%80%E7%BB%88%E4%B8%80%E8%87%B4%E6%80%A7%E6%96%B9%E6%A1%88%E3%80%91"><span class="nav-text">3.5、MQ事务消息【可靠消息最终一致性方案】</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-6%E3%80%81saga%E6%A8%A1%E5%BC%8F"><span class="nav-text">3.6、saga模式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-6-1%E3%80%81%E5%8D%8F%E8%B0%83%E9%80%BB%E8%BE%91"><span class="nav-text">3.6.1、协调逻辑</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-7%E3%80%81XA%E5%8D%8F%E8%AE%AE"><span class="nav-text">3.7、XA协议</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-7-1%E3%80%81XA-%E4%BA%8B%E5%8A%A1%E8%AF%AD%E6%B3%95%E4%BB%8B%E7%BB%8D"><span class="nav-text">3.7.1、XA 事务语法介绍</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-7-2%E3%80%81%E4%BA%8B%E5%8A%A1%E5%8D%8F%E8%B0%83%E5%99%A8"><span class="nav-text">3.7.2、事务协调器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-7-3%E3%80%81%E5%86%85%E9%83%A8-2PC-%E4%BA%8B%E5%8A%A1%E6%8F%90%E4%BA%A4-%E2%80%94%E2%80%94-%E4%BB%A5-binlog-%E5%8D%8F%E8%B0%83%E5%99%A8%E4%B8%BA%E4%BE%8B"><span class="nav-text">3.7.3、内部 2PC 事务提交 —— 以 binlog 协调器为例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-7-4%E3%80%81%E5%88%86%E5%B8%83%E5%BC%8F-XA-%E4%BA%8B%E5%8A%A1"><span class="nav-text">3.7.4、分布式 XA 事务</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-8%E3%80%81seata%E6%A1%86%E6%9E%B6"><span class="nav-text">3.8、seata框架</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-8-1%E3%80%81Seata-%E4%BA%A7%E5%93%81%E6%A8%A1%E5%9D%97"><span class="nav-text">3.8.1、Seata 产品模块</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-8-2%E3%80%81AT-%E6%A8%A1%E5%BC%8F"><span class="nav-text">3.8.2、AT 模式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-8-3%E3%80%81TCC-%E6%A8%A1%E5%BC%8F"><span class="nav-text">3.8.3、TCC 模式</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">197</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">142</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">25</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
