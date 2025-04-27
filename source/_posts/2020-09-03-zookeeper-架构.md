@@ -9,19 +9,22 @@ categories:
 
 <style>
 .my-code {
-   color: green;
+   color: red;
 }
 .orange {
-   color: rgb(255, 53, 2)
+   color: orange
 }
 .red {
    color: red
 }
+code {
+   color: #0ABF5B;
+}
 </style>
 
 # 一、zookeeper
-<code>zookeeper</code>是一个分布式协调服务框架，它是一个为分布式应用提供一致性服务的软件。
-- 主要用于实现分布式系统中master选举、分布式协调、集群管理、负载均衡、分布式锁等功能。
+`zookeeper`是一个分布式协调服务框架，它是一个为分布式应用提供一致性服务的软件。
+- 主要用于实现分布式系统中`master`选举、分布式协调、集群管理、负载均衡、分布式锁等功能。
 - 可以用来统一配置管理、统一命名服务、分布式锁、集群管理
 
 <!-- more -->
@@ -32,27 +35,27 @@ categories:
 - 一主多从，主服务支持读写，从服务只支持读，写都需要经过主服务
 
 ## 2.1、集群节点类型
-- leader
+- `leader`
 主节点，可读写，负责集群的写请求，leader选举出之前，集群无法使用
-- follower
+- `follower`
 从节点，处理读请求，参与leader的选举
-- observe
+- `observe`
 从节点，处理读请求，不参与leader的选举
 
 ## 2.2、集群节点状态
-- Looking
+- `Looking`
   - 处于该状态，集群会进行leader选举
-  - ZAB 协议，定义所有进程启动的时候，初始化状态都是 LOOKING 状态，此时进程组中不存在 Leader，选举之后才有，在进行选举成功后，就进入消息广播模式，此时 Zookeeper 集群中的角色状态就不再是 LOOKING 状态。
-- follower
+  - `ZAB` 协议，定义所有进程启动的时候，初始化状态都是 `LOOKING` 状态，此时进程组中不存在 `Leader`，选举之后才有，在进行选举成功后，就进入消息广播模式，此时 `Zookeeper` 集群中的角色状态就不再是 `LOOKING` 状态。
+- `follower`
 Follower服务器和leader服务器保持数据同步的状态
-- Leading
+- `Leading`
 Leader服务器作为主服务器的状态
 
 
 # 三、数据结构
 
-zookeeper的数据节点可以视为树状结构（或者目录），树中的各节点被称为`znode`（即zookeeper node），一个znode可以有多个子节点，可以说 zookeeper 中的所有存储的数据是由 znode 组成的，并以 `key/value` 形式存储数据。整体结构类似于 linux 文件系统的模式以树形结构存储，其中根路径以`/`开头。如下所示：
-```angular2html
+`zookeeper`的数据节点可以视为树状结构（或者目录），树中的各节点被称为`znode`（即`zookeeper node`），一个`znode`可以有多个子节点，可以说 `zookeeper` 中的所有存储的数据是由 `znode` 组成的，并以 `key/value` 形式存储数据。整体结构类似于 `linux` 文件系统的模式以树形结构存储，其中根路径以`/`开头。如下所示：
+```bash
 [zk localhost:2181(connected) 0]: ls /
 [animal, zookeeper]
 [zk localhost:2181(connected) 2]: ls /animal
@@ -79,17 +82,15 @@ znode的元数据，例如事务ID、版本号、时间戳、大小等等
 - **child**
 子节点引用，可以有多个子节点
 
-zk的源码主要用Java编写，znode源码结构如下：
+`zk`的源码主要用Java编写，`znode`源码结构如下：
 ```java
 package org.apache.zookeeper.data;
-
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.Stat;
-
 public class ZNode {
    // 节点数据
    private byte[] data;
@@ -109,10 +110,10 @@ public class ZNode {
 ```
 
 ## 3.2、znode的类型与特性
-znode的类型通过创建时的标志（CreateMode）控制，源码中通过`事务处理`和`节点状态管理`实现。
+`znode`的类型通过创建时的标志（`CreateMode`）控制，源码中通过`事务处理`和`节点状态管理`实现。
 
 `zookeeper.create("/myNode", data, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT)`
-- 枚举类，定义Znode类型：
+- 枚举类，定义**Znode**类型：
   - `PERSISTENT`【持久化节点】
   - `PERSISTENT_SEQUENTIAL`【持久化排序节点】
   - `EPHEMERAL`【临时节点】
@@ -128,10 +129,10 @@ znode的类型通过创建时的标志（CreateMode）控制，源码中通过`�
 
 ### 3.2.3、`EPHEMERAL`【临时节点】
 特点
-> 与创建它的 ZooKeeper 客户端会话（Session）绑定。 当客户端会话结束（如客户端断开连接或会话超时）时，临时节点会被自动删除
+> 与创建它的 `ZooKeeper` 客户端会话（`Session`）绑定。 当客户端会话结束（如客户端断开连接或会话超时）时，临时节点会被自动删除
 
 使用场景
-> 分布式锁的实现中，可以利用临时节点
+> **分布式锁**的实现中，可以利用临时节点
 
 ### 3.2.4、`EPHEMERAL_SEQUENTIAL`【临时排序节点，每个节点有序号】
 使用场景
@@ -139,20 +140,20 @@ znode的类型通过创建时的标志（CreateMode）控制，源码中通过`�
 
 
 ## 3.3、ZNode的持久化实现
-ZNode的持久化通过`事务日志（WAL）`和`快照（Snapshot）`实现，确保数据一致性。
+`ZNode`的持久化通过`事务日志（WAL）`和`快照（Snapshot）`实现，确保数据一致性。
 
 ## 3.4、ZNode的事务处理
-所有对ZNode的修改操作（如Create、delete、setData）都会封装为事务（transaction），通过zookeeper的原子广播协议（zab)保证一致性。
+所有对`ZNode`的修改操作（如`Create、delete、setData`）都会封装为事务（`transaction`），通过`zookeeper`的原子广播协议（`zab`)保证一致性。
 
 ## 3.5、ZNode的watch机制
-ZNode的watcher机制通过监听节点变化实现事件驱动模型。源码中通过 `WatchManager` 和 `WatchTrigger` 管理。
+`ZNode`的`watcher`机制通过监听节点变化实现事件驱动模型。源码中通过 `WatchManager` 和 `WatchTrigger` 管理。
 
 ### 3.5.1、关键类
-- WatchManager
-  - 注册和触发watcher.
-  - 当Znode发生变化时，调用Watcher.process(WatchedEvent)通知客户端。
-- WatchedEvent
-  - 封装Watcher事件类型（EventType.NodeCreated, EventType.NodeDeleted等）和路径。
+- `WatchManager`
+  - 注册和触发`watcher`.
+  - 当`Znode`发生变化时，调用`Watcher.process(WatchedEvent)`通知客户端。
+- `WatchedEvent`
+  - 封装`Watcher`事件类型（`EventType.NodeCreated, EventType.NodeDeleted`等）和路径。
 
 ## 3.6、ZNode的使用
 在ZooKeeper中，znode（数据节点）的使用涉及创建、读取、更新和删除等基本操作。以下是详细介绍：

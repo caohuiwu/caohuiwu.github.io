@@ -51,9 +51,9 @@ ZAB（`Zookeeper Atomic Broadcast`，zk原子广播协议）协议是zk实现分
 - 纪元（epoch）部分
 - 计数器（counter）部分，是一个全局有序的数字。
 
-epoch代表当前集群所属的哪个leader，leader的选举就类似一个朝代的更替，你前朝的剑不能斩本朝的官，用epoch代表当前命令的有效性，counter是一个递增的数字。
+`epoch`代表当前集群所属的哪个`leader`，`leader`的选举就类似一个朝代的更替，你前朝的剑不能斩本朝的官，用`epoch`代表当前命令的有效性，`counter`是一个递增的数字。
 
-zxid的生成和解析逻辑主要集中在以下类中：
+`zxid`的生成和解析逻辑主要集中在以下类中：
 
 #### 2.1.3.1、ZxidUtils
 ```java
@@ -71,7 +71,7 @@ public static int getCounterFromZxid(long zxid) {
 ```
 
 #### 2.1.3.2、leader节点生成zxid
-Leader在广播事务前生成Zxid
+Leader在广播事务前生成`Zxid`
 ```java
 // Leader 初始化时设置 epoch
 private long epoch = 1; // 初始 epoch 由选举结果决定
@@ -104,8 +104,8 @@ ZAB协议主要包括两个模式。
 - 崩溃恢复模式
 
 ### 2.2.1、崩溃恢复模式（recovery phase）
-- 触发条件：集群启动或Leader崩溃。
-- 目标：选举新Leader，同步数据到最新状态。
+- **触发条件**：集群启动或Leader崩溃。
+- **目标**：选举新Leader，同步数据到最新状态。
 
 #### 2.2.1.1、崩溃恢复过程
 当Leader节点登记或出现其他故障时，集群进入崩溃恢复模式，过程如下：
