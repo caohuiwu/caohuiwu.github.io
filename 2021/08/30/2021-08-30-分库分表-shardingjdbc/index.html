@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   一、分库分表工具分库分表工具主要有2种模式： 客户端模式、 代理模式；     客户端模式 代理模式    架构     常见开源中间件 Apache的Sharding-JDBC、淘宝的TDDL、美团的Zebra Apache的 Sh">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《分库分表》shardingjdbc">
+<meta property="og:url" content="http://yoursite.com/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   一、分库分表工具分库分表工具主要有2种模式： 客户端模式、 代理模式；     客户端模式 代理模式    架构     常见开源中间件 Apache的Sharding-JDBC、淘宝的TDDL、美团的Zebra Apache的 Sh">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/%E5%B7%A5%E5%85%B7_%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%A8%A1%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/%E5%B7%A5%E5%85%B7_%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/sharding_%E6%95%B0%E6%8D%AE%E5%88%86%E7%89%87%E6%B5%81%E7%A8%8B.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/sharding_%E6%A0%B8%E5%BF%83%E7%B1%BB.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/sharding_%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B.png">
+<meta property="article:published_time" content="2021-08-29T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-27T13:53:30.853Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="分库分表">
+<meta property="article:tag" content="ShardingJDBC">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/%E5%B7%A5%E5%85%B7_%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%A8%A1%E5%BC%8F.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《分库分表》shardingjdbc | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《分库分表》shardingjdbc
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-08-30 00:00:00" itemprop="dateCreated datePublished" datetime="2021-08-30T00:00:00+08:00">2021-08-30</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-27 21:53:30" itemprop="dateModified" datetime="2025-04-27T21:53:30+08:00">2025-04-27</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F/" itemprop="url" rel="index"><span itemprop="name">分布式系统</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>29k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>1:14</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.orange {
+   color: orange
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、分库分表工具"><a href="#一、分库分表工具" class="headerlink" title="一、分库分表工具"></a>一、分库分表工具</h1><p>分库分表工具主要有2种模式： <strong>客户端模式</strong>、 <strong>代理模式</strong>；</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>客户端模式</th>
+<th>代理模式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>架构</td>
+<td><img src="/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/%E5%B7%A5%E5%85%B7_%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%A8%A1%E5%BC%8F.png" alt="客户端模式"></td>
+<td><img src="/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/%E5%B7%A5%E5%85%B7_%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F.png" alt="代理模式"></td>
+</tr>
+<tr>
+<td>常见开源中间件</td>
+<td><code>Apache</code>的<code>Sharding-JDBC</code>、淘宝的<code>TDDL</code>、美团的<code>Zebra</code></td>
+<td><code>Apache</code>的 <code>Sharding-Proxy</code>、阿里的 <code>cobar</code>、国产的 <code>MyCat</code>、360的 <code>Atlas</code></td>
+</tr>
+<tr>
+<td>优缺点</td>
+<td>客户端模式比较轻量，性能也会比较好</td>
+<td>代理模式需要部署额外的服务器，所以对于该服务器的稳定性和性能等都需要保障。</td>
+</tr>
+</tbody></table>
+<span id="more"></span>
+
+
+<h1 id="二、ShardingJDBC"><a href="#二、ShardingJDBC" class="headerlink" title="二、ShardingJDBC"></a>二、ShardingJDBC</h1><p>轻量级Java框架，定位于增强JDBC层，为应用提供透明的分库分表功能，使开发者能够像操作单一数据库一样处理分布式数据。</p>
+<h2 id="2-1、核心概念"><a href="#2-1、核心概念" class="headerlink" title="2.1、核心概念"></a>2.1、核心概念</h2><table>
+<thead>
+<tr>
+<th>概念</th>
+<th>定义</th>
+<th>作用</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>逻辑表</strong>（<code>LogicTable</code>）</td>
+<td>开发者视角中的虚拟表，对应业务逻辑中的表名（如<code>user</code>）</td>
+<td>屏蔽底层分片的复杂性，业务代码直接操作逻辑表</td>
+<td>逻辑表<code>user</code>，可能对应物理表<code>user_0, user_1</code></td>
+</tr>
+<tr>
+<td><strong>真实表</strong>（<code>Actual Table</code>）</td>
+<td>数据库中实际存在的物理表，如<code>user_0, user_1</code></td>
+<td>逻辑表通过分片规则映射到真实表</td>
+<td>逻辑表<code>user</code>的分表规则为<code>user_$&#123;0..1&#125;</code>，则真实表为<code>user_0, user_1</code></td>
+</tr>
+<tr>
+<td><strong>数据节点</strong>（<code>Data Node</code>）</td>
+<td>数据分片的最小单元，由数据源名称和真实表组成，数据源名.表名（如<code>ds0.user_0</code>）</td>
+<td>明确数据在分库分表中的具体位置</td>
+<td>逻辑表<code>user</code>的数据节点可能为<code>ds0.user_0,ds0.user1,ds1.user_0,ds1.user_1</code></td>
+</tr>
+<tr>
+<td><strong>分片键</strong>（<code>Sharding key</code>）</td>
+<td>用于分片的字段（如<code>user_id</code>），决定数据如何分布到库或表中</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>分片算法</strong>（<code>sharding algorithm</code>）</td>
+<td>根据分片键的值，计算数据应路由到哪个库或表的算法</td>
+<td>精确分片算法、范围分片算法等等</td>
+<td><code>user_id % 2</code> -&gt; <code>ds0</code>或<code>ds1</code></td>
+</tr>
+<tr>
+<td><strong>分片策略</strong>（<code>sharding strategy</code>）</td>
+<td>分片键和分片算法的组合，分为<strong>分库策略</strong>和<strong>分表策略</strong></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>分布式主键</strong>（<code>Distributed primary key</code>）</td>
+<td>全局唯一的ID生成策略，解决分库分表后主键冲突问题</td>
+<td>常见<code>snowflake, uuid</code>, 数据库</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2 id="2-2、使用示例"><a href="#2-2、使用示例" class="headerlink" title="2.2、使用示例"></a>2.2、使用示例</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ShardingJDBCDemo</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        <span class="comment">// 1. 配置数据源（2个库）</span></span><br><span class="line">        Map&lt;String, DataSource&gt; dataSourceMap = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line">        dataSourceMap.put(<span class="string">&quot;ds0&quot;</span>, createDataSource(<span class="string">&quot;jdbc:mysql://localhost:3306/ds0&quot;</span>));</span><br><span class="line">        dataSourceMap.put(<span class="string">&quot;ds1&quot;</span>, createDataSource(<span class="string">&quot;jdbc:mysql://localhost:3306/ds1&quot;</span>));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2. 配置分片规则</span></span><br><span class="line">        <span class="type">ShardingRuleConfiguration</span> <span class="variable">shardingRuleConfig</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ShardingRuleConfiguration</span>();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2.1 定义 user 表的分片规则</span></span><br><span class="line">        <span class="type">ShardingTableRuleConfiguration</span> <span class="variable">userTableRule</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ShardingTableRuleConfiguration</span>(</span><br><span class="line">                <span class="string">&quot;user&quot;</span>, <span class="comment">// 逻辑表名</span></span><br><span class="line">                <span class="string">&quot;ds$&#123;0..1&#125;.user_$&#123;0..1&#125;&quot;</span> <span class="comment">// 实际数据节点：ds0.user_0, ds0.user_1, ds1.user_0, ds1.user_1</span></span><br><span class="line">        );</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2.2 分库策略：按 user_id % 2 选择库（奇偶分库）</span></span><br><span class="line">        userTableRule.setDatabaseShardingStrategy(<span class="keyword">new</span> <span class="title class_">StandardShardingStrategyConfiguration</span>(</span><br><span class="line">                <span class="string">&quot;user_id&quot;</span>,</span><br><span class="line">                <span class="string">&quot;dbShardingAlgorithm&quot;</span></span><br><span class="line">        ));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2.3 分表策略：按 (user_id / 2) % 2 选择表（解决奇偶库内表分布问题）</span></span><br><span class="line">        userTableRule.setTableShardingStrategy(<span class="keyword">new</span> <span class="title class_">StandardShardingStrategyConfiguration</span>(</span><br><span class="line">                <span class="string">&quot;user_id&quot;</span>,</span><br><span class="line">                <span class="string">&quot;tableShardingAlgorithm&quot;</span></span><br><span class="line">        ));</span><br><span class="line"></span><br><span class="line">        shardingRuleConfig.getTables().add(userTableRule);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 3. 配置分片算法</span></span><br><span class="line">        <span class="comment">// 分库算法：user_id % 2 → ds0/ds1</span></span><br><span class="line">        <span class="type">Properties</span> <span class="variable">dbShardingProps</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Properties</span>();</span><br><span class="line">        dbShardingProps.setProperty(<span class="string">&quot;algorithm-expression&quot;</span>, <span class="string">&quot;ds$&#123;user_id % 2&#125;&quot;</span>);</span><br><span class="line">        shardingRuleConfig.getShardingAlgorithms().put(<span class="string">&quot;dbShardingAlgorithm&quot;</span>,</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">AlgorithmConfiguration</span>(<span class="string">&quot;INLINE&quot;</span>, dbShardingProps));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 分表算法：(user_id / 2) % 2 → user_0/user_1</span></span><br><span class="line">        <span class="type">Properties</span> <span class="variable">tableShardingProps</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Properties</span>();</span><br><span class="line">        tableShardingProps.setProperty(<span class="string">&quot;algorithm-expression&quot;</span>, <span class="string">&quot;user_$&#123;(user_id / 2) % 2&#125;&quot;</span>);</span><br><span class="line">        shardingRuleConfig.getShardingAlgorithms().put(<span class="string">&quot;tableShardingAlgorithm&quot;</span>,</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">AlgorithmConfiguration</span>(<span class="string">&quot;INLINE&quot;</span>, tableShardingProps));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 4. 创建 ShardingSphere 数据源</span></span><br><span class="line">        <span class="type">DataSource</span> <span class="variable">dataSource</span> <span class="operator">=</span> ShardingDataSourceFactory.createDataSource(</span><br><span class="line">                dataSourceMap,</span><br><span class="line">                Collections.singleton(shardingRuleConfig),</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">Properties</span>()</span><br><span class="line">        );</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 5. 测试数据插入</span></span><br><span class="line">        testInsertData(dataSource);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> DataSource <span class="title function_">createDataSource</span><span class="params">(String url)</span> &#123;</span><br><span class="line">        <span class="type">HikariConfig</span> <span class="variable">config</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HikariConfig</span>();</span><br><span class="line">        config.setJdbcUrl(url);</span><br><span class="line">        config.setUsername(<span class="string">&quot;root&quot;</span>);</span><br><span class="line">        config.setPassword(<span class="string">&quot;root&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">HikariDataSource</span>(config);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">testInsertData</span><span class="params">(DataSource dataSource)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> (<span class="type">Connection</span> <span class="variable">conn</span> <span class="operator">=</span> dataSource.getConnection();</span><br><span class="line">             <span class="type">PreparedStatement</span> <span class="variable">ps</span> <span class="operator">=</span> conn.prepareStatement(<span class="string">&quot;INSERT INTO user (user_id, name) VALUES (?, ?)&quot;</span>)) &#123;</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 插入测试数据（验证分片逻辑）</span></span><br><span class="line">            insertUser(ps, <span class="number">1001L</span>, <span class="string">&quot;Alice&quot;</span>);   <span class="comment">// ds1.user_0</span></span><br><span class="line">            insertUser(ps, <span class="number">1002L</span>, <span class="string">&quot;Bob&quot;</span>);    <span class="comment">// ds0.user_1</span></span><br><span class="line">            insertUser(ps, <span class="number">1003L</span>, <span class="string">&quot;Charlie&quot;</span>);<span class="comment">// ds1.user_1</span></span><br><span class="line">            insertUser(ps, <span class="number">1004L</span>, <span class="string">&quot;David&quot;</span>);   <span class="comment">// ds0.user_0</span></span><br><span class="line"></span><br><span class="line">            System.out.println(<span class="string">&quot;数据插入成功，请检查数据库验证分布结果！&quot;</span>);</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">insertUser</span><span class="params">(PreparedStatement ps, Long userId, String name)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        ps.setLong(<span class="number">1</span>, userId);</span><br><span class="line">        ps.setString(<span class="number">2</span>, name);</span><br><span class="line">        ps.executeUpdate();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-3、核心类"><a href="#2-3、核心类" class="headerlink" title="2.3、核心类"></a>2.3、核心类</h2><h3 id="2-3-1、总分片规则（ShardingRuleConfiguration）"><a href="#2-3-1、总分片规则（ShardingRuleConfiguration）" class="headerlink" title="2.3.1、总分片规则（ShardingRuleConfiguration）"></a>2.3.1、总分片规则（ShardingRuleConfiguration）</h3><p>定义全局分库分表的策略，包含分片键、分片算法、数据节点分布等。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ShardingRuleConfiguration</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> Collection&lt;ShardingTableRuleConfiguration&gt; tables; <span class="comment">// 表分片规则</span></span><br><span class="line">    <span class="keyword">private</span> Collection&lt;String&gt; bindingTableGroups;            <span class="comment">// 绑定表组</span></span><br><span class="line">    <span class="keyword">private</span> Collection&lt;String&gt; broadcastTables;               <span class="comment">// 广播表</span></span><br><span class="line">    <span class="keyword">private</span> ShardingStrategyConfiguration defaultDatabaseShardingStrategy; <span class="comment">// 默认分库策略</span></span><br><span class="line">    <span class="keyword">private</span> ShardingStrategyConfiguration defaultTableShardingStrategy;     <span class="comment">// 默认分表策略</span></span><br><span class="line">    <span class="comment">// 其他配置（如分布式主键生成器）</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-2、表分片规则（ShardingTableRuleConfiguration）"><a href="#2-3-2、表分片规则（ShardingTableRuleConfiguration）" class="headerlink" title="2.3.2、表分片规则（ShardingTableRuleConfiguration）"></a>2.3.2、表分片规则（ShardingTableRuleConfiguration）</h3><p>定义单个逻辑表的分片规则（<strong>分库策略</strong>、<strong>分表策略</strong>）</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ShardingTableRuleConfiguration</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String logicTable;           <span class="comment">// 逻辑表名（如 `user`）</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String actualDataNodes;      <span class="comment">// 实际数据节点表达式（如 `ds$&#123;0..1&#125;.user_$&#123;0..1&#125;`）</span></span><br><span class="line">    <span class="keyword">private</span> ShardingStrategyConfiguration databaseShardingStrategy; <span class="comment">// 分库策略</span></span><br><span class="line">    <span class="keyword">private</span> ShardingStrategyConfiguration tableShardingStrategy;    <span class="comment">// 分表策略</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>具体使用如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 2.1 定义 user 表的分片规则</span></span><br><span class="line"><span class="type">ShardingTableRuleConfiguration</span> <span class="variable">userTableRule</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ShardingTableRuleConfiguration</span>(</span><br><span class="line">        <span class="string">&quot;user&quot;</span>, <span class="comment">// 逻辑表名</span></span><br><span class="line">        <span class="string">&quot;ds$&#123;0..1&#125;.user_$&#123;0..1&#125;&quot;</span> <span class="comment">// 实际数据节点：ds0.user_0, ds0.user_1, ds1.user_0, ds1.user_1</span></span><br><span class="line">);</span><br><span class="line"><span class="comment">// 2.2 分库策略：按 user_id % 2 选择库（奇偶分库）</span></span><br><span class="line">userTableRule.setDatabaseShardingStrategy(<span class="keyword">new</span> <span class="title class_">StandardShardingStrategyConfiguration</span>(</span><br><span class="line">        <span class="string">&quot;user_id&quot;</span>,</span><br><span class="line">        <span class="string">&quot;dbShardingAlgorithm&quot;</span></span><br><span class="line">));</span><br><span class="line"><span class="comment">// 2.3 分表策略：按 (user_id / 2) % 2 选择表（解决奇偶库内表分布问题）</span></span><br><span class="line">userTableRule.setTableShardingStrategy(<span class="keyword">new</span> <span class="title class_">StandardShardingStrategyConfiguration</span>(</span><br><span class="line">        <span class="string">&quot;user_id&quot;</span>,</span><br><span class="line">        <span class="string">&quot;tableShardingAlgorithm&quot;</span></span><br><span class="line">));</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-3、分片策略（ShardingStrategyConfiguration）"><a href="#2-3-3、分片策略（ShardingStrategyConfiguration）" class="headerlink" title="2.3.3、分片策略（ShardingStrategyConfiguration）"></a>2.3.3、分片策略（ShardingStrategyConfiguration）</h3><ul>
+<li><strong>作用</strong>：定义分片键和分片算法的组合，分片<strong>分库策略</strong>、<strong>分表策略</strong>。</li>
+<li><strong>实现类</strong>：<ul>
+<li><code>StandardShardingStrategyConfiguration</code>：基于单个分片键的标准分片策略。</li>
+<li><code>ComplexShardingStrategyConfiguration</code>：基于多个分片键的复合分片策略。</li>
+<li><code>HintShardingStrategyConfiguration</code>：强制路由策略（不依赖分片键）</li>
+</ul>
+</li>
+<li><strong>示例</strong>：<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ShardingTableRuleConfiguration</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String logicTable;           <span class="comment">// 逻辑表名（如 `user`）</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String actualDataNodes;      <span class="comment">// 实际数据节点表达式（如 `ds$&#123;0..1&#125;.user_$&#123;0..1&#125;`）</span></span><br><span class="line">    <span class="keyword">private</span> ShardingStrategyConfiguration databaseShardingStrategy; <span class="comment">// 分库策略</span></span><br><span class="line">    <span class="keyword">private</span> ShardingStrategyConfiguration tableShardingStrategy;    <span class="comment">// 分表策略</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="2-3-4、分片算法（ShardingAlgorithm）"><a href="#2-3-4、分片算法（ShardingAlgorithm）" class="headerlink" title="2.3.4、分片算法（ShardingAlgorithm）"></a>2.3.4、分片算法（ShardingAlgorithm）</h3><ul>
+<li>作用：根据分片键值计算目标库或表。</li>
+<li>核心接口：<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">ShardingAlgorithm</span>&lt;T <span class="keyword">extends</span> <span class="title class_">Comparable</span>&lt;?&gt;&gt; &#123;</span><br><span class="line">    <span class="comment">// 计算分片目标</span></span><br><span class="line">    Collection&lt;String&gt; <span class="title function_">doSharding</span><span class="params">(</span></span><br><span class="line"><span class="params">        Collection&lt;String&gt; availableTargetNames, // 可选数据节点（如 [<span class="string">&quot;ds0&quot;</span>, <span class="string">&quot;ds1&quot;</span>]）</span></span><br><span class="line"><span class="params">        Range&lt;T&gt; shardingValueRange              // 分片键值范围</span></span><br><span class="line"><span class="params">    )</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li><strong>常用实现类</strong>：<ul>
+<li><code>InlineShardingAlgorithm</code>：基于表达式的简单分片算法（如<code>user_id % 2</code>）。</li>
+<li><code>StandardShardingAlgorithm</code>：自定义复杂分片逻辑（如范围分片）。</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-3-5、数据节点"><a href="#2-3-5、数据节点" class="headerlink" title="2.3.5、数据节点"></a>2.3.5、数据节点</h3><ul>
+<li><strong>作用</strong>：描述数据实际存储位置（库名 + 表名）</li>
+<li><strong>核心结构</strong>：<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">DataNode</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String dataSourceName; <span class="comment">// 数据源名称（如 `ds0`）</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String tableName;      <span class="comment">// 物理表名（如 `user_0`）</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="2-3-6、路由结果（RouteResult）"><a href="#2-3-6、路由结果（RouteResult）" class="headerlink" title="2.3.6、路由结果（RouteResult）"></a>2.3.6、路由结果（RouteResult）</h3><ul>
+<li><strong>作用</strong>：记录SQL执行时路由到的目标数据节点。</li>
+<li><strong>关键结构</strong>：<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RouteResult</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Collection&lt;RouteUnit&gt; routeUnits; <span class="comment">// 路由单元集合</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RouteUnit</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String dataSourceName;     <span class="comment">// 目标数据源</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Collection&lt;DataNode&gt; dataNodes; <span class="comment">// 目标表节点</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="2-3-7、SQL解析结果（SQLStatement）"><a href="#2-3-7、SQL解析结果（SQLStatement）" class="headerlink" title="2.3.7、SQL解析结果（SQLStatement）"></a>2.3.7、SQL解析结果（SQLStatement）</h3><ul>
+<li><strong>作用</strong>：解析<code>SQL</code>后的抽象语法树（<code>AST</code>），用于提取分片键和路由逻辑。</li>
+<li><strong>关键实现类</strong>：<ul>
+<li><code>SelectStatement</code>：<code>Select</code> 语句的解析结果</li>
+<li><code>InsertStatement</code>：<code>insert</code> 语句的解析结果</li>
+<li><code>UpdateStatement</code>：<code>Update</code> 语句的解析结果</li>
+<li><code>DeleteStatement</code>：<code>Delete</code> 语句的解析结果</li>
+</ul>
+</li>
+<li>示例：<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 解析 SELECT 语句</span></span><br><span class="line"><span class="type">SQLStatement</span> <span class="variable">sqlStatement</span> <span class="operator">=</span> SQLParserEngine.parse(<span class="string">&quot;SELECT * FROM user WHERE user_id = 1001&quot;</span>, <span class="literal">false</span>);</span><br><span class="line"><span class="keyword">if</span> (sqlStatement <span class="keyword">instanceof</span> SelectStatement) &#123;</span><br><span class="line"><span class="type">SelectStatement</span> <span class="variable">selectStatement</span> <span class="operator">=</span> (SelectStatement) sqlStatement;</span><br><span class="line"><span class="comment">// 提取 WHERE 条件中的分片键值</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="2-3-8、执行计划（ExecutionPlan）"><a href="#2-3-8、执行计划（ExecutionPlan）" class="headerlink" title="2.3.8、执行计划（ExecutionPlan）"></a>2.3.8、执行计划（ExecutionPlan）</h3><ul>
+<li><strong>作用</strong>：将逻辑<code>SQL</code>转换为物理<code>SQL</code>的执行计划。</li>
+<li><strong>关键步骤</strong>：<ul>
+<li><strong>SQL解析</strong>：生成<code>sqlStatement</code></li>
+<li><strong>路由决策</strong>：生成<code>RouteResult</code></li>
+<li><strong>SQL改写</strong>：将逻辑表名替换为真实表名。</li>
+<li><strong>执行引擎</strong>：分发<code>SQL</code>到目标数据源执行。</li>
+</ul>
+</li>
+</ul>
+<h2 id="2-4、分片主要流程"><a href="#2-4、分片主要流程" class="headerlink" title="2.4、分片主要流程"></a>2.4、分片主要流程</h2><p>数据分片主要流程，核心由<code>SQL解析 =&gt; 执行器优化 =&gt; SQL路由 =&gt; SQL改写 =&gt; SQL执行 =&gt; 结果归并</code>的流程组成。<br><img src="/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/sharding_%E6%95%B0%E6%8D%AE%E5%88%86%E7%89%87%E6%B5%81%E7%A8%8B.png" alt="sharding_数据分片流程"></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>流程</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><strong>SQL解析</strong></td>
+<td>词法解析、语法解析、拆分后的SQL转换为抽象语法树</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>执行器优化</strong></td>
+<td>合并和优化分片条件，如OR等。</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>SQL路由</strong></td>
+<td>解析上下文匹配用户配置的分片策略，并生成路由路径。目前支持分片路由和广播路由</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>SQL改写</strong></td>
+<td>将SQL改写为在真实数据库中可以正确执行的语句。SQL改写分为正确性改写和优化改写</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>SQL执行</strong></td>
+<td></td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>结果归并</strong></td>
+<td>将多个执行结果集归并以便于通过统一的JDBC接口输出。结果归并包括流式归并、内存归并和使用装饰者模式的追加归并这几种方式</td>
+</tr>
+</tbody></table>
+<h1 id="三、ShardingJDBC-执行流程分析"><a href="#三、ShardingJDBC-执行流程分析" class="headerlink" title="三、ShardingJDBC 执行流程分析"></a>三、ShardingJDBC 执行流程分析</h1><p><code>JDBC</code> 四大对象 <code>DataSource、Connection、Statement、ResultSet</code>，shardingjdbc都有进行封装的，如下结构：<br><img src="/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/sharding_%E6%A0%B8%E5%BF%83%E7%B1%BB.png" alt="sharding_核心类"></p>
+<p>以<code>ShardingStatement</code> 作为执行入口，其执行过程如下：<br><img src="/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/sharding_%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B.png" alt="sharding_执行过程"><br>shardingjdbc的Engine是其核心处理引擎，采用模块化设计，主要包含以下子引擎，协同完成分片操作</p>
+<ul>
+<li><strong>查询分片引擎</strong>（<code>SimpleQueryShardingEngine</code>）：完成 SQL 解析、路由、改写，本质是对 <code>ShardingRouteEngine、SQLParseEngine、ShardingSQLRewriteEngine</code> 的封装。</li>
+<li><strong>路由引擎</strong>（<code>ShardingRouteEngine</code>）：由引擎包装了 SQL 解析、路由、改写三点。SQL 路由分两步，先进行数据分片路由(ShardingRouter)，再进行主从路由(ShardingMasterSlaveRouter)。</li>
+<li><strong>解析引擎</strong>（<code>SQLParseEngine</code>）</li>
+<li><strong>改写引擎</strong>（<code>ShardingSQLRewriteEngine</code>）</li>
+<li><strong>执行引擎</strong>（<code>ShardingExecuteEngine</code>）</li>
+<li><strong>合并引擎</strong>（<code>MergeEngine</code>）</li>
+</ul>
+<h2 id="3-1、执行入口（ShardingPreparedStatement-executeQuery-）"><a href="#3-1、执行入口（ShardingPreparedStatement-executeQuery-）" class="headerlink" title="3.1、执行入口（ShardingPreparedStatement.executeQuery()）"></a>3.1、执行入口（ShardingPreparedStatement.executeQuery()）</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">ShardingPreparedStatement</span> <span class="keyword">extends</span> <span class="title class_">AbstractShardingPreparedStatementAdapter</span> &#123;</span><br><span class="line">  <span class="keyword">public</span> ResultSet <span class="title function_">executeQuery</span><span class="params">()</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    ResultSet result;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      <span class="built_in">this</span>.clearPrevious();</span><br><span class="line">      <span class="built_in">this</span>.prepare();<span class="comment">//准备工作：完成SQL解析、路由、改写操作</span></span><br><span class="line">      <span class="built_in">this</span>.initPreparedStatementExecutor();<span class="comment">//初始化SQL执行器</span></span><br><span class="line">      <span class="type">MergedResult</span> <span class="variable">mergedResult</span> <span class="operator">=</span> <span class="built_in">this</span>.mergeQuery(<span class="built_in">this</span>.preparedStatementExecutor.executeQuery());<span class="comment">//SQL执行</span></span><br><span class="line">      result = <span class="keyword">new</span> <span class="title class_">ShardingResultSet</span>(<span class="built_in">this</span>.preparedStatementExecutor.getResultSets(), mergedResult, <span class="built_in">this</span>, <span class="built_in">this</span>.executionContext);</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">      <span class="built_in">this</span>.clearBatch();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">this</span>.currentResultSet = result;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>this.prepare();</code>准备工作逻辑如下：执行<code>SimpleQueryPrepareEngine</code>引擎的<code>prepare()</code>方法，内部的逻辑还是比较清晰的：先去路由，再改写SQL。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">prepare</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="built_in">this</span>.executionContext = <span class="built_in">this</span>.prepareEngine.prepare(<span class="built_in">this</span>.sql, <span class="built_in">this</span>.getParameters());</span><br><span class="line">    <span class="built_in">this</span>.findGeneratedKey().ifPresent((generatedKey) -&gt; <span class="built_in">this</span>.generatedValues.add(generatedKey.getGeneratedValues().getLast()));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">BasePrepareEngine</span> &#123;</span><br><span class="line">  <span class="keyword">public</span> ExecutionContext <span class="title function_">prepare</span><span class="params">(String sql, List&lt;Object&gt; parameters)</span> &#123;</span><br><span class="line">    List&lt;Object&gt; clonedParameters = <span class="built_in">this</span>.cloneParameters(parameters);</span><br><span class="line">    <span class="type">RouteContext</span> <span class="variable">routeContext</span> <span class="operator">=</span> <span class="built_in">this</span>.executeRoute(sql, clonedParameters);</span><br><span class="line">    <span class="type">ExecutionContext</span> <span class="variable">result</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ExecutionContext</span>(routeContext.getSqlStatementContext());</span><br><span class="line">    result.getExecutionUnits().addAll(<span class="built_in">this</span>.executeRewrite(sql, clonedParameters, routeContext));</span><br><span class="line">    <span class="keyword">if</span> ((Boolean)<span class="built_in">this</span>.properties.getValue(ConfigurationPropertyKey.SQL_SHOW)) &#123;</span><br><span class="line">      SQLLogger.logSQL(sql, (Boolean)<span class="built_in">this</span>.properties.getValue(ConfigurationPropertyKey.SQL_SIMPLE), result.getSqlStatementContext(), result.getExecutionUnits());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>this.executeRoute()</code>：处理SQL解析 &amp; 路由<ul>
+<li><code>SqlParserEngine.parse()</code></li>
+<li><code>shardingRouteEngine.route()</code></li>
+</ul>
+</li>
+<li><code>this.executeRewrite()</code>：处理SQL重写</li>
+</ul>
+<h2 id="3-2、第一步：SQL解析"><a href="#3-2、第一步：SQL解析" class="headerlink" title="3.2、第一步：SQL解析"></a>3.2、第一步：SQL解析</h2><p>追踪<code>this.executeRoute()</code>方法，调用解析引擎对SQL进行解析</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">DataNodeRouter</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> RouteContext <span class="title function_">executeRoute</span><span class="params">(String sql, List&lt;Object&gt; parameters, <span class="type">boolean</span> useCache)</span> &#123;</span><br><span class="line">        <span class="comment">//第一步：SQL解析</span></span><br><span class="line">        <span class="type">RouteContext</span> <span class="variable">result</span> <span class="operator">=</span> <span class="built_in">this</span>.createRouteContext(sql, parameters, useCache);</span><br><span class="line">        <span class="comment">//第二步：装饰模式，SQL路由</span></span><br><span class="line">        <span class="keyword">for</span> (Map.Entry&lt;BaseRule, RouteDecorator&gt; entry : <span class="built_in">this</span>.decorators.entrySet()) &#123;</span><br><span class="line">            result = ((RouteDecorator) entry.getValue()).decorate(result, <span class="built_in">this</span>.metaData, (BaseRule) entry.getKey(), <span class="built_in">this</span>.properties);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> result;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">private</span> RouteContext <span class="title function_">createRouteContext</span><span class="params">(String sql, List&lt;Object&gt; parameters, <span class="type">boolean</span> useCache)</span> &#123;</span><br><span class="line">        <span class="comment">//sql解析</span></span><br><span class="line">        <span class="type">SQLStatement</span> <span class="variable">sqlStatement</span> <span class="operator">=</span> <span class="built_in">this</span>.parserEngine.parse(sql, useCache);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">          <span class="type">SQLStatementContext</span> <span class="variable">sqlStatementContext</span> <span class="operator">=</span> SQLStatementContextFactory.newInstance(<span class="built_in">this</span>.metaData.getSchema(), sql, parameters, sqlStatement);</span><br><span class="line">          <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">RouteContext</span>(sqlStatementContext, parameters, <span class="keyword">new</span> <span class="title class_">RouteResult</span>());</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IndexOutOfBoundsException var6) &#123;</span><br><span class="line">          <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">RouteContext</span>(<span class="keyword">new</span> <span class="title class_">CommonSQLStatementContext</span>(sqlStatement), parameters, <span class="keyword">new</span> <span class="title class_">RouteResult</span>());</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>具体解析过程：<code>this.parserEngine.parse(sql, useCache);</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">SQLParserEngine</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String databaseTypeName;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">SQLParseResultCache</span> <span class="variable">cache</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SQLParseResultCache</span>();</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> SQLStatement <span class="title function_">parse</span><span class="params">(<span class="keyword">final</span> String sql, <span class="keyword">final</span> <span class="type">boolean</span> useCache)</span> &#123;</span><br><span class="line">        <span class="type">ParsingHook</span> <span class="variable">parsingHook</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SPIParsingHook</span>();</span><br><span class="line">        parsingHook.start(sql);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">SQLStatement</span> <span class="variable">result</span> <span class="operator">=</span> parse0(sql, useCache);</span><br><span class="line">            parsingHook.finishSuccess(result);</span><br><span class="line">            <span class="keyword">return</span> result;</span><br><span class="line">            <span class="comment">// CHECKSTYLE:OFF</span></span><br><span class="line">        &#125; <span class="keyword">catch</span> (<span class="keyword">final</span> Exception ex) &#123;</span><br><span class="line">            <span class="comment">// CHECKSTYLE:ON</span></span><br><span class="line">            parsingHook.finishFailure(ex);</span><br><span class="line">            <span class="keyword">throw</span> ex;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//实际解析逻辑，包含缓存机制</span></span><br><span class="line">    <span class="keyword">private</span> SQLStatement <span class="title function_">parse0</span><span class="params">(<span class="keyword">final</span> String sql, <span class="keyword">final</span> <span class="type">boolean</span> useCache)</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (useCache) &#123;</span><br><span class="line">            Optional&lt;SQLStatement&gt; cachedSQLStatement = cache.getSQLStatement(sql);</span><br><span class="line">            <span class="keyword">if</span> (cachedSQLStatement.isPresent()) &#123;</span><br><span class="line">                <span class="keyword">return</span> cachedSQLStatement.get();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//生成语法树</span></span><br><span class="line">        <span class="type">ParseTree</span> <span class="variable">parseTree</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SQLParserExecutor</span>(databaseTypeName, sql).execute().getRootNode();</span><br><span class="line">        <span class="comment">//通过访问者模式遍历语法树，生成SQLStatement</span></span><br><span class="line">        <span class="type">SQLStatement</span> <span class="variable">result</span> <span class="operator">=</span> (SQLStatement) ParseTreeVisitorFactory.newInstance(databaseTypeName, VisitorRule.valueOf(parseTree.getClass())).visit(parseTree);</span><br><span class="line">        <span class="keyword">if</span> (useCache) &#123;</span><br><span class="line">            cache.put(sql, result);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> result;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>SQLParserEngine</code>是核心解析组件，通过缓存、访问者模式和插件化钩子实现高效、可扩展的SQL解析。</p>
+<ul>
+<li><strong>缓存机制</strong>：避免重复解析相同SQL，提升性能。</li>
+</ul>
+<p>示例解析：<br>以SQL select name from user where id &#x3D; 1为例，其AST可能的结构如下（简化版）</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">SelectStatement</span><br><span class="line">├─ Projections</span><br><span class="line">│  └─ ColumnProjection (name=&quot;name&quot;)</span><br><span class="line">├─ Table</span><br><span class="line">│  └─ SimpleTable (name=&quot;user&quot;)</span><br><span class="line">└─ WhereClause</span><br><span class="line">   └─ Predicate</span><br><span class="line">      ├─ LeftExpression: Column (name=&quot;id&quot;)</span><br><span class="line">      ├─ Operator: &quot;=&quot;</span><br><span class="line">      └─ RightExpression: Literal (value=1)</span><br></pre></td></tr></table></figure>
+<p>关键节点说明</p>
+<table>
+<thead>
+<tr>
+<th>节点类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>SelectStatement</code></td>
+<td>根节点，表示<code>SELECT</code>语句</td>
+</tr>
+<tr>
+<td><code>Projections</code></td>
+<td>查询的投影列（如<code>name</code>）</td>
+</tr>
+<tr>
+<td><code>ColumnProjection</code></td>
+<td>具体列名或表达式</td>
+</tr>
+<tr>
+<td><code>SimpleTable</code></td>
+<td>查询的表名（如user）</td>
+</tr>
+<tr>
+<td><code>WhereClause</code></td>
+<td><code>where</code>条件子树</td>
+</tr>
+<tr>
+<td><code>Predicate</code></td>
+<td>条件表达式（如<code>id=1</code>）</td>
+</tr>
+<tr>
+<td><code>Column/Literal</code></td>
+<td>列名或字面量值</td>
+</tr>
+</tbody></table>
+<p>进一步将原始语法树转换为自定义的<code>SQLStatement</code>对象，简化后续处理。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SelectStatement</span> <span class="keyword">extends</span> <span class="title class_">SQLStatement</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> List&lt;Projection&gt; projections; <span class="comment">// 投影列（如 name）</span></span><br><span class="line">    <span class="keyword">private</span> Table table;                  <span class="comment">// 目标表（如 user）</span></span><br><span class="line">    <span class="keyword">private</span> WhereSegment where;           <span class="comment">// WHERE 条件（如 id = 1）</span></span><br><span class="line">    <span class="comment">// 其他字段（GROUP BY, ORDER BY 等）</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-2、第二步：SQL路由"><a href="#3-2、第二步：SQL路由" class="headerlink" title="3.2、第二步：SQL路由"></a>3.2、第二步：SQL路由</h2><p>通过装饰模式，调用路由引擎进行路由。</p>
+<ul>
+<li><code>ShardingRouteDecorator</code>：分片路由，根据分片键和算法确定目标数据源于表</li>
+<li><code>MasterSlaveRouteDecorator</code>：主从读写分离路由。<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">ShardingRouteDecorator</span> <span class="keyword">implements</span> <span class="title class_">RouteDecorator</span>&lt;ShardingRule&gt; &#123;</span><br><span class="line">    <span class="keyword">public</span> RouteContext <span class="title function_">decorate</span><span class="params">(RouteContext routeContext, ShardingSphereMetaData metaData, ShardingRule shardingRule, ConfigurationProperties properties)</span> &#123;</span><br><span class="line">        <span class="type">SQLStatementContext</span> <span class="variable">sqlStatementContext</span> <span class="operator">=</span> routeContext.getSqlStatementContext();</span><br><span class="line">        List&lt;Object&gt; parameters = routeContext.getParameters();</span><br><span class="line">        ShardingStatementValidatorFactory.newInstance(sqlStatementContext.getSqlStatement()).ifPresent((validator) -&gt; validator.validate(shardingRule, sqlStatementContext.getSqlStatement(), parameters));</span><br><span class="line">        <span class="comment">//1. 解析分片条件（where、insert values）</span></span><br><span class="line">        <span class="type">ShardingConditions</span> <span class="variable">shardingConditions</span> <span class="operator">=</span> <span class="built_in">this</span>.getShardingConditions(parameters, sqlStatementContext, metaData.getSchema(), shardingRule);</span><br><span class="line">        <span class="type">boolean</span> <span class="variable">needMergeShardingValues</span> <span class="operator">=</span> <span class="built_in">this</span>.isNeedMergeShardingValues(sqlStatementContext, shardingRule);</span><br><span class="line">        <span class="keyword">if</span> (sqlStatementContext.getSqlStatement() <span class="keyword">instanceof</span> DMLStatement &amp;&amp; needMergeShardingValues) &#123;</span><br><span class="line">          <span class="built_in">this</span>.checkSubqueryShardingValues(sqlStatementContext, shardingRule, shardingConditions);</span><br><span class="line">          <span class="built_in">this</span>.mergeShardingConditions(shardingConditions);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//2. 选择路由引擎（标准、广播、笛卡尔积）</span></span><br><span class="line">        <span class="type">ShardingRouteEngine</span> <span class="variable">shardingRouteEngine</span> <span class="operator">=</span> ShardingRouteEngineFactory.newInstance(shardingRule, metaData, sqlStatementContext, shardingConditions, properties);</span><br><span class="line">        <span class="comment">//3. 执行分片路由，生成物流DataNodes</span></span><br><span class="line">        <span class="type">RouteResult</span> <span class="variable">routeResult</span> <span class="operator">=</span> shardingRouteEngine.route(shardingRule);</span><br><span class="line">        <span class="keyword">if</span> (needMergeShardingValues) &#123;</span><br><span class="line">          Preconditions.checkState(<span class="number">1</span> == routeResult.getRouteUnits().size(), <span class="string">&quot;Must have one sharding with subquery.&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">RouteContext</span>(sqlStatementContext, parameters, routeResult);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>对<code>ShardingStandardRoutingEngine</code>标准路由引擎进行解析，核心职责：</p>
+<ul>
+<li><code>分片键解析</code>：从SQL的<code>where</code>或<code>insert</code>字句中提取分片键的值</li>
+<li><code>分片策略匹配</code>：根据分片算法（<code>ShardingAlgorithm</code>）计算目标数据源（库）和表名（表）</li>
+<li><code>生成路由结果</code>：返回包含物流数据节点（<code>DataNode</code>）的<code>RouteContext</code>，供后续执行引擎使用。</li>
+</ul>
+<p>其核心方法<code>route</code>如下（简化提炼后）</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">ShardingStandardRoutingEngine</span> <span class="keyword">implements</span> <span class="title class_">ShardingRouteEngine</span> &#123;</span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="keyword">public</span> RouteContext <span class="title function_">route</span><span class="params">(<span class="keyword">final</span> ShardingRule shardingRule)</span> &#123;</span><br><span class="line">    <span class="comment">// 1. 获取逻辑表的分片规则（TableRule）</span></span><br><span class="line">    <span class="type">TableRule</span> <span class="variable">tableRule</span> <span class="operator">=</span> shardingRule.getTableRule(logicTableName);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 处理分片条件，生成分片值集合</span></span><br><span class="line">    Collection&lt;ShardingValue&gt; databaseShardingValues = getShardingValues(shardingConditions, tableRule.getDatabaseShardingColumns());</span><br><span class="line">    Collection&lt;ShardingValue&gt; tableShardingValues = getShardingValues(shardingConditions, tableRule.getTableShardingColumns());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 计算目标数据库和表名</span></span><br><span class="line">    Collection&lt;String&gt; routedDataSources = routeDataSources(shardingRule, databaseShardingValues);</span><br><span class="line">    Collection&lt;String&gt; routedTables = routeTables(shardingRule, tableShardingValues, routedDataSources);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 4. 生成路由单元（RouteUnit）</span></span><br><span class="line">    <span class="type">RouteContext</span> <span class="variable">result</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">RouteContext</span>();</span><br><span class="line">    <span class="keyword">for</span> (String dataSource : routedDataSources) &#123;</span><br><span class="line">      <span class="keyword">for</span> (String table : routedTables) &#123;</span><br><span class="line">        result.getRouteUnits().add(<span class="keyword">new</span> <span class="title class_">RouteUnit</span>(dataSource, <span class="keyword">new</span> <span class="title class_">RouteMapper</span>(logicTableName, table)));</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-1、分片条件提取"><a href="#3-2-1、分片条件提取" class="headerlink" title="3.2.1、分片条件提取"></a>3.2.1、分片条件提取</h3><p>从shardingConditions中提取与分片规则（TableRule）中定义的分片键匹配的条件。</p>
+<ul>
+<li><strong>示例</strong>：<ul>
+<li><strong>分片规则</strong>：<code>databaseShardingColumns = user_id, tableShardingColumns = order_id</code></li>
+<li><strong>sql</strong>：<code>where user_id = 100 AND order_id in（1, 2, 3）</code></li>
+</ul>
+</li>
+<li><strong>提取结果</strong><ul>
+<li><code>databaseShardingValues</code> &#x3D; [100]</li>
+<li><code>tableShardingValues</code> &#x3D; [1, 2, 3]</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-2-2、分片算法调用"><a href="#3-2-2、分片算法调用" class="headerlink" title="3.2.2、分片算法调用"></a>3.2.2、分片算法调用</h3><ul>
+<li><strong>路由数据源</strong>：调用数据库分片算法（DatabaseShardingStrategy）计算目标数据源</li>
+<li><strong>路由表名</strong>：调用表分片算法（TableShardingStrategy）计算目标物理表名。</li>
+<li><strong>代码片段</strong>：<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> Collection&lt;String&gt; <span class="title function_">routeDataSources</span><span class="params">(ShardingRule shardingRule, Collection&lt;ShardingValue&gt; shardingValues)</span> &#123;</span><br><span class="line">    <span class="type">ShardingStrategy</span> <span class="variable">databaseShardingStrategy</span> <span class="operator">=</span> shardingRule.getDatabaseShardingStrategy(tableRule);</span><br><span class="line">    <span class="keyword">return</span> databaseShardingStrategy.doSharding(shardingRule.getDataSourceNames(), shardingValues);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> Collection&lt;String&gt; <span class="title function_">routeTables</span><span class="params">(ShardingRule shardingRule, Collection&lt;ShardingValue&gt; shardingValues, Collection&lt;String&gt; routedDataSources)</span> &#123;</span><br><span class="line">    <span class="type">ShardingStrategy</span> <span class="variable">tableShardingStrategy</span> <span class="operator">=</span> shardingRule.getTableShardingStrategy(tableRule);</span><br><span class="line">    <span class="keyword">return</span> tableShardingStrategy.doSharding(shardingRule.getActualTableNames(logicTableName), shardingValues);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="3-2-3、分片结果合并"><a href="#3-2-3、分片结果合并" class="headerlink" title="3.2.3、分片结果合并"></a>3.2.3、分片结果合并</h3><p><strong>笛卡尔积生成</strong>：若存在多个分片键（如分库键和分表键独立），将数据源和表名的分片结果组成笛卡尔积。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">数据源分片结果：ds0, ds1</span><br><span class="line">表分片结果：order_0, order_1</span><br><span class="line">最终路由单元：</span><br><span class="line">  ds0.order_0</span><br><span class="line">  ds0.order_1</span><br><span class="line">  ds1.order_0</span><br><span class="line">  ds1.order_1</span><br></pre></td></tr></table></figure>
+<p>返回<code>RouteResult</code>路由结果</p>
+<h2 id="3-3、第三步：SQL重写：this-executeRewrite"><a href="#3-3、第三步：SQL重写：this-executeRewrite" class="headerlink" title="3.3、第三步：SQL重写：this.executeRewrite()"></a>3.3、第三步：SQL重写：<code>this.executeRewrite()</code></h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> Collection&lt;ExecutionUnit&gt; <span class="title function_">executeRewrite</span><span class="params">(String sql, List&lt;Object&gt; parameters, RouteContext routeContext)</span> &#123;</span><br><span class="line">    <span class="built_in">this</span>.registerRewriteDecorator();</span><br><span class="line">    <span class="type">SQLRewriteContext</span> <span class="variable">sqlRewriteContext</span> <span class="operator">=</span> <span class="built_in">this</span>.rewriter.createSQLRewriteContext(sql, parameters, routeContext.getSqlStatementContext(), routeContext);</span><br><span class="line">    <span class="keyword">return</span> routeContext.getRouteResult().getRouteUnits().isEmpty() ? <span class="built_in">this</span>.rewrite(sqlRewriteContext) : <span class="built_in">this</span>.rewrite(routeContext, sqlRewriteContext);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> Collection&lt;ExecutionUnit&gt; <span class="title function_">rewrite</span><span class="params">(SQLRewriteContext sqlRewriteContext)</span> &#123;</span><br><span class="line">    <span class="type">SQLRewriteResult</span> <span class="variable">sqlRewriteResult</span> <span class="operator">=</span> (<span class="keyword">new</span> <span class="title class_">SQLRewriteEngine</span>()).rewrite(sqlRewriteContext);</span><br><span class="line">    <span class="type">String</span> <span class="variable">dataSourceName</span> <span class="operator">=</span> (String)<span class="built_in">this</span>.metaData.getDataSources().getAllInstanceDataSourceNames().iterator().next();</span><br><span class="line">    <span class="keyword">return</span> Collections.singletonList(<span class="keyword">new</span> <span class="title class_">ExecutionUnit</span>(dataSourceName, <span class="keyword">new</span> <span class="title class_">SQLUnit</span>(sqlRewriteResult.getSql(), sqlRewriteResult.getParameters())));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="initPreparedStatementExecutor方法"><a href="#initPreparedStatementExecutor方法" class="headerlink" title="initPreparedStatementExecutor方法"></a>initPreparedStatementExecutor方法</h2><p>这个方法里面主要做的事情包含真实数据源连接的建立以及真实<code>Statement</code>对象的建立</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">initPreparedStatementExecutor</span><span class="params">()</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">  <span class="built_in">this</span>.preparedStatementExecutor.init(<span class="built_in">this</span>.executionContext);</span><br><span class="line">  <span class="comment">//为PreparedStatement对象参数赋实际的值</span></span><br><span class="line">  <span class="built_in">this</span>.setParametersForStatements();</span><br><span class="line">  <span class="built_in">this</span>.replayMethodForStatements();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>我们重点关注的对象应该放在<code>preparedStatementExecutor.init(executionContext)</code> ;</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">(ExecutionContext executionContext)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">  <span class="built_in">this</span>.setSqlStatementContext(executionContext.getSqlStatementContext());</span><br><span class="line">  <span class="built_in">this</span>.getInputGroups().addAll(<span class="built_in">this</span>.obtainExecuteGroups(executionContext.getExecutionUnits()));</span><br><span class="line">  <span class="built_in">this</span>.cacheStatements();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li>第一步设置当前<code>SqlStatement</code>上下文</li>
+<li>第二步可以看到是给一个内部的集合添加一些所谓的执行组</li>
+<li>缓存部分对象</li>
+</ol>
+<p>我们针对第二步来进行分析点击进入<code>obtainExecuteGroups</code>方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> Collection&lt;InputGroup&lt;StatementExecuteUnit&gt;&gt; <span class="title function_">obtainExecuteGroups</span><span class="params">(Collection&lt;ExecutionUnit&gt; executionUnits)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">this</span>.getSqlExecutePrepareTemplate().getExecuteUnitGroups(executionUnits, <span class="keyword">new</span> <span class="title class_">SQLExecutePrepareCallback</span>() &#123;</span><br><span class="line">      <span class="comment">//根据数据库名称获取真实的数据库连接</span></span><br><span class="line">      <span class="keyword">public</span> List&lt;Connection&gt; <span class="title function_">getConnections</span><span class="params">(ConnectionMode connectionMode, String dataSourceName, <span class="type">int</span> connectionSize)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">          <span class="comment">//这里的方法就是真实的获取数据源连接的地方，很重要，可以看到有一个参数是dataSourceName，我们猜测这个dataSourceName就是最开始提到的datasourceMap中的key，如果是的话，又是什么时候调用到这个方法呢，我们接着往下看</span></span><br><span class="line">          <span class="keyword">return</span> PreparedStatementExecutor.<span class="built_in">super</span>.getConnection().getConnections(connectionMode, dataSourceName, connectionSize);</span><br><span class="line">      &#125;</span><br><span class="line">  </span><br><span class="line">      <span class="keyword">public</span> StatementExecuteUnit <span class="title function_">createStatementExecuteUnit</span><span class="params">(Connection connection, ExecutionUnit executionUnit, ConnectionMode connectionMode)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">          <span class="comment">//创建JDBC执行联合对象</span></span><br><span class="line">          <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">StatementExecuteUnit</span>(executionUnit, PreparedStatementExecutor.<span class="built_in">this</span>.createPreparedStatement(connection, executionUnit.getSqlUnit().getSql()), connectionMode);</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> PreparedStatement <span class="title function_">createPreparedStatement</span><span class="params">(Connection connection, String sql)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">this</span>.returnGeneratedKeys ? connection.prepareStatement(sql, <span class="number">1</span>) : connection.prepareStatement(sql, <span class="built_in">this</span>.getResultSetType(), <span class="built_in">this</span>.getResultSetConcurrency(), <span class="built_in">this</span>.getResultSetHoldability());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-4、第四步：SQL执行"><a href="#3-4、第四步：SQL执行" class="headerlink" title="3.4、第四步：SQL执行"></a>3.4、第四步：SQL执行</h2><p>这里，<code>callback</code>是一个非常巧妙的设计，<code>executeSQL</code>即是需要执行的<code>sql</code>，这里可以根据需要去灵活实现，例如<code>select、update</code>等等操作，而<code>executeCallback(executeCallback)</code>便是真正的执行者，<code>executeCallback</code>调用<code>sqlExecuteTemplate的executeGroup</code>，把执行分组传入<code>ShardingExecuteEngine</code>执行引擎。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">PreparedStatementExecutor</span> <span class="keyword">extends</span> <span class="title class_">AbstractStatementExecutor</span> &#123;</span><br><span class="line">  <span class="keyword">public</span> List&lt;QueryResult&gt; <span class="title function_">executeQuery</span><span class="params">()</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    <span class="type">boolean</span> <span class="variable">isExceptionThrown</span> <span class="operator">=</span> ExecutorExceptionHandler.isExceptionThrown();</span><br><span class="line">    <span class="comment">//定义回调</span></span><br><span class="line">    SQLExecuteCallback&lt;QueryResult&gt; executeCallback = <span class="keyword">new</span> <span class="title class_">SQLExecuteCallback</span>&lt;QueryResult&gt;(<span class="built_in">this</span>.getDatabaseType(), isExceptionThrown) &#123;</span><br><span class="line">      <span class="keyword">protected</span> QueryResult <span class="title function_">executeSQL</span><span class="params">(String sql, Statement statement, ConnectionMode connectionMode)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        <span class="keyword">return</span> PreparedStatementExecutor.<span class="built_in">this</span>.getQueryResult(statement, connectionMode);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="comment">//将回调传入</span></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">this</span>.executeCallback(executeCallback);</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">private</span> QueryResult <span class="title function_">getQueryResult</span><span class="params">(Statement statement, ConnectionMode connectionMode)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    <span class="type">PreparedStatement</span> <span class="variable">preparedStatement</span> <span class="operator">=</span> (PreparedStatement) statement;</span><br><span class="line">    <span class="type">ResultSet</span> <span class="variable">resultSet</span> <span class="operator">=</span> preparedStatement.executeQuery();</span><br><span class="line">    <span class="built_in">this</span>.getResultSets().add(resultSet);</span><br><span class="line">    <span class="keyword">return</span> (QueryResult)(ConnectionMode.MEMORY_STRICTLY == connectionMode ? <span class="keyword">new</span> <span class="title class_">StreamQueryResult</span>(resultSet) : <span class="keyword">new</span> <span class="title class_">MemoryQueryResult</span>(resultSet));</span><br><span class="line">  &#125;</span><br><span class="line">    <span class="comment">//真正执行者，调用执行引擎</span></span><br><span class="line">  <span class="keyword">protected</span> <span class="keyword">final</span> &lt;T&gt; List&lt;T&gt; <span class="title function_">executeCallback</span><span class="params">(SQLExecuteCallback&lt;T&gt; executeCallback)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    List&lt;T&gt; result = <span class="built_in">this</span>.sqlExecuteTemplate.execute(<span class="built_in">this</span>.inputGroups, executeCallback);</span><br><span class="line">    <span class="built_in">this</span>.refreshMetaDataIfNeeded(<span class="built_in">this</span>.connection.getRuntimeContext(), <span class="built_in">this</span>.sqlStatementContext);</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>进入<code>SQLExecutePrepareTemplate</code>的<code>execute</code>方法，执行<code>ExecutorEngine</code>的<code>execute</code>方法。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">SQLExecuteTemplate</span> &#123;</span><br><span class="line">  <span class="keyword">public</span> &lt;T&gt; List&lt;T&gt; <span class="title function_">execute</span><span class="params">(Collection&lt;InputGroup&lt;? extends StatementExecuteUnit&gt;&gt; inputGroups, SQLExecuteCallback&lt;T&gt; firstCallback, SQLExecuteCallback&lt;T&gt; callback)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">this</span>.executorEngine.execute(inputGroups, firstCallback, callback, <span class="built_in">this</span>.serial);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException ex) &#123;</span><br><span class="line">      ExecutorExceptionHandler.handleException(ex);</span><br><span class="line">      <span class="keyword">return</span> Collections.emptyList();</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>注意这里的<code>serial</code>参数，表示执行<code>sql</code>的方式是串行还是并行。这是在<code>PreparedStatementExecutor</code>父类<code>AbstractStatementExecutor</code>构造<code>SQLExecutePrepareTemplate</code>时传入的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">ExecutorEngine</span> <span class="keyword">implements</span> <span class="title class_">AutoCloseable</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> &lt;I, O&gt; List&lt;O&gt; <span class="title function_">execute</span><span class="params">(Collection&lt;InputGroup&lt;I&gt;&gt; inputGroups, GroupedCallback&lt;I, O&gt; firstCallback, GroupedCallback&lt;I, O&gt; callback, <span class="type">boolean</span> serial)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        <span class="keyword">if</span> (inputGroups.isEmpty()) &#123;</span><br><span class="line">            <span class="keyword">return</span> Collections.emptyList();</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> serial ? <span class="built_in">this</span>.serialExecute(inputGroups, firstCallback, callback) : <span class="built_in">this</span>.parallelExecute(inputGroups, firstCallback, callback);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>serial</code>取决于<code>ShardingConnection#isHoldTransaction</code>，其含义就是，如果在事务中返回<code>true</code>；否则返回<code>false</code>。也就是说，在<strong>本地事务</strong>中或<strong>XA事务</strong>中时，串行执行sql；其他情况下，并行执行sql。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">isHoldTransaction</span><span class="params">()</span> &#123;</span><br><span class="line">  <span class="comment">// 本地事务中</span></span><br><span class="line">  <span class="keyword">return</span> (TransactionType.LOCAL == transactionType &amp;&amp; !getAutoCommit())</span><br><span class="line">          <span class="comment">// XA事务中</span></span><br><span class="line">          || (TransactionType.XA == transactionType &amp;&amp; isInShardingTransaction());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>并行执行和串行执行差不多，看并行执行。并行执行将第二个及之后的任务提交到线程池执行，第一个任务同步执行，最终合并结果。对于执行sql来说，一个任务需要处理一个<code>InputGroup</code>分组内的sql，一个<code>InputGroup</code>对应一个<code>Connection</code>，也就是说一个任务对应一个<code>Connection</code>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> &lt;I, O&gt; List&lt;O&gt; <span class="title function_">parallelExecute</span><span class="params">(<span class="keyword">final</span> Collection&lt;InputGroup&lt;I&gt;&gt; inputGroups, <span class="keyword">final</span> GroupedCallback&lt;I, O&gt; firstCallback, <span class="keyword">final</span> GroupedCallback&lt;I, O&gt; callback)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    Iterator&lt;InputGroup&lt;I&gt;&gt; inputGroupsIterator = inputGroups.iterator();</span><br><span class="line">    InputGroup&lt;I&gt; firstInputs = inputGroupsIterator.next();</span><br><span class="line">    <span class="comment">// 异步执行第2个开始的任务</span></span><br><span class="line">    Collection&lt;ListenableFuture&lt;Collection&lt;O&gt;&gt;&gt; restResultFutures = asyncExecute(Lists.newArrayList(inputGroupsIterator), callback);</span><br><span class="line">    <span class="comment">// 同步执行第1个任务</span></span><br><span class="line">    Collection&lt;O&gt; syncExecute = syncExecute(firstInputs, <span class="literal">null</span> == firstCallback ? callback : firstCallback);</span><br><span class="line">    <span class="comment">// 合并执行结果</span></span><br><span class="line">    <span class="keyword">return</span> getGroupResults(syncExecute, restResultFutures);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 合并执行结果</span></span><br><span class="line"><span class="keyword">private</span> &lt;O&gt; List&lt;O&gt; <span class="title function_">getGroupResults</span><span class="params">(<span class="keyword">final</span> Collection&lt;O&gt; firstResults, <span class="keyword">final</span> Collection&lt;ListenableFuture&lt;Collection&lt;O&gt;&gt;&gt; restFutures)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">  List&lt;O&gt; result = <span class="keyword">new</span> <span class="title class_">LinkedList</span>&lt;&gt;(firstResults);</span><br><span class="line">  <span class="keyword">for</span> (ListenableFuture&lt;Collection&lt;O&gt;&gt; each : restFutures) &#123;</span><br><span class="line">      <span class="keyword">try</span> &#123;</span><br><span class="line">          result.addAll(each.get()); <span class="comment">// 等待Future执行完成</span></span><br><span class="line">      &#125; <span class="keyword">catch</span> (<span class="keyword">final</span> InterruptedException | ExecutionException ex) &#123;</span><br><span class="line">          <span class="keyword">return</span> throwException(ex);</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>ExecutorEngine#asyncExecute</code>异步执行。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 线程池</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> ShardingSphereExecutorService executorService;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> &lt;I, O&gt; Collection&lt;ListenableFuture&lt;Collection&lt;O&gt;&gt;&gt; <span class="title function_">asyncExecute</span><span class="params">(<span class="keyword">final</span> List&lt;InputGroup&lt;I&gt;&gt; inputGroups, <span class="keyword">final</span> GroupedCallback&lt;I, O&gt; callback)</span> &#123;</span><br><span class="line">  Collection&lt;ListenableFuture&lt;Collection&lt;O&gt;&gt;&gt; result = <span class="keyword">new</span> <span class="title class_">LinkedList</span>&lt;&gt;();</span><br><span class="line">  <span class="keyword">for</span> (InputGroup&lt;I&gt; each : inputGroups) &#123;</span><br><span class="line">      ListenableFuture&lt;Collection&lt;O&gt;&gt; future = asyncExecute(each, callback);</span><br><span class="line">      result.add(future);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> &lt;I, O&gt; ListenableFuture&lt;Collection&lt;O&gt;&gt; <span class="title function_">asyncExecute</span><span class="params">(<span class="keyword">final</span> InputGroup&lt;I&gt; inputGroup, <span class="keyword">final</span> GroupedCallback&lt;I, O&gt; callback)</span> &#123;</span><br><span class="line">  <span class="keyword">final</span> Map&lt;String, Object&gt; dataMap = ExecutorDataMap.getValue();</span><br><span class="line">  <span class="keyword">return</span> executorService.getExecutorService()</span><br><span class="line">       .submit(() -&gt; callback.execute(inputGroup.getInputs(), <span class="literal">false</span>, dataMap));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>进入<code>SQLExecuteCallback</code>（实现<code>GroupedCallback</code>接口）执行<code>execute</code>方法。循环所有sql，每个sql执行前后先执行<code>SQLExecutionHook</code>的钩子方法，最终调用由<code>SQLExecuteCallbackFactory</code>创建的匿名类的<code>executeSQL</code>方法，仅仅是执行<code>Statement.execute</code>（往上翻）。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">SQLExecuteCallback</span>&lt;T&gt; <span class="keyword">implements</span> <span class="title class_">GroupedCallback</span>&lt;StatementExecuteUnit, T&gt; &#123;</span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">final</span> Collection&lt;T&gt; <span class="title function_">execute</span><span class="params">(Collection&lt;StatementExecuteUnit&gt; statementExecuteUnits, <span class="type">boolean</span> isTrunkThread, Map&lt;String, Object&gt; dataMap)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    Collection&lt;T&gt; result = <span class="keyword">new</span> <span class="title class_">LinkedList</span>();</span><br><span class="line">    <span class="comment">// 循环sql</span></span><br><span class="line">    <span class="keyword">for</span>(StatementExecuteUnit each : statementExecuteUnits) &#123;</span><br><span class="line">      <span class="comment">// 执行单个sql</span></span><br><span class="line">      result.add(<span class="built_in">this</span>.execute0(each, isTrunkThread, dataMap));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span> T <span class="title function_">execute0</span><span class="params">(StatementExecuteUnit statementExecuteUnit, <span class="type">boolean</span> isTrunkThread, Map&lt;String, Object&gt; dataMap)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    ExecutorExceptionHandler.setExceptionThrown(<span class="built_in">this</span>.isExceptionThrown);</span><br><span class="line">    <span class="comment">// 获取元数据信息</span></span><br><span class="line">    <span class="type">DataSourceMetaData</span> <span class="variable">dataSourceMetaData</span> <span class="operator">=</span> <span class="built_in">this</span>.getDataSourceMetaData(statementExecuteUnit.getStatement().getConnection().getMetaData());</span><br><span class="line">    <span class="comment">// 持有所有钩子集合</span></span><br><span class="line">    <span class="type">SQLExecutionHook</span> <span class="variable">sqlExecutionHook</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SPISQLExecutionHook</span>();</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      <span class="type">ExecutionUnit</span> <span class="variable">executionUnit</span> <span class="operator">=</span> statementExecuteUnit.getExecutionUnit();</span><br><span class="line">      <span class="comment">// 执行所有start钩子（Trace、Seata...）</span></span><br><span class="line">      sqlExecutionHook.start(executionUnit.getDataSourceName(), executionUnit.getSqlUnit().getSql(), executionUnit.getSqlUnit().getParameters(), dataSourceMetaData, isTrunkThread, dataMap);</span><br><span class="line">      <span class="comment">// 执行sql</span></span><br><span class="line">      <span class="type">T</span> <span class="variable">result</span> <span class="operator">=</span> (T)<span class="built_in">this</span>.executeSQL(executionUnit.getSqlUnit().getSql(), statementExecuteUnit.getStatement(), statementExecuteUnit.getConnectionMode());</span><br><span class="line">      <span class="comment">// 执行所有success钩子（Trace、Seata...）</span></span><br><span class="line">      sqlExecutionHook.finishSuccess();</span><br><span class="line">      <span class="keyword">return</span> result;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (SQLException ex) &#123;</span><br><span class="line">      sqlExecutionHook.finishFailure(ex);</span><br><span class="line">      ExecutorExceptionHandler.handleException(ex);</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>执行<code>PreparedStatementExecutor</code>的<code>executeCallback</code>，执行<code>getQueryResult()</code>方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">PreparedStatementExecutor</span> <span class="keyword">extends</span> <span class="title class_">AbstractStatementExecutor</span> &#123;</span><br><span class="line">  <span class="keyword">public</span> List&lt;QueryResult&gt; <span class="title function_">executeQuery</span><span class="params">()</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    <span class="type">boolean</span> <span class="variable">isExceptionThrown</span> <span class="operator">=</span> ExecutorExceptionHandler.isExceptionThrown();</span><br><span class="line">    <span class="comment">//定义回调</span></span><br><span class="line">    SQLExecuteCallback&lt;QueryResult&gt; executeCallback = <span class="keyword">new</span> <span class="title class_">SQLExecuteCallback</span>&lt;QueryResult&gt;(<span class="built_in">this</span>.getDatabaseType(), isExceptionThrown) &#123;</span><br><span class="line">      <span class="keyword">protected</span> QueryResult <span class="title function_">executeSQL</span><span class="params">(String sql, Statement statement, ConnectionMode connectionMode)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        <span class="keyword">return</span> PreparedStatementExecutor.<span class="built_in">this</span>.getQueryResult(statement, connectionMode);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="comment">//将回调传入</span></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">this</span>.executeCallback(executeCallback);</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">private</span> QueryResult <span class="title function_">getQueryResult</span><span class="params">(Statement statement, ConnectionMode connectionMode)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">    <span class="type">PreparedStatement</span> <span class="variable">preparedStatement</span> <span class="operator">=</span> (PreparedStatement) statement;</span><br><span class="line">    <span class="comment">//重点，执行具体的SQL，例如MySQL的实现</span></span><br><span class="line">    <span class="type">ResultSet</span> <span class="variable">resultSet</span> <span class="operator">=</span> preparedStatement.executeQuery();</span><br><span class="line">    <span class="built_in">this</span>.getResultSets().add(resultSet);</span><br><span class="line">    <span class="keyword">return</span> (QueryResult)(ConnectionMode.MEMORY_STRICTLY == connectionMode ? <span class="keyword">new</span> <span class="title class_">StreamQueryResult</span>(resultSet) : <span class="keyword">new</span> <span class="title class_">MemoryQueryResult</span>(resultSet));</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>connectionMode：连接模式，决定结果集的加载方式（流式或内存缓存）</li>
+</ul>
+<h1 id="四、小结"><a href="#四、小结" class="headerlink" title="四、小结"></a>四、小结</h1><p>整体执行堆栈如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">| ShardingPreparedStatement.executeQuery()</span><br><span class="line">| --&gt;ShardingPreparedStatement.prepare()</span><br><span class="line">| ----&gt; BasePrepareEngine.prepare() // sql解析 &amp; SQL路由</span><br><span class="line">| ------&gt; BasePrepareEngine.executeRoute()</span><br><span class="line">| --------&gt; BasePrepareEngine.registerRouteDecorator()</span><br><span class="line">| --------&gt; SimpleQueryPrepareEngine.route()</span><br><span class="line">| ----------&gt; DataNodeRouter.route()</span><br><span class="line">| ----------&gt; DataNodeRouter.executeRoute()</span><br><span class="line">| ------------&gt; DataNodeRouter.createRouteContext()</span><br><span class="line">| sql解析--------------&gt; parserEngine.parse()   //sql解析</span><br><span class="line">| ------------&gt; DataNodeRouter.decorate()</span><br><span class="line">| --------------&gt; ShardingRouteDecorator.decorate()</span><br><span class="line">| SQL路由----------------&gt; shardingRouteEngine.route() //SQL路由</span><br><span class="line">| ----&gt; BasePrepareEngine.executeRewrite() //SQL重写</span><br><span class="line">| SQL重写------&gt; SQLRewriteEngine.rewrite //SQL重写</span><br><span class="line">| --&gt;ShardingPreparedStatement.initPreparedStatementExecutor() //初始化执行器</span><br><span class="line">| SQL执行--&gt;PreparedStatementExecutor.executeQuery() // SQL执行</span><br></pre></td></tr></table></figure>
+
+
+
+<p>参考文章：<br><a href="https://www.cnblogs.com/binarylei/p/12234545.html">Sharding-Jdbc 源码分析</a><br><a href="https://www.jianshu.com/p/d927ad6a1b3e">从源码看ShardingSphere设计-总览篇</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/" rel="tag"># 分库分表</a>
+              <a href="/tags/ShardingJDBC/" rel="tag"># ShardingJDBC</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/08/29/2021-08-29-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/" rel="prev" title="《分布式》分库分表">
+      <i class="fa fa-chevron-left"></i> 《分布式》分库分表
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2022/04/10/2022-04-10-tidb-%E6%9E%B6%E6%9E%84/" rel="next" title="《TIDB》架构">
+      《TIDB》架构 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E5%B7%A5%E5%85%B7"><span class="nav-text">一、分库分表工具</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81ShardingJDBC"><span class="nav-text">二、ShardingJDBC</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="nav-text">2.1、核心概念</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E4%BD%BF%E7%94%A8%E7%A4%BA%E4%BE%8B"><span class="nav-text">2.2、使用示例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81%E6%A0%B8%E5%BF%83%E7%B1%BB"><span class="nav-text">2.3、核心类</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-1%E3%80%81%E6%80%BB%E5%88%86%E7%89%87%E8%A7%84%E5%88%99%EF%BC%88ShardingRuleConfiguration%EF%BC%89"><span class="nav-text">2.3.1、总分片规则（ShardingRuleConfiguration）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-2%E3%80%81%E8%A1%A8%E5%88%86%E7%89%87%E8%A7%84%E5%88%99%EF%BC%88ShardingTableRuleConfiguration%EF%BC%89"><span class="nav-text">2.3.2、表分片规则（ShardingTableRuleConfiguration）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-3%E3%80%81%E5%88%86%E7%89%87%E7%AD%96%E7%95%A5%EF%BC%88ShardingStrategyConfiguration%EF%BC%89"><span class="nav-text">2.3.3、分片策略（ShardingStrategyConfiguration）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-4%E3%80%81%E5%88%86%E7%89%87%E7%AE%97%E6%B3%95%EF%BC%88ShardingAlgorithm%EF%BC%89"><span class="nav-text">2.3.4、分片算法（ShardingAlgorithm）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-5%E3%80%81%E6%95%B0%E6%8D%AE%E8%8A%82%E7%82%B9"><span class="nav-text">2.3.5、数据节点</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-6%E3%80%81%E8%B7%AF%E7%94%B1%E7%BB%93%E6%9E%9C%EF%BC%88RouteResult%EF%BC%89"><span class="nav-text">2.3.6、路由结果（RouteResult）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-7%E3%80%81SQL%E8%A7%A3%E6%9E%90%E7%BB%93%E6%9E%9C%EF%BC%88SQLStatement%EF%BC%89"><span class="nav-text">2.3.7、SQL解析结果（SQLStatement）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-8%E3%80%81%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%EF%BC%88ExecutionPlan%EF%BC%89"><span class="nav-text">2.3.8、执行计划（ExecutionPlan）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4%E3%80%81%E5%88%86%E7%89%87%E4%B8%BB%E8%A6%81%E6%B5%81%E7%A8%8B"><span class="nav-text">2.4、分片主要流程</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81ShardingJDBC-%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90"><span class="nav-text">三、ShardingJDBC 执行流程分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E6%89%A7%E8%A1%8C%E5%85%A5%E5%8F%A3%EF%BC%88ShardingPreparedStatement-executeQuery-%EF%BC%89"><span class="nav-text">3.1、执行入口（ShardingPreparedStatement.executeQuery()）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%9ASQL%E8%A7%A3%E6%9E%90"><span class="nav-text">3.2、第一步：SQL解析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%9ASQL%E8%B7%AF%E7%94%B1"><span class="nav-text">3.2、第二步：SQL路由</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1%E3%80%81%E5%88%86%E7%89%87%E6%9D%A1%E4%BB%B6%E6%8F%90%E5%8F%96"><span class="nav-text">3.2.1、分片条件提取</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-2%E3%80%81%E5%88%86%E7%89%87%E7%AE%97%E6%B3%95%E8%B0%83%E7%94%A8"><span class="nav-text">3.2.2、分片算法调用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-3%E3%80%81%E5%88%86%E7%89%87%E7%BB%93%E6%9E%9C%E5%90%88%E5%B9%B6"><span class="nav-text">3.2.3、分片结果合并</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E7%AC%AC%E4%B8%89%E6%AD%A5%EF%BC%9ASQL%E9%87%8D%E5%86%99%EF%BC%9Athis-executeRewrite"><span class="nav-text">3.3、第三步：SQL重写：this.executeRewrite()</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#initPreparedStatementExecutor%E6%96%B9%E6%B3%95"><span class="nav-text">initPreparedStatementExecutor方法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4%E3%80%81%E7%AC%AC%E5%9B%9B%E6%AD%A5%EF%BC%9ASQL%E6%89%A7%E8%A1%8C"><span class="nav-text">3.4、第四步：SQL执行</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%B0%8F%E7%BB%93"><span class="nav-text">四、小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">200</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">36</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">62</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

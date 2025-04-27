@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   一、分库分表分库分表，是将单个数据库或单张表的数据拆分到多个数据库或表中的技术手段，目的是解决海量数据和高并发场景下的性能瓶颈。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《分布式》分库分表">
+<meta property="og:url" content="http://yoursite.com/2021/08/29/2021-08-29-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   一、分库分表分库分表，是将单个数据库或单张表的数据拆分到多个数据库或表中的技术手段，目的是解决海量数据和高并发场景下的性能瓶颈。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/08/29/2021-08-29-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/%E5%B7%A5%E5%85%B7_%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%A8%A1%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2021/08/29/2021-08-29-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/%E5%B7%A5%E5%85%B7_%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F.png">
+<meta property="article:published_time" content="2021-08-28T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-27T03:11:22.356Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="分库分表">
+<meta property="article:tag" content="ShardingJDBC">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/08/29/2021-08-29-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/%E5%B7%A5%E5%85%B7_%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%A8%A1%E5%BC%8F.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/08/29/2021-08-29-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《分布式》分库分表 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/08/29/2021-08-29-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《分布式》分库分表
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-08-29 00:00:00" itemprop="dateCreated datePublished" datetime="2021-08-29T00:00:00+08:00">2021-08-29</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-27 11:11:22" itemprop="dateModified" datetime="2025-04-27T11:11:22+08:00">2025-04-27</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F/" itemprop="url" rel="index"><span itemprop="name">分布式系统</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.3k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>13 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.orange {
+   color: orange
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<h1 id="一、分库分表"><a href="#一、分库分表" class="headerlink" title="一、分库分表"></a>一、分库分表</h1><p><strong>分库分表</strong>，是将单个数据库或单张表的数据拆分到多个数据库或表中的技术手段，目的是解决<strong>海量数据</strong>和<strong>高并发场景</strong>下的性能瓶颈。</p>
+<span id="more"></span>
+
+<h2 id="1-1、核心目标："><a href="#1-1、核心目标：" class="headerlink" title="1.1、核心目标："></a>1.1、核心目标：</h2><ul>
+<li><strong>提升性能</strong>：减少单个数据库或表的访问压力。</li>
+<li><strong>扩展性</strong>：支持数据量的线性扩展。</li>
+<li><strong>高可用性</strong>：避免单点故障，增加容错性。</li>
+<li><strong>负载均衡</strong>：分散热点数据的访问压力。</li>
+</ul>
+<h2 id="1-2、分库分表常见拆分方式"><a href="#1-2、分库分表常见拆分方式" class="headerlink" title="1.2、分库分表常见拆分方式"></a>1.2、分库分表常见拆分方式</h2><ul>
+<li><strong>垂直拆分</strong><ul>
+<li><strong>垂直分库</strong>：按业务模块拆分库（如用户、订单、商品）</li>
+<li><strong>垂直分表</strong>：将大表按字典冷热拆分（如用户表拆分为<code>user_base</code>和<code>user_detail</code>）</li>
+</ul>
+</li>
+<li><strong>水平拆分</strong><ul>
+<li><strong>水平分库</strong>：将同一表的数据按规则分布到不同数据库实例。</li>
+<li><strong>水平分表</strong>：将同一表的数据按规则分布到同一库的不同物理表（如<code>order_0</code>, <code>order_1</code>）</li>
+</ul>
+</li>
+</ul>
+<h2 id="1-3、分片策略（路由规则）"><a href="#1-3、分片策略（路由规则）" class="headerlink" title="1.3、分片策略（路由规则）"></a>1.3、分片策略（路由规则）</h2><ul>
+<li><strong>哈希取模</strong>：<code>分片键 % 分片数</code>，简单但扩容复杂（如用户ID取模）</li>
+<li><strong>范围分片</strong>：按时间或ID区间分片（如每月一张表），易冷热不均</li>
+<li><strong>一致性哈希</strong>：减少扩容时数据迁移量</li>
+<li><strong>地理位置</strong>：按用户地域路由到就近数据库。</li>
+</ul>
+<h2 id="1-4、分库分表的挑战"><a href="#1-4、分库分表的挑战" class="headerlink" title="1.4、分库分表的挑战"></a>1.4、分库分表的挑战</h2><ul>
+<li><strong>跨库join</strong>：需业务层聚合或冗余数据（如ES辅助查询）。</li>
+<li><strong>分布式事务</strong>：需使用<code>Seata、TCC、Saga</code> 等方案保证一致性。</li>
+<li><strong>全局唯一ID</strong>：雪花是算法（<code>snowflake</code>）、<code>UUID</code>、数据库分段分配）</li>
+<li><strong>分页排序</strong>：需多分片查询后归并，性能较差。</li>
+<li><strong>扩容迁移</strong>：动态扩缩容需数据再平衡（如双写迁移）</li>
+</ul>
+<h2 id="1-5、常见中间件与工具"><a href="#1-5、常见中间件与工具" class="headerlink" title="1.5、常见中间件与工具"></a>1.5、常见中间件与工具</h2><ul>
+<li><code>shardingjdbc</code>：支持<code>JDBC</code>透明化分片、读写分离。</li>
+<li><code>mycat</code>：基于<code>proxy</code>的分布式数据库中间件</li>
+<li><code>TIDB</code>：分布式<code>NewSQL</code>数据库（天然支持水平扩展）</li>
+</ul>
+<h1 id="二、分库分表示例"><a href="#二、分库分表示例" class="headerlink" title="二、分库分表示例"></a>二、分库分表示例</h1><p>订单业务，随着业务发展，订单数据越来越多，保姆总量1000万+，日增1万；保洁总量5000万+，日增4万； 月嫂总量1000万+，日增5000左右。伴随着系统逐步接入，订单数据量将不断扩大，提前考虑容量规划以应对不同业务的快速接入。</p>
+<h2 id="2-1、目标"><a href="#2-1、目标" class="headerlink" title="2.1、目标"></a>2.1、目标</h2><p>优化现有订单表，减少单表数据，提高插入查询效率，持续满足订单的快速增长</p>
+<h2 id="2-2、优化思路"><a href="#2-2、优化思路" class="headerlink" title="2.2、优化思路"></a>2.2、优化思路</h2><ul>
+<li><strong>垂直拆分分表</strong>：按订单基础信息、购买信息、订单拓展属性信息分开存储新的订单数据；</li>
+<li><strong>水平拆分分库</strong>：按用户维度进行分库；</li>
+</ul>
+<h2 id="2-3、订单ID生成策略"><a href="#2-3、订单ID生成策略" class="headerlink" title="2.3、订单ID生成策略"></a>2.3、订单ID生成策略</h2><p><strong>思路</strong>：需要满足根据<strong>订单id</strong>和<strong>用户id</strong>的查询</p>
+<ul>
+<li><code>uid</code>：通过雪花算法生成</li>
+<li><code>orderId</code>：往订单ID中添加用户的因子，保证可以基于<code>uid</code>和<code>orderId</code>查</li>
+</ul>
+<p>订单ID为Long类型，Long类型64位</p>
+<table>
+<thead>
+<tr>
+<th>时间戳</th>
+<th>服务器</th>
+<th>用户基因</th>
+<th>序号</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>42位</td>
+<td>8位</td>
+<td>9位</td>
+<td>5位</td>
+</tr>
+</tbody></table>
+<h3 id="1、基于订单ID获取分片索引"><a href="#1、基于订单ID获取分片索引" class="headerlink" title="1、基于订单ID获取分片索引"></a>1、基于订单ID获取分片索引</h3><ul>
+<li><code>orderId &gt;&gt; 5</code> ：订单右移3位，舍弃掉了序号</li>
+<li><code>orderId &gt;&gt; 5 &amp; 0b111111111111</code>：取9位的用户基因</li>
+<li><code>(orderId &gt;&gt; 5 &amp; 0b111111111111) % dbCount</code>：对数据库数量进行取余，得到库索引</li>
+</ul>
+<h3 id="2、基于用户ID获取分片索引"><a href="#2、基于用户ID获取分片索引" class="headerlink" title="2、基于用户ID获取分片索引"></a>2、基于用户ID获取分片索引</h3><ul>
+<li><code>uid &gt;&gt; 22</code>：去除掉雪花算法后22位</li>
+<li><code>uid &gt;&gt; 22 &amp; &amp; 0b111111111111</code>：取9位的用户基因</li>
+<li><code>(uid &gt;&gt; 22 &amp; 0b111111111111) % dbCount</code>：对数据库数量进行取余，得到库的索引</li>
+</ul>
+<h1 id="三、分库分表工具"><a href="#三、分库分表工具" class="headerlink" title="三、分库分表工具"></a>三、分库分表工具</h1><p>分库分表工具主要有2种模式： <strong>客户端模式</strong>、 <strong>代理模式</strong>；</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>客户端模式</th>
+<th>代理模式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>架构</td>
+<td><img src="/2021/08/29/2021-08-29-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/%E5%B7%A5%E5%85%B7_%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%A8%A1%E5%BC%8F.png" alt="客户端模式"></td>
+<td><img src="/2021/08/29/2021-08-29-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/%E5%B7%A5%E5%85%B7_%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F.png" alt="代理模式"></td>
+</tr>
+<tr>
+<td>常见开源中间件</td>
+<td><code>Apache</code>的<code>Sharding-JDBC</code>、淘宝的<code>TDDL</code>、美团的<code>Zebra</code></td>
+<td><code>Apache</code>的 <code>Sharding-Proxy</code>、阿里的 <code>cobar</code>、国产的 <code>MyCat</code>、360的 <code>Atlas</code></td>
+</tr>
+<tr>
+<td>优缺点</td>
+<td>客户端模式比较轻量，性能也会比较好</td>
+<td>代理模式需要部署额外的服务器，所以对于该服务器的稳定性和性能等都需要保障。</td>
+</tr>
+</tbody></table>
+<h2 id="3-1、ShardingJDBC"><a href="#3-1、ShardingJDBC" class="headerlink" title="3.1、ShardingJDBC"></a>3.1、ShardingJDBC</h2><p>轻量级Java框架，定位于增强JDBC层，为应用提供透明的分库分表功能，使开发者能够像操作单一数据库一样处理分布式数据。</p>
+<h3 id="3-1-1、核心概念"><a href="#3-1-1、核心概念" class="headerlink" title="3.1.1、核心概念"></a>3.1.1、核心概念</h3><table>
+<thead>
+<tr>
+<th>概念</th>
+<th>定义</th>
+<th>作用</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>逻辑表</strong>（<code>LogicTable</code>）</td>
+<td>开发者视角中的虚拟表，对应业务逻辑中的表名（如<code>user</code>）</td>
+<td>屏蔽底层分片的复杂性，业务代码直接操作逻辑表</td>
+<td>逻辑表<code>user</code>，可能对应物理表<code>user_0, user_1</code></td>
+</tr>
+<tr>
+<td><strong>真实表</strong>（<code>Actual Table</code>）</td>
+<td>数据库中实际存在的物理表，如<code>user_0, user_1</code></td>
+<td>逻辑表通过分片规则映射到真实表</td>
+<td>逻辑表<code>user</code>的分表规则为<code>user_$&#123;0..1&#125;</code>，则真实表为<code>user_0, user_1</code></td>
+</tr>
+<tr>
+<td><strong>数据节点</strong>（<code>Data Node</code>）</td>
+<td>数据分片的最小单元，由数据源名称和真实表组成，数据源名.表名（如<code>ds0.user_0</code>）</td>
+<td>明确数据在分库分表中的具体位置</td>
+<td>逻辑表<code>user</code>的数据节点可能为<code>ds0.user_0,ds0.user1,ds1.user_0,ds1.user_1</code></td>
+</tr>
+<tr>
+<td><strong>分片键</strong>（<code>Sharding key</code>）</td>
+<td>用于分片的字段（如<code>user_id</code>），决定数据如何分布到库或表中</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>分片算法</strong>（<code>sharding algorithm</code>）</td>
+<td>根据分片键的值，计算数据应路由到哪个库或表的算法</td>
+<td>精确分片算法、范围分片算法等等</td>
+<td><code>user_id % 2</code> -&gt; <code>ds0</code>或<code>ds1</code></td>
+</tr>
+<tr>
+<td><strong>分片策略</strong>（<code>sharding strategy</code>）</td>
+<td>分片键和分片算法的组合，分为<strong>分库策略</strong>和<strong>分表策略</strong></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>分布式主键</strong>（<code>Distributed primary key</code>）</td>
+<td>全局唯一的ID生成策略，解决分库分表后主键冲突问题</td>
+<td>常见<code>snowflake, uuid</code>, 数据库</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3 id="3-1-2、使用示例"><a href="#3-1-2、使用示例" class="headerlink" title="3.1.2、使用示例"></a>3.1.2、使用示例</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ShardingJDBCDemo</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        <span class="comment">// 1. 配置数据源（2个库）</span></span><br><span class="line">        Map&lt;String, DataSource&gt; dataSourceMap = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line">        dataSourceMap.put(<span class="string">&quot;ds0&quot;</span>, createDataSource(<span class="string">&quot;jdbc:mysql://localhost:3306/ds0&quot;</span>));</span><br><span class="line">        dataSourceMap.put(<span class="string">&quot;ds1&quot;</span>, createDataSource(<span class="string">&quot;jdbc:mysql://localhost:3306/ds1&quot;</span>));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2. 配置分片规则</span></span><br><span class="line">        <span class="type">ShardingRuleConfiguration</span> <span class="variable">shardingRuleConfig</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ShardingRuleConfiguration</span>();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2.1 定义 user 表的分片规则</span></span><br><span class="line">        <span class="type">ShardingTableRuleConfiguration</span> <span class="variable">userTableRule</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ShardingTableRuleConfiguration</span>(</span><br><span class="line">                <span class="string">&quot;user&quot;</span>, <span class="comment">// 逻辑表名</span></span><br><span class="line">                <span class="string">&quot;ds$&#123;0..1&#125;.user_$&#123;0..1&#125;&quot;</span> <span class="comment">// 实际数据节点：ds0.user_0, ds0.user_1, ds1.user_0, ds1.user_1</span></span><br><span class="line">        );</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2.2 分库策略：按 user_id % 2 选择库（奇偶分库）</span></span><br><span class="line">        userTableRule.setDatabaseShardingStrategy(<span class="keyword">new</span> <span class="title class_">StandardShardingStrategyConfiguration</span>(</span><br><span class="line">                <span class="string">&quot;user_id&quot;</span>,</span><br><span class="line">                <span class="string">&quot;dbShardingAlgorithm&quot;</span></span><br><span class="line">        ));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2.3 分表策略：按 (user_id / 2) % 2 选择表（解决奇偶库内表分布问题）</span></span><br><span class="line">        userTableRule.setTableShardingStrategy(<span class="keyword">new</span> <span class="title class_">StandardShardingStrategyConfiguration</span>(</span><br><span class="line">                <span class="string">&quot;user_id&quot;</span>,</span><br><span class="line">                <span class="string">&quot;tableShardingAlgorithm&quot;</span></span><br><span class="line">        ));</span><br><span class="line"></span><br><span class="line">        shardingRuleConfig.getTables().add(userTableRule);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 3. 配置分片算法</span></span><br><span class="line">        <span class="comment">// 分库算法：user_id % 2 → ds0/ds1</span></span><br><span class="line">        <span class="type">Properties</span> <span class="variable">dbShardingProps</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Properties</span>();</span><br><span class="line">        dbShardingProps.setProperty(<span class="string">&quot;algorithm-expression&quot;</span>, <span class="string">&quot;ds$&#123;user_id % 2&#125;&quot;</span>);</span><br><span class="line">        shardingRuleConfig.getShardingAlgorithms().put(<span class="string">&quot;dbShardingAlgorithm&quot;</span>,</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">AlgorithmConfiguration</span>(<span class="string">&quot;INLINE&quot;</span>, dbShardingProps));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 分表算法：(user_id / 2) % 2 → user_0/user_1</span></span><br><span class="line">        <span class="type">Properties</span> <span class="variable">tableShardingProps</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Properties</span>();</span><br><span class="line">        tableShardingProps.setProperty(<span class="string">&quot;algorithm-expression&quot;</span>, <span class="string">&quot;user_$&#123;(user_id / 2) % 2&#125;&quot;</span>);</span><br><span class="line">        shardingRuleConfig.getShardingAlgorithms().put(<span class="string">&quot;tableShardingAlgorithm&quot;</span>,</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">AlgorithmConfiguration</span>(<span class="string">&quot;INLINE&quot;</span>, tableShardingProps));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 4. 创建 ShardingSphere 数据源</span></span><br><span class="line">        <span class="type">DataSource</span> <span class="variable">dataSource</span> <span class="operator">=</span> ShardingDataSourceFactory.createDataSource(</span><br><span class="line">                dataSourceMap,</span><br><span class="line">                Collections.singleton(shardingRuleConfig),</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">Properties</span>()</span><br><span class="line">        );</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 5. 测试数据插入</span></span><br><span class="line">        testInsertData(dataSource);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> DataSource <span class="title function_">createDataSource</span><span class="params">(String url)</span> &#123;</span><br><span class="line">        <span class="type">HikariConfig</span> <span class="variable">config</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HikariConfig</span>();</span><br><span class="line">        config.setJdbcUrl(url);</span><br><span class="line">        config.setUsername(<span class="string">&quot;root&quot;</span>);</span><br><span class="line">        config.setPassword(<span class="string">&quot;root&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">HikariDataSource</span>(config);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">testInsertData</span><span class="params">(DataSource dataSource)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> (<span class="type">Connection</span> <span class="variable">conn</span> <span class="operator">=</span> dataSource.getConnection();</span><br><span class="line">             <span class="type">PreparedStatement</span> <span class="variable">ps</span> <span class="operator">=</span> conn.prepareStatement(<span class="string">&quot;INSERT INTO user (user_id, name) VALUES (?, ?)&quot;</span>)) &#123;</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 插入测试数据（验证分片逻辑）</span></span><br><span class="line">            insertUser(ps, <span class="number">1001L</span>, <span class="string">&quot;Alice&quot;</span>);   <span class="comment">// ds1.user_0</span></span><br><span class="line">            insertUser(ps, <span class="number">1002L</span>, <span class="string">&quot;Bob&quot;</span>);    <span class="comment">// ds0.user_1</span></span><br><span class="line">            insertUser(ps, <span class="number">1003L</span>, <span class="string">&quot;Charlie&quot;</span>);<span class="comment">// ds1.user_1</span></span><br><span class="line">            insertUser(ps, <span class="number">1004L</span>, <span class="string">&quot;David&quot;</span>);   <span class="comment">// ds0.user_0</span></span><br><span class="line"></span><br><span class="line">            System.out.println(<span class="string">&quot;数据插入成功，请检查数据库验证分布结果！&quot;</span>);</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">insertUser</span><span class="params">(PreparedStatement ps, Long userId, String name)</span> <span class="keyword">throws</span> SQLException &#123;</span><br><span class="line">        ps.setLong(<span class="number">1</span>, userId);</span><br><span class="line">        ps.setString(<span class="number">2</span>, name);</span><br><span class="line">        ps.executeUpdate();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>shardingjdbc</code>的源码分析，在后续章节。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/" rel="tag"># 分库分表</a>
+              <a href="/tags/ShardingJDBC/" rel="tag"># ShardingJDBC</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/08/25/2021-08-25-%E5%88%86%E5%B8%83%E5%BC%8FID%E7%94%9F%E6%88%90%E5%99%A8/" rel="prev" title="《分布式》分布式ID生成器">
+      <i class="fa fa-chevron-left"></i> 《分布式》分布式ID生成器
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/08/30/2021-08-30-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-shardingjdbc/" rel="next" title="《分库分表》shardingjdbc">
+      《分库分表》shardingjdbc <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8"><span class="nav-text">一、分库分表</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-1%E3%80%81%E6%A0%B8%E5%BF%83%E7%9B%AE%E6%A0%87%EF%BC%9A"><span class="nav-text">1.1、核心目标：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-2%E3%80%81%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E5%B8%B8%E8%A7%81%E6%8B%86%E5%88%86%E6%96%B9%E5%BC%8F"><span class="nav-text">1.2、分库分表常见拆分方式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-3%E3%80%81%E5%88%86%E7%89%87%E7%AD%96%E7%95%A5%EF%BC%88%E8%B7%AF%E7%94%B1%E8%A7%84%E5%88%99%EF%BC%89"><span class="nav-text">1.3、分片策略（路由规则）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-4%E3%80%81%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E7%9A%84%E6%8C%91%E6%88%98"><span class="nav-text">1.4、分库分表的挑战</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-5%E3%80%81%E5%B8%B8%E8%A7%81%E4%B8%AD%E9%97%B4%E4%BB%B6%E4%B8%8E%E5%B7%A5%E5%85%B7"><span class="nav-text">1.5、常见中间件与工具</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E7%A4%BA%E4%BE%8B"><span class="nav-text">二、分库分表示例</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E7%9B%AE%E6%A0%87"><span class="nav-text">2.1、目标</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E4%BC%98%E5%8C%96%E6%80%9D%E8%B7%AF"><span class="nav-text">2.2、优化思路</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81%E8%AE%A2%E5%8D%95ID%E7%94%9F%E6%88%90%E7%AD%96%E7%95%A5"><span class="nav-text">2.3、订单ID生成策略</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E5%9F%BA%E4%BA%8E%E8%AE%A2%E5%8D%95ID%E8%8E%B7%E5%8F%96%E5%88%86%E7%89%87%E7%B4%A2%E5%BC%95"><span class="nav-text">1、基于订单ID获取分片索引</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E5%9F%BA%E4%BA%8E%E7%94%A8%E6%88%B7ID%E8%8E%B7%E5%8F%96%E5%88%86%E7%89%87%E7%B4%A2%E5%BC%95"><span class="nav-text">2、基于用户ID获取分片索引</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E5%B7%A5%E5%85%B7"><span class="nav-text">三、分库分表工具</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81ShardingJDBC"><span class="nav-text">3.1、ShardingJDBC</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="nav-text">3.1.1、核心概念</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-2%E3%80%81%E4%BD%BF%E7%94%A8%E7%A4%BA%E4%BE%8B"><span class="nav-text">3.1.2、使用示例</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">200</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">36</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">62</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
