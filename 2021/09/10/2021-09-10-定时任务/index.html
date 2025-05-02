@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }     一. 定时任务主要考虑的点：  定时任务如何存储？（持久化或临时保存到特定的数据结构中） 定时任务如何执行？（调度策略和资源管理）。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《定时任务》">
+<meta property="og:url" content="http://yoursite.com/2021/09/10/2021-09-10-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }     一. 定时任务主要考虑的点：  定时任务如何存储？（持久化或临时保存到特定的数据结构中） 定时任务如何执行？（调度策略和资源管理）。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/09/10/2021-09-10-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/%E5%8D%95%E5%B1%82%E6%97%B6%E9%97%B4%E8%BD%AE.png">
+<meta property="og:image" content="http://yoursite.com/2021/09/10/2021-09-10-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/%E5%B1%82%E7%BA%A7%E6%97%B6%E9%97%B4%E8%BD%AE.png">
+<meta property="article:published_time" content="2021-09-09T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-30T03:27:13.046Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="定时任务">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/09/10/2021-09-10-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/%E5%8D%95%E5%B1%82%E6%97%B6%E9%97%B4%E8%BD%AE.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/09/10/2021-09-10-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《定时任务》 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/09/10/2021-09-10-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《定时任务》
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-09-10 00:00:00" itemprop="dateCreated datePublished" datetime="2021-09-10T00:00:00+08:00">2021-09-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-30 11:27:13" itemprop="dateModified" datetime="2025-04-30T11:27:13+08:00">2025-04-30</time>
+              </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>11k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>27 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.orange {
+   color: orange
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+
+
+<h1 id="一-定时任务"><a href="#一-定时任务" class="headerlink" title="一. 定时任务"></a>一. 定时任务</h1><p>主要考虑的点：</p>
+<ul>
+<li><strong>定时任务如何存储？（持久化或临时保存到特定的数据结构中）</strong></li>
+<li><strong>定时任务如何执行？（调度策略和资源管理）</strong>。</li>
+</ul>
+<span id="more"></span>
+
+
+<h1 id="二-定时任务存储"><a href="#二-定时任务存储" class="headerlink" title="二. 定时任务存储"></a>二. 定时任务存储</h1><table>
+<thead>
+<tr>
+<th>方案</th>
+<th>适用场景</th>
+<th>优缺点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>内存存储</td>
+<td>单机、任务少、允许数据丢失</td>
+<td>优点：速度快，实现简单；缺点：数据易失，重启后任务丢失</td>
+</tr>
+<tr>
+<td>关系型数据库</td>
+<td>中小规模、需事务支出</td>
+<td>优点：ACID，支持复杂查询；缺点：高并发下性能差（如MySQL的定时任务表）</td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>高频任务、分布式场景</td>
+<td>优点：高性能，支持有序集合（ZSet）；缺点：需处理持久化和数据恢复</td>
+</tr>
+<tr>
+<td>分布式数据库</td>
+<td>大规模、高可用需求</td>
+<td>优点：强一致性，分布式锁；缺点：复杂度高，运维成本大</td>
+</tr>
+<tr>
+<td>消息队列</td>
+<td>异步解耦、任务分发</td>
+<td>优点：削峰填谷，支持重试；缺点：需额外处理延迟消息</td>
+</tr>
+</tbody></table>
+<h2 id="2-1-redis数据结构设计"><a href="#2-1-redis数据结构设计" class="headerlink" title="2.1. redis数据结构设计"></a>2.1. redis数据结构设计</h2><ul>
+<li><p><strong>有序集合（ZSet）</strong>：以任务触发时间为<code>score</code>，快速获取最近需执行的任务。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 添加任务（任务ID为唯一键，触发时间戳为Score）</span></span><br><span class="line">ZADD scheduled_tasks &lt;timestamp&gt; &lt;task_id&gt;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查询最近1分钟内需执行的任务</span></span><br><span class="line">ZRANGEBYSCORE scheduled_tasks &lt;current_time&gt; &lt;current_time+60&gt;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>hash表</strong>：存储任务详情（如回调参数、重试次数）</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">HSET task_metadata &lt;task_id&gt; &lt;JSON序列化的任务数据&gt;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="2-2-时间轮"><a href="#2-2-时间轮" class="headerlink" title="2.2. 时间轮"></a>2.2. 时间轮</h2><p>时间轮（<code>Timing Wheel</code>）可以被视为一种用于定时任务管理的<code>特殊内存存储结构</code>。在实际系统中，<strong>时间轮通常不独立作为存储层，而是与持久化存储结合，形成分层结构</strong>：</p>
+<ol>
+<li><strong>持久化存储层（如Redis、MySQL）</strong><ul>
+<li>长期存储所有任务元数据（如触发时间、回调参数、重试次数）</li>
+<li>支持任务状态查询和故障恢复。</li>
+</ul>
+</li>
+<li><strong>时间轮（内存存储层）</strong><ul>
+<li>仅缓存<strong>即将触发</strong>的任务（如未来1小时内的任务）</li>
+<li>通过高效的内存操作快速调度任务。</li>
+</ul>
+</li>
+</ol>
+<h3 id="2-2-1-简单时间轮结构"><a href="#2-2-1-简单时间轮结构" class="headerlink" title="2.2.1. 简单时间轮结构"></a>2.2.1. 简单时间轮结构</h3><p>单层时间轮是一种基于环形数组的定时器管理结构，通过将时间划分为固定大小的时间槽（<code>slot</code>），每个槽位存储对应时间段内需要执行的任务。如下图：<br><img src="/2021/09/10/2021-09-10-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/%E5%8D%95%E5%B1%82%E6%97%B6%E9%97%B4%E8%BD%AE.png" alt="单层时间轮"><br>时间轮的核心组件包括：</p>
+<ul>
+<li><strong>时间槽（slot）</strong>：固定大小的数组，每个元素表示一个时间单位（如<code>1ms、1s</code>）</li>
+<li><strong>指针（Cursor）</strong>：标记当前时间位置，每隔一个时间单位向前推进。</li>
+<li><strong>任务队列</strong>：每个时间槽维护一个任务列表，用于存储该时间段内到期的任务。</li>
+</ul>
+<h4 id="2-2-1-1-任务分配"><a href="#2-2-1-1-任务分配" class="headerlink" title="2.2.1.1. 任务分配"></a>2.2.1.1. 任务分配</h4><p>当添加一个延迟任务时，根据<strong>当前时间</strong>和<strong>延迟时间</strong>计算目标时间槽索引，将任务插入对应槽位的任务队列中。例如：</p>
+<ul>
+<li>时间轮总槽数为 _<code>N</code>_，每个槽位跨度为 <em><code>T</code></em> ms</li>
+<li>延迟时间为 <em><code>D</code></em> ms，则目标槽索引为<code>（current_slot + [D/T]) % N</code></li>
+</ul>
+<blockquote>
+<p><code>N = 100</code>, <code>T = 1ms</code>，当前时间&#x3D;<code>23ms</code>，任务在<code>1分12秒</code>执行，则目标槽索引为 <code>(23 + (49/1)) % 100</code>，则在<strong>索引&#x3D;72</strong>的时间槽内。</p>
+</blockquote>
+<h4 id="2-2-1-2-缺点"><a href="#2-2-1-2-缺点" class="headerlink" title="2.2.1.2. 缺点"></a>2.2.1.2. 缺点</h4><p>不支持长周期任务，主要原因是单层时间轮的核心是一个固定大小的环形数组（时间槽），每个槽位代表一个固定时间间隔，<strong>最大延迟时间 &#x3D; 槽位数 x 槽位时间间隔</strong></p>
+<blockquote>
+<p>若时间轮有100个槽位，每个槽位1ms，则最大延迟时间为100ms，如果任务延迟时间超过该范围（如200ms），单层时间轮无法直接处理，需额外机制。</p>
+<p>解决方案:</p>
+<ol>
+<li>加 <code>circle</code> 计数器。此方法相当于给双向链表中存储的任务加多一个 “<strong>圈数</strong>” 的维度，如某任务需要 30s 后执行，当前指针刻度在 1s，那么该任务的圈数就是 2，放在第 6 格中，即时间轮转 2 圈加 6 个格子后，触发此任务；</li>
+<li>多层级时间轮</li>
+</ol>
+</blockquote>
+<h3 id="2-2-2-层级时间轮结构"><a href="#2-2-2-层级时间轮结构" class="headerlink" title="2.2.2. 层级时间轮结构"></a>2.2.2. 层级时间轮结构</h3><p>层级时间轮是一种多级结构的时间轮算法，通过多个时间轮的嵌套协作，解决单层时间轮无法处理长周期任务的问题。<br><img src="/2021/09/10/2021-09-10-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/%E5%B1%82%E7%BA%A7%E6%97%B6%E9%97%B4%E8%BD%AE.png" alt="层级时间轮"></p>
+<ul>
+<li><strong>核心思想</strong>：<ul>
+<li><strong>低级时间轮</strong>负责高精度短延迟任务（如毫秒级）</li>
+<li><strong>高级时间轮</strong>负责大时间跨度的长延迟任务（如分钟、小时级）</li>
+<li>当任务延迟超出当前时间轮的范围时，递归地将任务提交到更高一层的时间轮；当任务接近执行时间时，降低到底层时间轮以触发精确执行。</li>
+</ul>
+</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>槽数量</th>
+<th>槽位间隔</th>
+<th>总覆盖时间</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>L1（底层）</td>
+<td>60</td>
+<td>1ms</td>
+<td>6oms</td>
+</tr>
+<tr>
+<td>L2（中层）</td>
+<td>60</td>
+<td>60ms</td>
+<td>3.6s</td>
+</tr>
+<tr>
+<td>L3（上层）</td>
+<td>60</td>
+<td>3.6s</td>
+<td>216s(3.6分钟)</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>层级关系</strong>：<ul>
+<li>高层时间轮的槽位间隔等于下层时间轮的总覆盖时间。</li>
+<li>例如，L2的槽位间隔为60ms，正好是L1的总覆盖时间（<strong>60ms&#x3D;60*1ms</strong>）</li>
+</ul>
+</li>
+</ul>
+<h4 id="2-2-2-1-代码示例"><a href="#2-2-2-1-代码示例" class="headerlink" title="2.2.2.1. 代码示例"></a>2.2.2.1. 代码示例</h4><ul>
+<li>核心组件设计<ul>
+<li><code>HierarchicalTimeWheel</code>：主类，管理多级时间轮。</li>
+<li><code>TimeWheel</code>：每一层时间轮，包含槽位、指针、调度器等。</li>
+<li><code>TimerTask</code>：封装任务及剩余延迟时间（单独线程遍历各自的时间轮数据）。</li>
+<li><code>slot</code>：槽位，用于存储到期的任务列表。（多种数据结构，链表、数组、队列、最小堆）<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> java.util.*;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.*;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HierarchicalTimeWheel</span> &#123;</span><br><span class="line">    <span class="comment">// 多个个层级时间轮</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> List&lt;TimeWheel&gt; wheels;</span><br><span class="line">    <span class="comment">// 当前最高层级</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> currentLevel;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">HierarchicalTimeWheel</span><span class="params">(<span class="type">int</span> levels, <span class="type">long</span> baseTickMs, <span class="type">int</span> baseSlots)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.wheels = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">        <span class="type">TimeWheel</span> <span class="variable">prev</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; levels; i++) &#123;</span><br><span class="line">            <span class="type">long</span> <span class="variable">tickMs</span> <span class="operator">=</span> i == <span class="number">0</span> ? baseTickMs : wheels.get(i - <span class="number">1</span>).getInterval();</span><br><span class="line">            <span class="type">TimeWheel</span> <span class="variable">wheel</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">TimeWheel</span>(tickMs, baseSlots, prev);</span><br><span class="line">            wheels.add(wheel);</span><br><span class="line">            prev = wheel;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">this</span>.currentLevel = levels - <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 添加任务</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">addTask</span><span class="params">(Runnable task, <span class="type">long</span> delayMs)</span> &#123;</span><br><span class="line">        wheels.get(<span class="number">0</span>).add(task, delayMs);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 关闭所有层级时间轮</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">shutdown</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (TimeWheel wheel : wheels) &#123;</span><br><span class="line">            wheel.shutdown();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// =================== TimeWheel 类 ===================</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">TimeWheel</span> &#123;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">long</span> interval;      <span class="comment">// 槽位间隔（ms）</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">int</span> slots;          <span class="comment">// 槽数量</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> Slot[] buckets;     <span class="comment">// 槽位数组</span></span><br><span class="line">        <span class="keyword">private</span> <span class="type">int</span> <span class="variable">currentSlot</span> <span class="operator">=</span> <span class="number">0</span>;      <span class="comment">// 当前指针位置</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> ScheduledExecutorService scheduler; <span class="comment">// 调度器</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> TimeWheel higherWheel; <span class="comment">// 上层时间轮</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">public</span> <span class="title function_">TimeWheel</span><span class="params">(<span class="type">long</span> interval, <span class="type">int</span> slots, TimeWheel higherWheel)</span> &#123;</span><br><span class="line">            <span class="built_in">this</span>.interval = interval;</span><br><span class="line">            <span class="built_in">this</span>.slots = slots;</span><br><span class="line">            <span class="built_in">this</span>.higherWheel = higherWheel;</span><br><span class="line">            <span class="built_in">this</span>.buckets = <span class="keyword">new</span> <span class="title class_">Slot</span>[slots];</span><br><span class="line">            <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; slots; i++) &#123;</span><br><span class="line">                buckets[i] = <span class="keyword">new</span> <span class="title class_">Slot</span>();</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="built_in">this</span>.scheduler = Executors.newSingleThreadScheduledExecutor();</span><br><span class="line">            start();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 启动时间轮</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">start</span><span class="params">()</span> &#123;</span><br><span class="line">            scheduler.scheduleAtFixedRate(<span class="built_in">this</span>::advance, interval, interval, TimeUnit.MILLISECONDS);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 推进指针并执行任务</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">advance</span><span class="params">()</span> &#123;</span><br><span class="line">            <span class="type">Slot</span> <span class="variable">currentBucket</span> <span class="operator">=</span> buckets[currentSlot];</span><br><span class="line">            executeTasks(currentBucket);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 如果存在上层时间轮，则向上提交任务</span></span><br><span class="line">            <span class="keyword">if</span> (higherWheel != <span class="literal">null</span>) &#123;</span><br><span class="line">                higherWheel.addOverflowingTasks(currentBucket);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            currentSlot = (currentSlot + <span class="number">1</span>) % slots;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 执行槽位中的任务</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">executeTasks</span><span class="params">(Slot slot)</span> &#123;</span><br><span class="line">            List&lt;TimerTask&gt; tasks = slot.pollAll();</span><br><span class="line">            <span class="keyword">for</span> (TimerTask task : tasks) &#123;</span><br><span class="line">                task.run();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 添加溢出任务到上层时间轮</span></span><br><span class="line">        <span class="keyword">void</span> <span class="title function_">addOverflowingTasks</span><span class="params">(Slot overflowBucket)</span> &#123;</span><br><span class="line">            List&lt;TimerTask&gt; tasks = overflowBucket.pollAll();</span><br><span class="line">            <span class="keyword">for</span> (TimerTask task : tasks) &#123;</span><br><span class="line">                <span class="keyword">if</span> (task.remainingDelay &gt; <span class="number">0</span>) &#123;</span><br><span class="line">                    add(task.task, task.remainingDelay);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 添加任务</span></span><br><span class="line">        <span class="keyword">void</span> <span class="title function_">add</span><span class="params">(Runnable task, <span class="type">long</span> delayMs)</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (delayMs &lt;= <span class="number">0</span>) &#123;</span><br><span class="line">                task.run();</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (delayMs &lt; interval) &#123;</span><br><span class="line">                <span class="comment">// 放入当前时间轮</span></span><br><span class="line">                <span class="type">int</span> <span class="variable">index</span> <span class="operator">=</span> (<span class="type">int</span>) ((delayMs / interval) + currentSlot) % slots;</span><br><span class="line">                buckets[index].add(<span class="keyword">new</span> <span class="title class_">TimerTask</span>(task, delayMs));</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">// 提交到上层时间轮</span></span><br><span class="line">                <span class="keyword">if</span> (higherWheel != <span class="literal">null</span>) &#123;</span><br><span class="line">                    higherWheel.add(task, delayMs);</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalStateException</span>(<span class="string">&quot;无法处理超出范围的延迟: &quot;</span> + delayMs + <span class="string">&quot;ms&quot;</span>);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 获取槽位间隔</span></span><br><span class="line">        <span class="keyword">public</span> <span class="type">long</span> <span class="title function_">getInterval</span><span class="params">()</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> interval * slots;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 关闭时间轮</span></span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">shutdown</span><span class="params">()</span> &#123;</span><br><span class="line">            scheduler.shutdownNow();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// =================== 辅助类 ===================</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">TimerTask</span> &#123;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> Runnable task;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">long</span> remainingDelay;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">public</span> <span class="title function_">TimerTask</span><span class="params">(Runnable task, <span class="type">long</span> delayMs)</span> &#123;</span><br><span class="line">            <span class="built_in">this</span>.task = task;</span><br><span class="line">            <span class="built_in">this</span>.remainingDelay = delayMs;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">            task.run();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Slot</span> &#123;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> Queue&lt;TimerTask&gt; queue = <span class="keyword">new</span> <span class="title class_">ConcurrentLinkedQueue</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">add</span><span class="params">(TimerTask task)</span> &#123;</span><br><span class="line">            queue.offer(task);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">public</span> List&lt;TimerTask&gt; <span class="title function_">pollAll</span><span class="params">()</span> &#123;</span><br><span class="line">            List&lt;TimerTask&gt; tasks = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">            queue.drainTo(tasks);</span><br><span class="line">            <span class="keyword">return</span> tasks;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>每个层级时间轮都有对应的一个线程去遍历。</p>
+</blockquote>
+<h4 id="2-2-2-2-时间轮升级-降级"><a href="#2-2-2-2-时间轮升级-降级" class="headerlink" title="2.2.2.2. 时间轮升级 &amp; 降级"></a>2.2.2.2. 时间轮升级 &amp; 降级</h4><p>时间轮的<strong>升级和降级</strong>是层级时间轮的核心机制，用于处理长周期任务和动态调整任务精度的问题。</p>
+<h5 id="升级"><a href="#升级" class="headerlink" title="升级"></a>升级</h5><p>当任务的延迟时间超出当前时间轮的总覆盖时间时，任务会被提交到上层时间轮，这一过程称为升级。一般是在提交任务时，先从底层时间轮计算，一步步的往上升级。</p>
+<ul>
+<li><strong>触发条件</strong><ul>
+<li>任务延迟时间 &gt; 当前时间轮的 槽数 * 槽位间隔（即当前时间轮的最大支持延迟时间）</li>
+</ul>
+</li>
+<li><strong>示例</strong>：假设存在以下三层时间轮：<ul>
+<li><strong>L1（底层）</strong>：<code>60</code>个槽位，每个槽位<code>1ms </code>-&gt; 总覆盖时间60ms</li>
+<li><strong>L2（中层）</strong>：<code>60</code>个槽位，每个槽位<code>60ms</code> -&gt; 总覆盖时间3.6s</li>
+<li><strong>L3（上层）</strong>：<code>60</code>个槽位，每个槽位<code>3.6s</code> -&gt; 总覆盖时间216s</li>
+</ul>
+</li>
+<li>场景<ul>
+<li>添加一个延迟时间为<code>400ms</code>的任务<ul>
+<li>L1无法容纳，因此任务被升级到L2，插入到L2的第7个槽位（<code>400ms/60ms ≈ 6.67</code> -&gt; 索引7).</li>
+</ul>
+</li>
+<li>添加一个延迟时间为<code>200s</code>的任务<ul>
+<li><code>L1、L2</code>均无法容纳，任务被逐级升级到L3.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h5 id="降级"><a href="#降级" class="headerlink" title="降级"></a>降级</h5><p>当前时间轮的指针推进到某个槽位时，该槽位中的任务如果<strong>剩余延迟时间小于下层时间轮的总覆盖时间</strong>，则会被重新提交到下层时间轮，这一过程称为<strong>降级</strong>。</p>
+<ul>
+<li>时间轮的降级通常会逐层向下传递，直到任务被插入到最低层时间轮或满足执行条件为止。</li>
+</ul>
+<h2 id="2-3-最小堆"><a href="#2-3-最小堆" class="headerlink" title="2.3. 最小堆"></a>2.3. 最小堆</h2><p>所谓最小堆方案，正如我们上面所说的，每当有新任务加入的时候，会把需要即将要执行的任务排到前面，同时会有一个线程不断的轮询判断，如果当前某个任务已经到达执行时间点，就会立即执行，具体实现代表就是 <code>JDK</code> 中的 <code>Timer</code> 定时器！</p>
+<h3 id="2-3-1-Timer示例"><a href="#2-3-1-Timer示例" class="headerlink" title="2.3.1. Timer示例"></a>2.3.1. Timer示例</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">Timer</span> <span class="variable">timer</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Timer</span>();</span><br><span class="line"><span class="comment">// 创建新任务</span></span><br><span class="line"><span class="type">TimerTask</span> <span class="variable">task</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">TimerTask</span>() &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;任务执行中...&quot;</span>);</span><br><span class="line">        <span class="keyword">if</span> (someCondition) &#123;</span><br><span class="line">            <span class="built_in">this</span>.cancel(); <span class="comment">// 取消任务</span></span><br><span class="line">            System.out.println(<span class="string">&quot;任务已取消&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line">timer.schedule(task, <span class="number">1000</span>, <span class="number">2000</span>);</span><br><span class="line"><span class="comment">// 清理已取消任务</span></span><br><span class="line">timer.purge();</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-2-Timer源码"><a href="#2-3-2-Timer源码" class="headerlink" title="2.3.2. Timer源码"></a>2.3.2. Timer源码</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Timer</span> &#123;</span><br><span class="line">    <span class="comment">// 任务队列，内部使用数组存储任务，最小堆</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">TaskQueue</span> <span class="variable">queue</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">TaskQueue</span>();</span><br><span class="line">    <span class="comment">// 定时器内部线程，用于循环执行，从queue中获取数据并执行。</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">TimerThread</span> <span class="variable">thread</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">TimerThread</span>(queue);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">TimerThread</span> <span class="keyword">extends</span> <span class="title class_">Thread</span> &#123;</span><br><span class="line">        <span class="keyword">private</span> TaskQueue queue;</span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                mainLoop();</span><br><span class="line">            &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">                <span class="keyword">synchronized</span>(queue) &#123;</span><br><span class="line">                  newTasksMayBeScheduled = <span class="literal">false</span>;</span><br><span class="line">                  queue.clear();  <span class="comment">// Eliminate obsolete references</span></span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//任务队列，内部采用数组实现最小堆</span></span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">TaskQueue</span> &#123;</span><br><span class="line">        <span class="keyword">private</span> TimerTask[] queue = <span class="keyword">new</span> <span class="title class_">TimerTask</span>[<span class="number">128</span>];</span><br><span class="line">        <span class="keyword">private</span> <span class="type">int</span> <span class="variable">size</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> <span class="title function_">size</span><span class="params">()</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> size;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">void</span> <span class="title function_">add</span><span class="params">(TimerTask task)</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (size + <span class="number">1</span> == queue.length)</span><br><span class="line">                queue = Arrays.copyOf(queue, <span class="number">2</span> * queue.length);</span><br><span class="line">  </span><br><span class="line">            queue[++size] = task;</span><br><span class="line">            fixUp(size);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 维护最小堆的结构</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">fixUp</span><span class="params">(<span class="type">int</span> k)</span> &#123;</span><br><span class="line">            <span class="keyword">while</span> (k &gt; <span class="number">1</span>) &#123;</span><br><span class="line">                <span class="type">int</span> <span class="variable">j</span> <span class="operator">=</span> k &gt;&gt; <span class="number">1</span>;</span><br><span class="line">                <span class="keyword">if</span> (queue[j].nextExecutionTime &lt;= queue[k].nextExecutionTime)</span><br><span class="line">                    <span class="keyword">break</span>;</span><br><span class="line">                <span class="type">TimerTask</span> <span class="variable">tmp</span> <span class="operator">=</span> queue[j];</span><br><span class="line">                queue[j] = queue[k];</span><br><span class="line">                queue[k] = tmp;</span><br><span class="line">                k = j;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>周期任务</strong>：执行完以后，计算下次执行的任务，然后再入堆</li>
+<li><strong>普通任务</strong>：执行完以后，移除</li>
+</ul>
+<h3 id="2-3-3-Timer-问题："><a href="#2-3-3-Timer-问题：" class="headerlink" title="2.3.3. Timer 问题："></a>2.3.3. Timer 问题：</h3><ul>
+<li><strong>任务执行时间长影响其他任务</strong>：如果 <code>TimerTask</code> 抛出未检查的异常，<code>Timer</code> 将会产生无法预料的行为。<code>Timer</code> 线程并不捕获异常，所以 <code>TimerTask</code> 抛出的未检查的异常会终止 <code>timer</code> 线程。此时，已经被安排但尚未执行的 <code>TimerTask</code> 永远不会再执行了，新的任务也不能被调度了。</li>
+<li><strong>任务异常影响其他任务</strong>：<code>Timer</code> 里面的任务如果执行时间太长，会独占 <code>Timer</code> 对象，使得后面的任务无法几时的执行 ，<code>ScheduledExecutorService</code> 不会出现 <code>Timer</code> 的问题(除非你只搞一个单线程池的任务区)。</li>
+</ul>
+<h1 id="三-定时任务执行"><a href="#三-定时任务执行" class="headerlink" title="三. 定时任务执行"></a>三. 定时任务执行</h1><p>定时任务的执行，是值调度器根据存储的任务信息，在指定时间或条件满足时调用任务逻辑。执行的核心是<strong>调度策略</strong>和<strong>资源管理</strong>。</p>
+<h2 id="3-1-单线程执行"><a href="#3-1-单线程执行" class="headerlink" title="3.1. 单线程执行"></a>3.1. 单线程执行</h2><p>Java Timer，上面的章节解析过了。</p>
+<h2 id="3-2-多线程执行"><a href="#3-2-多线程执行" class="headerlink" title="3.2. 多线程执行"></a>3.2. 多线程执行</h2><h3 id="3-2-1-Java-ScheduledExecutorService"><a href="#3-2-1-Java-ScheduledExecutorService" class="headerlink" title="3.2.1. Java ScheduledExecutorService"></a>3.2.1. Java ScheduledExecutorService</h3><p>使用线程池并发执行任务，避免单线程阻塞。</p>
+<ul>
+<li>示例代码：<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">ScheduledExecutorService</span> <span class="variable">executor</span> <span class="operator">=</span> Executors.newScheduledThreadPool(<span class="number">10</span>);</span><br><span class="line">executor.scheduleWithFixedDelay(() -&gt; &#123;</span><br><span class="line">    <span class="comment">// 任务逻辑</span></span><br><span class="line">&#125;, initialDelay, delay, TimeUnit.SECONDS);</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h4 id="3-2-1-1-源码解析"><a href="#3-2-1-1-源码解析" class="headerlink" title="3.2.1.1. 源码解析"></a>3.2.1.1. 源码解析</h4><p><code>ScheduledExecutorService</code>是一个接口，提供了延迟执行任务和周期性执行任务的功能。是替代传统<code>Timer</code>和<code>TimerTask</code>的更强大工具。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">ScheduledExecutorService</span> <span class="keyword">extends</span> <span class="title class_">ExecutorService</span> &#123;</span><br><span class="line">    <span class="comment">// 在指定延迟后执行一次任务</span></span><br><span class="line">    <span class="keyword">public</span> &lt;V&gt; ScheduledFuture&lt;V&gt; <span class="title function_">schedule</span><span class="params">(Callable&lt;V&gt; callable, <span class="type">long</span> delay, TimeUnit unit)</span>;</span><br><span class="line">    <span class="comment">// 以固定频率周期性执行任务（从初始延迟开始）</span></span><br><span class="line">    <span class="keyword">public</span> ScheduledFuture&lt;?&gt; scheduleAtFixedRate(Runnable command,</span><br><span class="line">                                                <span class="type">long</span> initialDelay,</span><br><span class="line">                                                <span class="type">long</span> period,</span><br><span class="line">                                                TimeUnit unit);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>ScheduledThreadPoolExecutor</code>是Java并发包中用于延迟执行和周期性执行任务的线程池，继承自<code>ThreadPoolExecutor</code>，实现了<code>ScheduledExecutorService</code>接口。</p>
+<p>其核心功能是通过<code>DelayedWorkQueue</code>（基于小根堆的延迟队列）和<code>ScheduledFutureTask</code>实现任务的定时调度，源码解析：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ScheduledThreadPoolExecutor</span> <span class="keyword">extends</span> <span class="title class_">ThreadPoolExecutor</span> <span class="keyword">implements</span> <span class="title class_">ScheduledExecutorService</span> &#123;</span><br><span class="line">    <span class="comment">// 构造函数，实际创建的是DelayedWorkQueue延迟队列</span></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">ScheduledThreadPoolExecutor</span><span class="params">(<span class="type">int</span> corePoolSize)</span> &#123;</span><br><span class="line">      <span class="built_in">super</span>(corePoolSize, Integer.MAX_VALUE, <span class="number">0</span>, NANOSECONDS, <span class="keyword">new</span> <span class="title class_">DelayedWorkQueue</span>());</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">class</span> <span class="title class_">ScheduledFutureTask</span>&lt;V&gt; <span class="keyword">extends</span> <span class="title class_">FutureTask</span>&lt;V&gt; <span class="keyword">implements</span> <span class="title class_">RunnableScheduledFuture</span>&lt;V&gt; &#123;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">long</span> sequenceNumber; <span class="comment">// 相同延迟时间下的任务排序编号（FIFO）</span></span><br><span class="line">        <span class="keyword">private</span> <span class="type">long</span> time; <span class="comment">// 下次执行时间（纳秒级）</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">long</span> period; <span class="comment">// 周期时间（正数：固定速率；负数：固定延迟；0：非周期）</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">int</span> heapIndex; <span class="comment">// 在 DelayedWorkQueue 中的索引</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//延迟队列结构</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">DelayedWorkQueue</span> <span class="keyword">extends</span> <span class="title class_">AbstractQueue</span>&lt;Runnable&gt; <span class="keyword">implements</span> <span class="title class_">BlockingQueue</span>&lt;Runnable&gt; &#123;</span><br><span class="line">        <span class="keyword">private</span> RunnableScheduledFuture&lt;?&gt;[] queue; <span class="comment">// 小根堆数组</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">ReentrantLock</span> <span class="variable">lock</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ReentrantLock</span>(); <span class="comment">// 排他锁</span></span><br><span class="line">        <span class="keyword">private</span> <span class="type">int</span> size; <span class="comment">// 当前队列大小</span></span><br><span class="line">        <span class="keyword">private</span> Thread leader; <span class="comment">// 当前等待任务的线程（leader）</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">Condition</span> <span class="variable">available</span> <span class="operator">=</span> lock.newCondition(); <span class="comment">// 等待条件</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>DelayedWorkQueue</code></p>
+<ul>
+<li>基于小根堆实现的优先队列，按任务的触发时间排序。队首任务是最近可执行的任务。</li>
+<li>关键特性：<ul>
+<li><strong>无界队列</strong>：支持无限任务堆积（OOM）</li>
+</ul>
+</li>
+</ul>
+<h4 id="3-2-1-2-核心流程"><a href="#3-2-1-2-核心流程" class="headerlink" title="3.2.1.2. 核心流程"></a>3.2.1.2. 核心流程</h4><ul>
+<li>任务提交<ul>
+<li>通过<code>scheduleXXX</code>方法提交任务，最终调用<code>delayedExecute</code>方法<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">delayedExecute</span><span class="params">(RunnableScheduledFuture&lt;?&gt; task)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (isShutdown()) </span><br><span class="line">        reject(task); <span class="comment">// 如果线程池已关闭，拒绝任务</span></span><br><span class="line">    <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="built_in">super</span>.getQueue().add(task); <span class="comment">// 将任务加入 DelayedWorkQueue</span></span><br><span class="line">        <span class="keyword">if</span> (isShutdown() &amp;&amp; !canRunInCurrentRunState(task.isPeriodic()) &amp;&amp; remove(task))</span><br><span class="line">            task.cancel(<span class="literal">false</span>);</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            ensurePrestart(); <span class="comment">// 确保至少有一个线程在运行</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li><code>ensurePrestart()</code>：若当前线程数小于<code>corePoolSize</code>，则创建新线程。</li>
+</ul>
+</li>
+<li>任务执行<ul>
+<li><code>Worker</code>线程逻辑<ul>
+<li>从<code>DelayedWorkQueue</code>中获取最早到期的任务</li>
+<li>执行任务逻辑</li>
+<li>若为周期性任务，调用 <code>setNextRunTime()</code>计算下次执行时间，并重新入队</li>
+</ul>
+</li>
+<li><code>run()</code>方法关键逻辑：<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">boolean</span> <span class="variable">periodic</span> <span class="operator">=</span> isPeriodic();</span><br><span class="line">    <span class="keyword">if</span> (!canRunInCurrentRunState(periodic)) &#123;</span><br><span class="line">        cancel(<span class="literal">false</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (!periodic) &#123;</span><br><span class="line">        ScheduledFutureTask.<span class="built_in">super</span>.run(); <span class="comment">// 非周期任务直接执行</span></span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (ScheduledFutureTask.<span class="built_in">super</span>.runAndReset()) &#123; <span class="comment">// 周期任务执行成功且不中断</span></span><br><span class="line">        setNextRunTime(); <span class="comment">// 设置下次执行时间</span></span><br><span class="line">        reExecutePeriodic(outerTask); <span class="comment">// 重新入队</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ul>
+<h3 id="3-2-2-quartz框架"><a href="#3-2-2-quartz框架" class="headerlink" title="3.2.2. quartz框架"></a>3.2.2. quartz框架</h3><p>后续章节详细介绍。</p>
+<h2 id="3-3-分布式执行"><a href="#3-3-分布式执行" class="headerlink" title="3.3. 分布式执行"></a>3.3. 分布式执行</h2><h3 id="3-3-1-阿里巴巴"><a href="#3-3-1-阿里巴巴" class="headerlink" title="3.3.1. 阿里巴巴"></a>3.3.1. 阿里巴巴</h3><p>后续章节详细介绍。</p>
+<p>参考文章：<br><a href="https://cloud.tencent.com/developer/article/1769812">定时任务的实现原理</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/" rel="tag"># 定时任务</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/09/04/2021-09-04-%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8-%E6%95%B0%E6%8D%AE%E8%BF%81%E7%A7%BB/" rel="prev" title="《分库分表》数据迁移">
+      <i class="fa fa-chevron-left"></i> 《分库分表》数据迁移
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/09/15/2021-09-15-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1-quartz/" rel="next" title="《定时任务》quartz">
+      《定时任务》quartz <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1"><span class="nav-text">一. 定时任务</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1%E5%AD%98%E5%82%A8"><span class="nav-text">二. 定时任务存储</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1-redis%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E8%AE%BE%E8%AE%A1"><span class="nav-text">2.1. redis数据结构设计</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-%E6%97%B6%E9%97%B4%E8%BD%AE"><span class="nav-text">2.2. 时间轮</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1-%E7%AE%80%E5%8D%95%E6%97%B6%E9%97%B4%E8%BD%AE%E7%BB%93%E6%9E%84"><span class="nav-text">2.2.1. 简单时间轮结构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-1-1-%E4%BB%BB%E5%8A%A1%E5%88%86%E9%85%8D"><span class="nav-text">2.2.1.1. 任务分配</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-1-2-%E7%BC%BA%E7%82%B9"><span class="nav-text">2.2.1.2. 缺点</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-2-%E5%B1%82%E7%BA%A7%E6%97%B6%E9%97%B4%E8%BD%AE%E7%BB%93%E6%9E%84"><span class="nav-text">2.2.2. 层级时间轮结构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-2-1-%E4%BB%A3%E7%A0%81%E7%A4%BA%E4%BE%8B"><span class="nav-text">2.2.2.1. 代码示例</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-2-2-%E6%97%B6%E9%97%B4%E8%BD%AE%E5%8D%87%E7%BA%A7-%E9%99%8D%E7%BA%A7"><span class="nav-text">2.2.2.2. 时间轮升级 &amp; 降级</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E5%8D%87%E7%BA%A7"><span class="nav-text">升级</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E9%99%8D%E7%BA%A7"><span class="nav-text">降级</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-%E6%9C%80%E5%B0%8F%E5%A0%86"><span class="nav-text">2.3. 最小堆</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-1-Timer%E7%A4%BA%E4%BE%8B"><span class="nav-text">2.3.1. Timer示例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-2-Timer%E6%BA%90%E7%A0%81"><span class="nav-text">2.3.2. Timer源码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-3-Timer-%E9%97%AE%E9%A2%98%EF%BC%9A"><span class="nav-text">2.3.3. Timer 问题：</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1%E6%89%A7%E8%A1%8C"><span class="nav-text">三. 定时任务执行</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1-%E5%8D%95%E7%BA%BF%E7%A8%8B%E6%89%A7%E8%A1%8C"><span class="nav-text">3.1. 单线程执行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2-%E5%A4%9A%E7%BA%BF%E7%A8%8B%E6%89%A7%E8%A1%8C"><span class="nav-text">3.2. 多线程执行</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1-Java-ScheduledExecutorService"><span class="nav-text">3.2.1. Java ScheduledExecutorService</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-1-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90"><span class="nav-text">3.2.1.1. 源码解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-2-%E6%A0%B8%E5%BF%83%E6%B5%81%E7%A8%8B"><span class="nav-text">3.2.1.2. 核心流程</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-2-quartz%E6%A1%86%E6%9E%B6"><span class="nav-text">3.2.2. quartz框架</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3-%E5%88%86%E5%B8%83%E5%BC%8F%E6%89%A7%E8%A1%8C"><span class="nav-text">3.3. 分布式执行</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-1-%E9%98%BF%E9%87%8C%E5%B7%B4%E5%B7%B4"><span class="nav-text">3.3.1. 阿里巴巴</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">204</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">36</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">65</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

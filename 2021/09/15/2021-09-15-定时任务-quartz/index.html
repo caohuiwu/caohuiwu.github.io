@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }     一. 定时任务主要考虑的点：  定时任务如何存储？（持久化或临时保存到特定的数据结构中） 定时任务如何执行？（调度策略和资源管理）。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《定时任务》quartz">
+<meta property="og:url" content="http://yoursite.com/2021/09/15/2021-09-15-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1-quartz/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }     一. 定时任务主要考虑的点：  定时任务如何存储？（持久化或临时保存到特定的数据结构中） 定时任务如何执行？（调度策略和资源管理）。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2021/09/15/2021-09-15-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1-quartz/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.png">
+<meta property="article:published_time" content="2021-09-14T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-04-30T13:25:38.395Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="定时任务">
+<meta property="article:tag" content="quartz">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/09/15/2021-09-15-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1-quartz/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/09/15/2021-09-15-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1-quartz/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《定时任务》quartz | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/09/15/2021-09-15-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1-quartz/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《定时任务》quartz
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-09-15 00:00:00" itemprop="dateCreated datePublished" datetime="2021-09-15T00:00:00+08:00">2021-09-15</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-04-30 21:25:38" itemprop="dateModified" datetime="2025-04-30T21:25:38+08:00">2025-04-30</time>
+              </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>8.5k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>21 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.orange {
+   color: orange
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+
+
+<h1 id="一-定时任务"><a href="#一-定时任务" class="headerlink" title="一. 定时任务"></a>一. 定时任务</h1><p>主要考虑的点：</p>
+<ul>
+<li><strong>定时任务如何存储？（持久化或临时保存到特定的数据结构中）</strong></li>
+<li><strong>定时任务如何执行？（调度策略和资源管理）</strong>。</li>
+</ul>
+<span id="more"></span>
+
+<hr>
+<p><strong>定时任务执行</strong>：定时任务的执行，是值调度器根据存储的任务信息，在指定时间或条件满足时调用任务逻辑。执行的核心是<strong>调度策略</strong>和<strong>资源管理</strong>。</p>
+<ul>
+<li><strong>单线程执行</strong>：<code>Java Timer</code>，上篇文章做了解析。</li>
+<li><strong>多线程执行</strong><ul>
+<li><code>Java ScheduledExecutorService</code>：上篇文章做了解析。</li>
+<li><code>quartz</code>框架</li>
+</ul>
+</li>
+<li><strong>分布式执行</strong> <ul>
+<li>阿里巴巴 <code>schedulerx2.0</code></li>
+</ul>
+</li>
+</ul>
+<h1 id="二-quartz框架"><a href="#二-quartz框架" class="headerlink" title="二. quartz框架"></a>二. quartz框架</h1><p><code>quartz</code>是一个功能强大的开源任务调度框架，专为Java应用程序设计，广泛用于企业级开发中。</p>
+<h2 id="2-1-入门示例"><a href="#2-1-入门示例" class="headerlink" title="2.1. 入门示例"></a>2.1. 入门示例</h2><ul>
+<li><strong>任务类</strong>：需要实现 <code>Job</code> 接口<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 功能描述: 任务</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HelloJob</span> <span class="keyword">implements</span> <span class="title class_">Job</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">execute</span><span class="params">(JobExecutionContext context)</span> <span class="keyword">throws</span> JobExecutionException &#123;</span><br><span class="line">        <span class="comment">// 获取当前时间,并格式化</span></span><br><span class="line">        <span class="type">Date</span> <span class="variable">date</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Date</span>();</span><br><span class="line">        <span class="type">SimpleDateFormat</span> <span class="variable">format</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SimpleDateFormat</span>(<span class="string">&quot;yyyy-MM-dd HH:mm:ss&quot;</span>);</span><br><span class="line">        <span class="type">String</span> <span class="variable">dateSrting</span> <span class="operator">=</span> format.format(date);</span><br><span class="line">        <span class="comment">// 业务功能模拟</span></span><br><span class="line">        System.out.println(<span class="string">&quot;开始备份数据库,时间：&quot;</span> + dateSrting);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li><strong>调度器 + 触发器</strong><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.quartz.*;</span><br><span class="line"><span class="keyword">import</span> org.quartz.impl.StdSchedulerFactory;</span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 功能描述: 定时器配置</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HelloSchedulerDemo</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> SchedulerException &#123;</span><br><span class="line">        <span class="comment">// 1、调度器 - 从工厂获取调度实例</span></span><br><span class="line">        <span class="type">Scheduler</span> <span class="variable">scheduler</span> <span class="operator">=</span> StdSchedulerFactory.getDefaultScheduler();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2、任务实例 - 执行的任务对象</span></span><br><span class="line">        <span class="type">JobDetail</span> <span class="variable">job</span> <span class="operator">=</span> JobBuilder.newJob(HelloJob.class)</span><br><span class="line">                .withIdentity(<span class="string">&quot;job1&quot;</span>, <span class="string">&quot;group1&quot;</span>) <span class="comment">// 任务名称,组名称</span></span><br><span class="line">                .build();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 3、触发器 - 控制执行次数和执行时间</span></span><br><span class="line">        <span class="type">Trigger</span> <span class="variable">trigger</span> <span class="operator">=</span> TriggerBuilder.newTrigger()</span><br><span class="line">                .withIdentity(<span class="string">&quot;trigger1&quot;</span>, <span class="string">&quot;group1&quot;</span>) <span class="comment">// 同上</span></span><br><span class="line">                .startNow() <span class="comment">// 立刻启动</span></span><br><span class="line">                .withSchedule(SimpleScheduleBuilder.simpleSchedule().</span><br><span class="line">                        withIntervalInSeconds(<span class="number">3</span>).</span><br><span class="line">                        withRepeatCount(<span class="number">10</span>))   <span class="comment">// 循环10次,每次间隔3s</span></span><br><span class="line">                .build();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 调度器关联触发器,并启动</span></span><br><span class="line">        scheduler.scheduleJob(job,trigger);</span><br><span class="line">        scheduler.start();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="2-2-核心概念"><a href="#2-2-核心概念" class="headerlink" title="2.2. 核心概念"></a>2.2. 核心概念</h2><p><img src="/2021/09/15/2021-09-15-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1-quartz/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.png" alt="核心概念"></p>
+<ul>
+<li><code>Scheduler</code>（调度器）<ul>
+<li><strong>作用</strong>：负责管理任务的注册、触发和执行。</li>
+<li><strong>功能</strong>：<ul>
+<li>启动、暂停、恢复和关闭任务。</li>
+<li>将<code>job</code>和<code>Trigger</code>关联起来。</li>
+<li>支持单机和分布式环境下的任务调度。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><code>Job</code>（任务）<ul>
+<li><strong>作用</strong>：定义具体的业务逻辑，开发者需要实现Job接口并重写<code>execute(JobExecutionContext context)</code>方法</li>
+<li><strong>特点</strong>：<ul>
+<li>支持无状态和有状态任务</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><code>JobDetail</code>（任务详情）<ul>
+<li>作用：封装任务的元数据（如名称、组名、描述），并与具体的<code>Job</code>类绑定。</li>
+</ul>
+</li>
+<li><code>Trigger</code>（触发器）<ul>
+<li><strong>作用</strong>：定义任务的执行规则，定义任务（<code>Job</code>）何时被调度器（<code>Scheduler</code>）触发执行。</li>
+<li><strong>主要类型</strong><ul>
+<li><code>SimpleTrigger</code>：简单重复任务（固定间隔时间）</li>
+<li><code>CronTrigger</code>：基于<code>Cron</code>表达式的复杂调度（如每天凌晨2点执行）</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><code>JobStore</code>（任务存储）<ul>
+<li><strong>作用</strong>：存储任务和触发器的信息，支持两种模式<ul>
+<li><strong>内存存储</strong>：适合单机、临时任务。</li>
+<li><strong>数据库存储</strong></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="2-3-源码解析"><a href="#2-3-源码解析" class="headerlink" title="2.3. 源码解析"></a>2.3. 源码解析</h2><h3 id="2-3-1-Scheduler（调度器）"><a href="#2-3-1-Scheduler（调度器）" class="headerlink" title="2.3.1. Scheduler（调度器）"></a>2.3.1. Scheduler（调度器）</h3><p><code>Scheduler</code>是一个接口，定义了一系列方法，如启动、暂停、添加。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Scheduler</span> &#123;</span><br><span class="line">  <span class="keyword">void</span> <span class="title function_">start</span><span class="params">()</span> <span class="keyword">throws</span> SchedulerException;</span><br><span class="line">  <span class="keyword">void</span> <span class="title function_">shutdown</span><span class="params">()</span> <span class="keyword">throws</span> SchedulerException;</span><br><span class="line">  <span class="keyword">void</span> <span class="title function_">addJob</span><span class="params">(JobDetail var1, <span class="type">boolean</span> var2)</span> <span class="keyword">throws</span> SchedulerException;</span><br><span class="line">  Date <span class="title function_">scheduleJob</span><span class="params">(JobDetail var1, Trigger var2)</span> <span class="keyword">throws</span> SchedulerException;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如下为<code>Scheduler</code>的创建，通过工厂<code>StdSchedulerFactory</code>创建标准的调度器<code>StdScheduler</code>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">StdSchedulerFactory</span> <span class="keyword">implements</span> <span class="title class_">SchedulerFactory</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Scheduler <span class="title function_">getDefaultScheduler</span><span class="params">()</span> <span class="keyword">throws</span> SchedulerException &#123;</span><br><span class="line">        <span class="type">StdSchedulerFactory</span> <span class="variable">fact</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">StdSchedulerFactory</span>();</span><br><span class="line">        <span class="keyword">return</span> fact.getScheduler();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">public</span> Scheduler <span class="title function_">getScheduler</span><span class="params">()</span> <span class="keyword">throws</span> SchedulerException &#123;</span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">this</span>.cfg == <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="built_in">this</span>.initialize();</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="type">SchedulerRepository</span> <span class="variable">schedRep</span> <span class="operator">=</span> SchedulerRepository.getInstance();</span><br><span class="line">      <span class="type">Scheduler</span> <span class="variable">sched</span> <span class="operator">=</span> schedRep.lookup(<span class="built_in">this</span>.getSchedulerName());</span><br><span class="line">      <span class="keyword">if</span> (sched != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!sched.isShutdown()) &#123;</span><br><span class="line">          <span class="keyword">return</span> sched;</span><br><span class="line">        &#125;</span><br><span class="line">  </span><br><span class="line">        schedRep.remove(<span class="built_in">this</span>.getSchedulerName());</span><br><span class="line">      &#125;</span><br><span class="line">      sched = <span class="built_in">this</span>.instantiate();</span><br><span class="line">      <span class="keyword">return</span> sched;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>标准调度器<code>StdScheduler</code>源码如下，重要内部属性：<code>QuartzScheduler sched</code>（任务存储啥的都是靠它）</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">StdScheduler</span> <span class="keyword">implements</span> <span class="title class_">Scheduler</span> &#123;</span><br><span class="line">  <span class="keyword">private</span> QuartzScheduler sched;</span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">start</span><span class="params">()</span> <span class="keyword">throws</span> SchedulerException &#123;</span><br><span class="line">    <span class="built_in">this</span>.sched.start();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-3-1-1-启动-start"><a href="#2-3-1-1-启动-start" class="headerlink" title="2.3.1.1. 启动 start()"></a>2.3.1.1. 启动 start()</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">QuartzScheduler</span> <span class="keyword">implements</span> <span class="title class_">RemotableQuartzScheduler</span> &#123;</span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">start</span><span class="params">()</span> <span class="keyword">throws</span> SchedulerException &#123;</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">this</span>.shuttingDown &amp;&amp; !<span class="built_in">this</span>.closed) &#123;</span><br><span class="line">      <span class="built_in">this</span>.notifySchedulerListenersStarting();</span><br><span class="line"><span class="comment">//          判断首次启动或恢复启动</span></span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">this</span>.initialStart == <span class="literal">null</span>) &#123;</span><br><span class="line"><span class="comment">//          记录初始启动时间</span></span><br><span class="line">        <span class="built_in">this</span>.initialStart = <span class="keyword">new</span> <span class="title class_">Date</span>();</span><br><span class="line"><span class="comment">//        调用JobStore的schedulerStarted方法，初始化底层存储（如打开数据库连接、加载持久化任务）</span></span><br><span class="line">        <span class="built_in">this</span>.resources.getJobStore().schedulerStarted();</span><br><span class="line"><span class="comment">//        启动插件，激活扩展功能（如日志、监控等）</span></span><br><span class="line">        <span class="built_in">this</span>.startPlugins();</span><br><span class="line">      &#125; <span class="keyword">else</span> &#123;</span><br><span class="line"><span class="comment">//          恢复启动</span></span><br><span class="line">        <span class="built_in">this</span>.resources.getJobStore().schedulerResumed();</span><br><span class="line">      &#125;</span><br><span class="line"><span class="comment">// 启动调度线程，schedThread 是主调度线程，负责轮询触发器并触发任务执行（togglePause，表示取消线程的暂停状态）</span></span><br><span class="line">      <span class="built_in">this</span>.schedThread.togglePause(<span class="literal">false</span>);</span><br><span class="line">      <span class="built_in">this</span>.getLog().info(<span class="string">&quot;Scheduler &quot;</span> + <span class="built_in">this</span>.resources.getUniqueIdentifier() + <span class="string">&quot; started.&quot;</span>);</span><br><span class="line">      <span class="comment">// 通知监听器：调度器已完全启动</span></span><br><span class="line">      <span class="built_in">this</span>.notifySchedulerListenersStarted();</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">SchedulerException</span>(<span class="string">&quot;The Scheduler cannot be restarted after shutdown() has been called.&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-3-1-2-启动调度线程"><a href="#2-3-1-2-启动调度线程" class="headerlink" title="2.3.1.2. 启动调度线程"></a>2.3.1.2. 启动调度线程</h4><p><code>QuartzSchedulerThread</code>是调度线程，负责管理任务触发逻辑和协调调度线程与线程池的交互。</p>
+<p>核心职责</p>
+<ul>
+<li><strong>触发器扫描</strong>：定期检查<code>jobStore</code>中的触发器（<code>Trigger</code>），找出当前时间需执行的任务。</li>
+<li><strong>任务分发</strong>：将符合条件的任务封装为 <code>JobRunShell</code>，提交给线程池（<code>ThreadPool</code>）执行。</li>
+<li><strong>线程管理</strong>：控制自身的启停状态（<code>Raused/Unpaused</code>），管理线程的阻塞与唤醒。</li>
+<li><strong>分布式协调</strong>：在集群环境中，通过锁机制（如<code>JDBCJobStore</code>或<code>RedisJobStore</code>）确保任务在多节点的唯一性。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">QuartzSchedulerThread</span> <span class="keyword">extends</span> <span class="title class_">Thread</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 从 JobStore 批量获取触发器</span></span><br><span class="line">        List&lt;OperableTrigger&gt; triggers;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            triggers = <span class="built_in">this</span>.qsRsrcs.getJobStore().acquireNextTriggers(now + <span class="built_in">this</span>.idleWaitTime, Math.min(availThreadCount, <span class="built_in">this</span>.qsRsrcs.getMaxBatchSize()), <span class="built_in">this</span>.qsRsrcs.getBatchTimeWindow());</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (triggers != <span class="literal">null</span> &amp;&amp; !triggers.isEmpty()) &#123;</span><br><span class="line">            now = System.currentTimeMillis();</span><br><span class="line">            <span class="type">long</span> <span class="variable">triggerTime</span> <span class="operator">=</span> ((OperableTrigger) triggers.get(<span class="number">0</span>)).getNextFireTime().getTime();</span><br><span class="line">            <span class="comment">// 获取触发器后，计算其下次触发时间（TriggerTime）与当前时间的差值（timeUntilTrigger）。若差值超过2ms，精确阻塞至触发时间点</span></span><br><span class="line">            <span class="comment">// 2毫秒阈值设计：避免线程唤醒开销导致的时间误差</span></span><br><span class="line">            <span class="keyword">for</span> (<span class="type">long</span> <span class="variable">timeUntilTrigger</span> <span class="operator">=</span> triggerTime - now; timeUntilTrigger &gt; <span class="number">2L</span>; timeUntilTrigger = triggerTime - now) &#123;</span><br><span class="line">                <span class="keyword">synchronized</span> (<span class="built_in">this</span>.sigLock) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (<span class="built_in">this</span>.halted.get()) &#123;</span><br><span class="line">                        <span class="keyword">break</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                  ....省略</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (!triggers.isEmpty()) &#123;</span><br><span class="line">            List&lt;TriggerFiredResult&gt; bndles = <span class="keyword">new</span> <span class="title class_">ArrayList</span>();</span><br><span class="line">            <span class="type">boolean</span> <span class="variable">goAhead</span> <span class="operator">=</span> <span class="literal">true</span>;</span><br><span class="line">            <span class="keyword">synchronized</span> (<span class="built_in">this</span>.sigLock) &#123;</span><br><span class="line">                goAhead = !<span class="built_in">this</span>.halted.get();</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (goAhead) &#123;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    <span class="comment">//触发任务执行，triggersFired将触发器状态更新为“执行中”，防止其他节点重复触发</span></span><br><span class="line">                    List&lt;TriggerFiredResult&gt; res = <span class="built_in">this</span>.qsRsrcs.getJobStore().triggersFired(triggers);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="2-3-2-任务存储"><a href="#2-3-2-任务存储" class="headerlink" title="2.3.2. 任务存储"></a>2.3.2. 任务存储</h3><p>首先解析任务的提交过程，解析任务是如何存储的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">QuartzScheduler</span> <span class="keyword">implements</span> <span class="title class_">RemotableQuartzScheduler</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> QuartzSchedulerResources resources;</span><br><span class="line">    <span class="keyword">private</span> QuartzSchedulerThread schedThread;</span><br><span class="line">    <span class="keyword">private</span> ThreadGroup threadGroup;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">SchedulerContext</span> <span class="variable">context</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SchedulerContext</span>();</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> Date <span class="title function_">scheduleJob</span><span class="params">(JobDetail jobDetail, Trigger trigger)</span> <span class="keyword">throws</span> SchedulerException &#123;</span><br><span class="line">        <span class="comment">//任务存储</span></span><br><span class="line">        <span class="built_in">this</span>.resources.getJobStore().storeJobAndTrigger(jobDetail, trig);</span><br><span class="line">        <span class="built_in">this</span>.notifySchedulerListenersJobAdded(jobDetail);</span><br><span class="line">        <span class="built_in">this</span>.notifySchedulerThread(trigger.getNextFireTime().getTime());</span><br><span class="line">        <span class="built_in">this</span>.notifySchedulerListenersSchduled(trigger);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">QuartzSchedulerResources</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> JobStore jobStore;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在<code>StdSchedulerFactory</code>的<code>instantiate()</code>方法中，会去判断创建什么类型的<code>JobStore</code></p>
+<ul>
+<li><code>RAMJobStore</code>：内存存储</li>
+<li><code>DefaultClusteredJobStore</code>：集群存储</li>
+<li><code>JDBCJobStore</code>：数据库存储<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RAMJobStore</span> <span class="keyword">implements</span> <span class="title class_">JobStore</span> &#123;</span><br><span class="line">    <span class="comment">//按任务键（jobKey）快速查找任务详情</span></span><br><span class="line">    <span class="keyword">protected</span> HashMap&lt;JobKey, JobWrapper&gt; jobsByKey = <span class="keyword">new</span> <span class="title class_">HashMap</span>(<span class="number">1000</span>);</span><br><span class="line">    <span class="comment">// 按触发器键快速查找触发器详情</span></span><br><span class="line">    <span class="keyword">protected</span> HashMap&lt;TriggerKey, TriggerWrapper&gt; triggersByKey = <span class="keyword">new</span> <span class="title class_">HashMap</span>(<span class="number">1000</span>);</span><br><span class="line">    <span class="comment">// 按任务组分类任务，支持批量操作</span></span><br><span class="line">    <span class="keyword">protected</span> HashMap&lt;String, HashMap&lt;JobKey, JobWrapper&gt;&gt; jobsByGroup = <span class="keyword">new</span> <span class="title class_">HashMap</span>(<span class="number">25</span>);</span><br><span class="line"><span class="comment">//    按触发器组分类触发器，支持批量操作</span></span><br><span class="line">    <span class="keyword">protected</span> HashMap&lt;String, HashMap&lt;TriggerKey, TriggerWrapper&gt;&gt; triggersByGroup = <span class="keyword">new</span> <span class="title class_">HashMap</span>(<span class="number">25</span>);</span><br><span class="line"><span class="comment">//    按触发时间排序的触发器集合，调度器从中选取最近需执行的触发器</span></span><br><span class="line">    <span class="keyword">protected</span> TreeSet&lt;TriggerWrapper&gt; timeTriggers = <span class="keyword">new</span> <span class="title class_">TreeSet</span>(<span class="keyword">new</span> <span class="title class_">TriggerWrapperComparator</span>());</span><br><span class="line">    <span class="keyword">protected</span> HashMap&lt;String, Calendar&gt; calendarsByName = <span class="keyword">new</span> <span class="title class_">HashMap</span>(<span class="number">25</span>);</span><br><span class="line"><span class="comment">//    关联任务与其所有触发器，便于触发器变更时更新任务状态</span></span><br><span class="line">    <span class="keyword">protected</span> Map&lt;JobKey, List&lt;TriggerWrapper&gt;&gt; triggersByJob = <span class="keyword">new</span> <span class="title class_">HashMap</span>(<span class="number">1000</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="2-3-3-JobDetail（任务详情）"><a href="#2-3-3-JobDetail（任务详情）" class="headerlink" title="2.3.3. JobDetail（任务详情）"></a>2.3.3. JobDetail（任务详情）</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">JobDetailImpl</span> <span class="keyword">implements</span> <span class="title class_">Cloneable</span>, Serializable, JobDetail &#123;</span><br><span class="line"><span class="comment">//    任务名</span></span><br><span class="line">    <span class="keyword">private</span> String name;</span><br><span class="line">    <span class="keyword">private</span> String group;</span><br><span class="line">    <span class="keyword">private</span> String description;</span><br><span class="line">    <span class="keyword">private</span> Class&lt;? <span class="keyword">extends</span> <span class="title class_">Job</span>&gt; jobClass;</span><br><span class="line">    <span class="keyword">private</span> JobDataMap jobDataMap;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">boolean</span> durability;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">boolean</span> shouldRecover;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> JobKey key;</span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">JobDetailImpl</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.group = <span class="string">&quot;DEFAULT&quot;</span>;</span><br><span class="line">        <span class="built_in">this</span>.durability = <span class="literal">false</span>;</span><br><span class="line">        <span class="built_in">this</span>.shouldRecover = <span class="literal">false</span>;</span><br><span class="line">        <span class="built_in">this</span>.key = <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="2-3-4-Trigger（触发器）"><a href="#2-3-4-Trigger（触发器）" class="headerlink" title="2.3.4. Trigger（触发器）"></a>2.3.4. Trigger（触发器）</h3><p>定义任务的执行规则，定义任务（Job）何时被调度器（Scheduler）触发执行。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//触发器 - 控制执行次数和执行时间</span></span><br><span class="line"><span class="type">Trigger</span> <span class="variable">trigger</span> <span class="operator">=</span> TriggerBuilder.newTrigger()</span><br><span class="line">        .withIdentity(<span class="string">&quot;trigger1&quot;</span>, <span class="string">&quot;group1&quot;</span>) <span class="comment">// 同上</span></span><br><span class="line">        .startNow() <span class="comment">// 立刻启动</span></span><br><span class="line">        .withSchedule(SimpleScheduleBuilder.simpleSchedule().</span><br><span class="line">                withIntervalInSeconds(<span class="number">3</span>).</span><br><span class="line">                withRepeatCount(<span class="number">10</span>))   <span class="comment">// 循环10次,每次间隔3s</span></span><br><span class="line">        .build();</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="2-3-5-任务（Job）执行"><a href="#2-3-5-任务（Job）执行" class="headerlink" title="2.3.5. 任务（Job）执行"></a>2.3.5. 任务（Job）执行</h3><h4 id="2-3-5-1-首先，注册Job和Trigger"><a href="#2-3-5-1-首先，注册Job和Trigger" class="headerlink" title="2.3.5.1. 首先，注册Job和Trigger"></a>2.3.5.1. 首先，注册Job和Trigger</h4><p><code>JobDetail</code>：定义任务的具体逻辑（实现Job接口的<code>execute()</code>方法），并设置元数据（如名称、组名）。<br><code>Trigger</code>：定义任务的执行规则（如时间间隔、cron表达式）。每个<code>Trigger</code>必须绑定一个<code>JobDetail</code>。</p>
+<blockquote>
+<p>上文中有解析 <code>JobStore</code>，内部存储 <code>JobDetail</code> 和 <code>Trigger</code>。</p>
+</blockquote>
+<h4 id="2-3-5-2-然后，Scheduler启动与监听"><a href="#2-3-5-2-然后，Scheduler启动与监听" class="headerlink" title="2.3.5.2. 然后，Scheduler启动与监听"></a>2.3.5.2. 然后，Scheduler启动与监听</h4><ul>
+<li>调用<code>scheduler.start()</code>启动调度器</li>
+<li>调度器内部会启动一个线程池（<code>ThreadPool</code>），用于并发执行任务。</li>
+</ul>
+<h4 id="2-3-5-3-触发器触发任务"><a href="#2-3-5-3-触发器触发任务" class="headerlink" title="2.3.5.3. 触发器触发任务"></a>2.3.5.3. 触发器触发任务</h4><ol>
+<li>扫描可执行的<code>Trigger</code><ul>
+<li>调度器从数据库或内存中查询当前时间 <code>&gt;= nextFireTime</code> 的 <code>Trigger</code>。</li>
+</ul>
+</li>
+<li>竞争锁（集群模式）<ul>
+<li>在分布式环境中，多个调度器实例通过数据库锁竞争资源，确保每个 <code>Trigger</code> 只被一个实例处理。</li>
+</ul>
+</li>
+<li>标记 <code>Trigger</code> 状态为“已获取”<ul>
+<li>将 <code>Trigger</code> 的状态更新为 <code>ACQUIRED</code>，防止其他调度器实例重复触发。</li>
+</ul>
+</li>
+<li>生成<code>FiredTrigger</code>实例<ul>
+<li>创建对象，记录触发时间和上下文信息。</li>
+</ul>
+</li>
+</ol>
+<p>参考文章：<br><a href="https://cloud.tencent.com/developer/article/1769812">定时任务的实现原理</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/" rel="tag"># 定时任务</a>
+              <a href="/tags/quartz/" rel="tag"># quartz</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/09/10/2021-09-10-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/" rel="prev" title="《定时任务》">
+      <i class="fa fa-chevron-left"></i> 《定时任务》
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/09/20/2021-09-20-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1-schedulerx/" rel="next" title="《定时任务》Schedulerx2.0">
+      《定时任务》Schedulerx2.0 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80-%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1"><span class="nav-text">一. 定时任务</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C-quartz%E6%A1%86%E6%9E%B6"><span class="nav-text">二. quartz框架</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1-%E5%85%A5%E9%97%A8%E7%A4%BA%E4%BE%8B"><span class="nav-text">2.1. 入门示例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="nav-text">2.2. 核心概念</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90"><span class="nav-text">2.3. 源码解析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-1-Scheduler%EF%BC%88%E8%B0%83%E5%BA%A6%E5%99%A8%EF%BC%89"><span class="nav-text">2.3.1. Scheduler（调度器）</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-1-1-%E5%90%AF%E5%8A%A8-start"><span class="nav-text">2.3.1.1. 启动 start()</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-1-2-%E5%90%AF%E5%8A%A8%E8%B0%83%E5%BA%A6%E7%BA%BF%E7%A8%8B"><span class="nav-text">2.3.1.2. 启动调度线程</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-2-%E4%BB%BB%E5%8A%A1%E5%AD%98%E5%82%A8"><span class="nav-text">2.3.2. 任务存储</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-3-JobDetail%EF%BC%88%E4%BB%BB%E5%8A%A1%E8%AF%A6%E6%83%85%EF%BC%89"><span class="nav-text">2.3.3. JobDetail（任务详情）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-4-Trigger%EF%BC%88%E8%A7%A6%E5%8F%91%E5%99%A8%EF%BC%89"><span class="nav-text">2.3.4. Trigger（触发器）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-5-%E4%BB%BB%E5%8A%A1%EF%BC%88Job%EF%BC%89%E6%89%A7%E8%A1%8C"><span class="nav-text">2.3.5. 任务（Job）执行</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-5-1-%E9%A6%96%E5%85%88%EF%BC%8C%E6%B3%A8%E5%86%8CJob%E5%92%8CTrigger"><span class="nav-text">2.3.5.1. 首先，注册Job和Trigger</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-5-2-%E7%84%B6%E5%90%8E%EF%BC%8CScheduler%E5%90%AF%E5%8A%A8%E4%B8%8E%E7%9B%91%E5%90%AC"><span class="nav-text">2.3.5.2. 然后，Scheduler启动与监听</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-5-3-%E8%A7%A6%E5%8F%91%E5%99%A8%E8%A7%A6%E5%8F%91%E4%BB%BB%E5%8A%A1"><span class="nav-text">2.3.5.3. 触发器触发任务</span></a></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">204</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">36</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">65</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
