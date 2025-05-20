@@ -21,17 +21,23 @@
     var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="这是“mysql”系列的第二篇文章，主要介绍的是innodb存储引擎。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+  <meta name="description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   这是“mysql”系列的第二篇文章，主要介绍的是innodb存储引擎。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS--Relational Database Management System）">
 <meta property="og:type" content="article">
 <meta property="og:title" content="《mysql》innodb">
 <meta property="og:url" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/index.html">
 <meta property="og:site_name" content="CHW&#39;s Notes">
-<meta property="og:description" content="这是“mysql”系列的第二篇文章，主要介绍的是innodb存储引擎。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   这是“mysql”系列的第二篇文章，主要介绍的是innodb存储引擎。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS--Relational Database Management System）">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/%E5%9F%BA%E6%9C%AC%E7%BB%93%E6%9E%84.png">
-<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_compact_%E8%A1%8C%E6%A0%BC%E5%BC%8F.png">
-<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_compact_%E8%AE%B0%E5%BD%95%E5%A4%B4.png">
-<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_redundant_%E8%A1%8C%E6%A0%BC%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E6%9E%B6%E6%9E%84%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E%E4%BD%93%E7%B3%BB%E6%9E%B6%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%86%85%E5%AD%98%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B62.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6_%E8%A1%A8%E7%A9%BA%E9%97%B4.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6_redo.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E8%A1%A8%E7%A9%BA%E9%97%B4.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E6%95%B0%E6%8D%AE%E9%A1%B5%E7%BB%93%E6%9E%84.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/File_header.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/page_header.png">
@@ -39,21 +45,23 @@
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E8%A1%8C%E8%AE%B0%E5%BD%95_%E9%93%BE%E8%A1%A8.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/page_directory.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/%E6%95%B0%E6%8D%AE%E9%A1%B5%E6%9F%A5%E8%AF%A2.png">
-<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E6%9E%B6%E6%9E%84%E5%9B%BE.png">
-<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E%E4%BD%93%E7%B3%BB%E6%9E%B6%E6%9E%84.png">
-<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6.png">
-<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E8%A1%A8%E7%A9%BA%E9%97%B4.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_compact_%E8%A1%8C%E6%A0%BC%E5%BC%8F.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_compact_%E8%AE%B0%E5%BD%95%E5%A4%B4.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_redundant_%E8%A1%8C%E6%A0%BC%E5%BC%8F.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%B3%BB%E7%BB%9F%E8%A1%A8%E7%A9%BA%E9%97%B4%E7%BB%93%E6%9E%84.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%8B%AC%E7%AB%8B%E8%A1%A8%E7%A9%BA%E9%97%B4%E7%BB%93%E6%9E%84.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%B3%BB%E7%BB%9F%E8%A1%A8%E7%A9%BA%E9%97%B4_%E7%8B%AC%E6%9C%89%E7%BB%93%E6%9E%84.png">
-<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%8C%BA_%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/%E8%A1%A8%E7%A9%BA%E9%97%B4_%E8%A1%A8%E4%BF%A1%E6%81%AF.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/%E8%A1%A8%E7%A9%BA%E9%97%B4_page.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/%E8%A1%A8%E7%A9%BA%E9%97%B4_records.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E6%AE%B5_%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%8C%BA_%E7%BB%93%E6%9E%84.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%86%85%E5%AD%98%E7%BB%93%E6%9E%84.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_redolog_buffer.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_redolog_%E5%88%B7%E7%9B%98.png">
 <meta property="og:image" content="http://yoursite.com/2020/08/05/2020-08-05-mysql-innodb/innodb_doublewrite.png">
 <meta property="article:published_time" content="2020-08-05T03:19:31.000Z">
-<meta property="article:modified_time" content="2025-04-23T06:56:54.160Z">
+<meta property="article:modified_time" content="2025-05-20T12:30:26.363Z">
 <meta property="article:author" content="chw">
 <meta property="article:tag" content="innodb">
 <meta name="twitter:card" content="summary">
@@ -217,7 +225,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2025-04-23 14:56:54" itemprop="dateModified" datetime="2025-04-23T14:56:54+08:00">2025-04-23</time>
+                <time title="修改时间：2025-05-20 20:30:26" itemprop="dateModified" datetime="2025-05-20T20:30:26+08:00">2025-05-20</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -242,14 +250,14 @@
                 <i class="far fa-file-word"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>12k</span>
+              <span>15k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="far fa-clock"></i>
               </span>
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>31 分钟</span>
+              <span>38 分钟</span>
             </span>
 
         </div>
@@ -261,106 +269,299 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <pre><code>这是“mysql”系列的第二篇文章，主要介绍的是innodb存储引擎。
-</code></pre>
-<h1 id="一、mysql"><a href="#一、mysql" class="headerlink" title="一、mysql"></a>一、mysql</h1><p><code>MySQL</code> 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）</p>
-<span id="more"></span>
-<p>基本结构：<br><img src="/2020/08/05/2020-08-05-mysql-innodb/%E5%9F%BA%E6%9C%AC%E7%BB%93%E6%9E%84.png" alt="基本结构"></p>
-<h1 id="二、mysql存储引擎"><a href="#二、mysql存储引擎" class="headerlink" title="二、mysql存储引擎"></a>二、mysql存储引擎</h1><p>MySQL 存储引擎是 MySQL 数据库管理系统中负责数据存储和检索的组件，不同的存储引擎具有不同的特点和适用场景。</p>
-<style>
-table th:first-of-type {
-    width: 12%;
+        <style>
+.orange {
+   color: orange
 }
-table th:nth-of-type(3) {
-    width: 40%;
+.red {
+   color: red
 }
-table tr td:nth-child(1),
-table tr th:nth-child(1) {
-    font-weight: bold;
+code {
+   color: #0ABF5B;
 }
 </style>
 
+<pre><code>这是“mysql”系列的第二篇文章，主要介绍的是innodb存储引擎。
+</code></pre>
+<h1 id="一、mysql"><a href="#一、mysql" class="headerlink" title="一、mysql"></a>一、mysql</h1><p><code>MySQL</code> 是一种广泛使用的开源关系型数据库管理系统（<code>RDBMS--Relational Database Management System</code>）</p>
+<span id="more"></span>
+<p>基本结构：<br><img src="/2020/08/05/2020-08-05-mysql-innodb/%E5%9F%BA%E6%9C%AC%E7%BB%93%E6%9E%84.png" alt="基本结构"></p>
+<h1 id="二、mysql存储引擎"><a href="#二、mysql存储引擎" class="headerlink" title="二、mysql存储引擎"></a>二、mysql存储引擎</h1><p><code>MySQL</code> 存储引擎是 <code>MySQL</code> 数据库管理系统中负责数据存储和检索的组件，不同的存储引擎具有不同的特点和适用场景。</p>
 <p><strong>常见的存储引擎如下：</strong></p>
 <table>
 <thead>
 <tr>
-<th align="left">存储引擎</th>
-<th align="right">说明</th>
+<th>存储引擎</th>
+<th>说明</th>
 </tr>
 </thead>
 <tbody><tr>
-<td align="left">InnoDB</td>
-<td align="right">5.5版本后MySQL的默认数据库，支持事务和行级锁定，比MyISAM处理速度稍慢</td>
+<td>InnoDB</td>
+<td>5.5版本后MySQL的默认数据库，支持事务和行级锁定，比MyISAM处理速度稍慢</td>
 </tr>
 <tr>
-<td align="left">MyISAM</td>
-<td align="right">高速引擎，拥有较高的插入，查询速度，但不支持事务</td>
+<td>MyISAM</td>
+<td>高速引擎，拥有较高的插入，查询速度，但不支持事务</td>
 </tr>
 <tr>
-<td align="left">Memory</td>
-<td align="right">内存存储引擎，拥有极高的插入，更新和查询效率。但是会占用和数据量成正比的内存空间。只在内存上保存数据，意味着数据可能会丢失</td>
+<td>Memory</td>
+<td>内存存储引擎，拥有极高的插入，更新和查询效率。但是会占用和数据量成正比的内存空间。只在内存上保存数据，意味着数据可能会丢失</td>
 </tr>
 <tr>
-<td align="left">MRG_MyISAM（MERGE）</td>
-<td align="right">将多个表联合成一个表使用，在超大规模数据存储时很有用</td>
+<td>MRG_MyISAM（MERGE）</td>
+<td>将多个表联合成一个表使用，在超大规模数据存储时很有用</td>
 </tr>
 <tr>
-<td align="left">Falcon</td>
-<td align="right">一种新的存储引擎，支持事物处理，传言可能是InnoDB的替代者</td>
+<td>Falcon</td>
+<td>一种新的存储引擎，支持事物处理，传言可能是InnoDB的替代者</td>
 </tr>
 <tr>
-<td align="left">Archive</td>
-<td align="right">将数据压缩后进行存储，非常适合存储大量的独立的，作为历史记录的数据，但是只能进行插入和查询操作</td>
+<td>Archive</td>
+<td>将数据压缩后进行存储，非常适合存储大量的独立的，作为历史记录的数据，但是只能进行插入和查询操作</td>
 </tr>
 <tr>
-<td align="left">CSVCSV</td>
-<td align="right">存储引擎是基于 CSV 格式文件存储数据(应用于跨平台的数据交换)</td>
+<td>CSVCSV</td>
+<td>存储引擎是基于 CSV 格式文件存储数据(应用于跨平台的数据交换)</td>
 </tr>
 </tbody></table>
 <p><strong>InnoDB和MyISAM存储引擎区别：</strong></p>
 <table>
 <thead>
 <tr>
-<th align="left"></th>
+<th></th>
 <th>InnoDB</th>
-<th align="right">MyISAM</th>
+<th>MyISAM</th>
 </tr>
 </thead>
 <tbody><tr>
-<td align="left">存储文件</td>
+<td>存储文件</td>
 <td>.frm 表定义文件 .ibd 数据文件和索引文件</td>
-<td align="right">.frm 表定义文件.myd 数据文件.myi 索引文件</td>
+<td>.frm 表定义文件.myd 数据文件.myi 索引文件</td>
 </tr>
 <tr>
-<td align="left">锁</td>
+<td>锁</td>
 <td>表锁、行锁</td>
-<td align="right">表锁</td>
+<td>表锁</td>
 </tr>
 <tr>
-<td align="left">事务</td>
+<td>事务</td>
 <td>支持</td>
-<td align="right">不支持</td>
+<td>不支持</td>
 </tr>
 <tr>
-<td align="left">CRDU</td>
+<td>CRDU</td>
 <td>读、写</td>
-<td align="right">读多</td>
+<td>读多</td>
 </tr>
 <tr>
-<td align="left">count</td>
+<td>count</td>
 <td>扫表</td>
-<td align="right">专门存储的地方</td>
+<td>专门存储的地方</td>
 </tr>
 <tr>
-<td align="left">索引结构</td>
+<td>索引结构</td>
 <td>B+ Tree</td>
-<td align="right">B+ Tree</td>
+<td>B+ Tree</td>
 </tr>
 </tbody></table>
-<h1 id="三、innodb存储引擎"><a href="#三、innodb存储引擎" class="headerlink" title="三、innodb存储引擎"></a>三、innodb存储引擎</h1><p><code>innodb</code>是一个将表中的数据存储到磁盘上的存储引擎，所以即使关机后重启我们的数据还是存在的。</p>
+<h1 id="三、innodb架构"><a href="#三、innodb架构" class="headerlink" title="三、innodb架构"></a>三、innodb架构</h1><p>从下图中可见，InnoDB存储引擎由<strong>内存池，后台线程和磁盘文件</strong>三大部分组成。</p>
+<table>
+<thead>
+<tr>
+<th>架构</th>
+<th>简化后架构</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E6%9E%B6%E6%9E%84%E5%9B%BE.png" alt="innodb_架构图"></td>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E%E4%BD%93%E7%B3%BB%E6%9E%B6%E6%9E%84.png" alt="innodb_架构图"></td>
+</tr>
+</tbody></table>
+<h2 id="3-1、内存区域"><a href="#3-1、内存区域" class="headerlink" title="3.1、内存区域"></a>3.1、内存区域</h2><p><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%86%85%E5%AD%98%E7%BB%93%E6%9E%84.png" alt="内存结构"></p>
+<ul>
+<li><code>Buffer Pool</code> 缓冲区，放经常使用的<strong>数据页和索引页</strong></li>
+<li><code>Change Buffer</code> 修改缓冲区，对数据进行增删改操作时，先把数据放到这里</li>
+<li><code>Log Buffer</code> 重做日志缓冲区，<code>redo log</code>, 保证数据库不丢失数据的重要环节，只要数据写入<code>redo log</code>成功，则认为更新成功。</li>
+</ul>
+<h2 id="3-2、文件区域"><a href="#3-2、文件区域" class="headerlink" title="3.2、文件区域"></a>3.2、文件区域</h2><p>如下为真实示例：</p>
+<table>
+<thead>
+<tr>
+<th>整体结构</th>
+<th>Undo日志</th>
+<th>表空间</th>
+<th>redo日志</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6.png" alt="文件"></td>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B62.png" alt="文件"></td>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6_%E8%A1%A8%E7%A9%BA%E9%97%B4.png" alt="文件"></td>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6_redo.png" alt="文件"></td>
+</tr>
+<tr>
+<td>整体结构</td>
+<td><strong>系统表空间</strong>：<code>ibdata1</code>文件，存储表结构、索引的定义等元数据；<strong>回滚日志</strong>：<code>undo_001, undo_002</code></td>
+<td><strong>用户表空间</strong>：每一个表对应一个表空间（<code>*.ibd</code>文件）存储用户表的<strong>数据以及索引</strong></td>
+<td><strong>redo文件</strong>：MySQL8版本，重做日志文件使用<code>#ib_redoN</code>命名约定，其中N是重做日志文件编号。备用重做日志文件由后缀表示<code>_tmp</code>。</td>
+</tr>
+</tbody></table>
+<p>总结如下：<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6.png" alt="innodb_磁盘文件"><br><code>InnoDB</code>的主要的磁盘文件主要分为三大块：</p>
+<ul>
+<li>一是<strong>系统表空间</strong>：文件名：<code>ibdata1</code></li>
+<li>二是<strong>用户表空间</strong>：文件名：<code>*.ibd</code></li>
+<li>三是<strong>redo日志文件和归档文件</strong>：文件名：<code>ib_redo*</code></li>
+</ul>
+<blockquote>
+<p>二进制文件(binlog)等文件是<code>MySQL Server</code>层维护的文件，所以未列入InnoDB的磁盘文件中。</p>
+</blockquote>
+<h2 id="3-3、后台线程"><a href="#3-3、后台线程" class="headerlink" title="3.3、后台线程"></a>3.3、后台线程</h2><p><strong>后台线程</strong>的主要作用是负责刷新内存池中的数据，保证缓存中的数据是最新的。此外将已经修改的数据文件刷新到磁盘文件，同时保证在数据库发生异常时<strong>innodb</strong>能够恢复到正常运行状态。</p>
+<table>
+<thead>
+<tr>
+<th>线程</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>master thread</strong></td>
+<td><code>master thread</code> 是一个非常核心的后台线程，主要负责将缓冲池中的数据异步刷新到磁盘，保证数据的一致性，包括脏页的刷新、合并插入缓冲（insert buffer）、undo页的回收等。</td>
+</tr>
+<tr>
+<td><strong>IO thread</strong></td>
+<td>在innodb中大量使用了<code>AIO（async io）</code>来处理写IO请求。而<code>IO thread</code>的工作主要是负责这些IO请求的回调（<code>call back</code>）处理。</td>
+</tr>
+<tr>
+<td><strong>purge thread</strong></td>
+<td>事务提交后，其所使用的<code>undo log</code>可能不再需要，因此需要<code>purge thread</code> 来回收已经使用并分配的<code>undo</code> 页。</td>
+</tr>
+</tbody></table>
+<h3 id="3-3-1-master-thread"><a href="#3-3-1-master-thread" class="headerlink" title="3.3.1. master thread"></a>3.3.1. master thread</h3><p><code>Master Thread</code>主要流程伪代码如下</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">master_thread</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">goto</span> loop;</span><br><span class="line"><span class="comment">// 主循环</span></span><br><span class="line">loop:</span><br><span class="line"><span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">10</span>; i++) &#123;</span><br><span class="line">    <span class="comment">// 每秒一次操作</span></span><br><span class="line">    thread_sleep(<span class="number">1</span>)</span><br><span class="line">    <span class="comment">// 日志缓冲刷新到磁盘，即使这个事务没提交</span></span><br><span class="line">    <span class="keyword">do</span> <span class="built_in">log</span> buffer flush to disk</span><br><span class="line">    <span class="comment">// 合并插入缓冲（如果前一秒IO次数少于5次，InnoDB认为IO压力很小，执行该操作）</span></span><br><span class="line">    <span class="keyword">if</span>(last_one_second_ios &lt; <span class="number">5</span>)</span><br><span class="line">        <span class="keyword">do</span> merge at most <span class="number">5</span> insert buffer</span><br><span class="line">    <span class="comment">// 至多刷新100个InnoDB的脏页到磁盘（脏页比例超过innodb_max_dirty_pages_pct）   </span></span><br><span class="line">    <span class="keyword">if</span>(buf_get_modified_ratio_pct &gt; innodb_max_dirty_pages_pct)</span><br><span class="line">        <span class="keyword">do</span> buffer poll flush <span class="number">100</span> dirty page</span><br><span class="line">    <span class="comment">// 没有用户活动，跳转到   backgroupo loop</span></span><br><span class="line">    <span class="keyword">if</span>(no user activity)</span><br><span class="line">        <span class="keyword">goto</span> backgroupo loop</span><br><span class="line">&#125;   </span><br><span class="line"><span class="comment">// 每10秒操作</span></span><br><span class="line"><span class="comment">// 刷新100个脏页到磁盘（过去10秒内IO操作小于200次）</span></span><br><span class="line"><span class="keyword">if</span>(last_ten_second_ios &lt; <span class="number">200</span>)</span><br><span class="line">    <span class="keyword">do</span> buffer pool flush <span class="number">100</span> dirty page</span><br><span class="line"><span class="comment">// 合并最多5个插入缓冲</span></span><br><span class="line"><span class="keyword">do</span> merge at most <span class="number">5</span> insert buffer</span><br><span class="line"><span class="comment">// 合并最多5个插入缓冲</span></span><br><span class="line"><span class="keyword">do</span> <span class="built_in">log</span> buffer flush to disk</span><br><span class="line"><span class="comment">// 删除无用的Undo页（最多20个undo页）</span></span><br><span class="line"><span class="keyword">do</span> full purge</span><br><span class="line"><span class="comment">//脏页比例超过innodb_max_dirty_pages_pct，刷新100个脏页到磁盘，否则刷新10个脏页</span></span><br><span class="line"><span class="keyword">if</span>(buf_get_modified_ratio_pct &gt; <span class="number">70</span>%)</span><br><span class="line">    <span class="keyword">do</span> buffer pool flush <span class="number">100</span> dirty page</span><br><span class="line"><span class="keyword">else</span>    </span><br><span class="line">    <span class="keyword">do</span> buffer pool flush <span class="number">10</span> dirty page</span><br><span class="line"><span class="keyword">goto</span> loop</span><br><span class="line"></span><br><span class="line"><span class="comment">// 后台循环</span></span><br><span class="line">backgroup loop:</span><br><span class="line"><span class="comment">// 删除无用的Undo</span></span><br><span class="line"><span class="keyword">do</span> full purge</span><br><span class="line"><span class="comment">// 合并20个插入缓冲</span></span><br><span class="line"><span class="keyword">do</span> merge <span class="number">20</span> insert buffer</span><br><span class="line"><span class="keyword">if</span> not idel:</span><br><span class="line">    <span class="keyword">goto</span> loop</span><br><span class="line"><span class="keyword">else</span> </span><br><span class="line">    <span class="keyword">goto</span> flush loop</span><br><span class="line"></span><br><span class="line"><span class="comment">// 刷新循环</span></span><br><span class="line">flush loop:</span><br><span class="line"><span class="comment">// 刷新100个脏页到磁盘，直到脏页比例小于innodb_max_dirty_pages_pct</span></span><br><span class="line"><span class="keyword">do</span> buffer pool flush <span class="number">100</span> dirty page</span><br><span class="line"><span class="keyword">if</span>(buf_get_modified_ratio_pct&gt;innodb_max_dirty_pages_pct)</span><br><span class="line">    <span class="keyword">goto</span> flush loop</span><br><span class="line"><span class="keyword">goto</span> suspend loop</span><br><span class="line"></span><br><span class="line"><span class="comment">// 暂停循环</span></span><br><span class="line">suspend loop:</span><br><span class="line"><span class="comment">// 暂停线程</span></span><br><span class="line">suspend_thread()</span><br><span class="line"><span class="comment">// 等待事件</span></span><br><span class="line">waiting event;</span><br><span class="line"><span class="keyword">goto</span> loop;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h1 id="四、InnoDB逻辑存储结构"><a href="#四、InnoDB逻辑存储结构" class="headerlink" title="四、InnoDB逻辑存储结构"></a>四、InnoDB逻辑存储结构</h1><p><code>InnoDB</code>逻辑存储结构可分为五级：<strong>表空间、段、区、页、行</strong></p>
+<table>
+<thead>
+<tr>
+<th>总结构</th>
+<th>表空间</th>
+<th>段</th>
+<th>区</th>
+<th>页</th>
+<th>行</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E8%A1%A8%E7%A9%BA%E9%97%B4.png" alt="innodb_表空间"></td>
+<td>默认10MB</td>
+<td>初始1个区，每个段中的区对应的 XDES Entry 结构建立了三个链表</td>
+<td>有64个页，默认1MB</td>
+<td>默认16Kb</td>
+<td></td>
+</tr>
+</tbody></table>
+<p><code>innodb</code>是一个将表中的数据存储到磁盘上的存储引擎，所以即使关机后重启我们的数据还是存在的。</p>
 <p>真正处理数据的过程是发生在内存中的，所以需要把磁盘中的数据加载到内存中，如果是处理写入或修改请求的话，还需要把内存中的内容刷新到磁盘上。而我们知道读写磁盘的速度非常慢，和内存读写差几个数量级，所以当我们想从表中获取某些记录时，<code>innodb</code> 存储引擎需要一条一条的把记录从磁盘上读取出来么？</p>
-<p>不，那样会慢死，<code>innodb</code>采用的方式是：<font color="green"><strong>将数据划分为若干个页，以页作为磁盘和内存之间交互的基本单位，innodb中页的大小一般为 <code>16KB</code></strong></font>。也就是在一般情况下，一次最少从磁盘中读取<code>16KB</code>的内容到内存中，一次最少把内存中的<code>16KB</code>内容刷新到磁盘中。</p>
-<h2 id="3-1、innodb行格式"><a href="#3-1、innodb行格式" class="headerlink" title="3.1、innodb行格式"></a>3.1、innodb行格式</h2><p>我们平常是以记录为单位来向表中插入数据的，这些记录<strong>在磁盘上的存放方式</strong>也被称为 <font color="green"><strong>行格式</strong></font> 或者 <font color="green"><strong>记录格式</strong></font>。</p>
+<p>不，那样会慢死，<code>innodb</code>采用的方式是：<font color="green"><strong>将数据划分为若干个页，以<code>页</code>作为磁盘和内存之间交互的基本单位，<code>innodb</code>中页的大小一般为 <code>16KB</code></strong></font>。也就是在一般情况下，一次最少从磁盘中读取<code>16KB</code>的内容到内存中，一次最少把内存中的<code>16KB</code>内容刷新到磁盘中。</p>
+<h2 id="4-1、innodb数据页结构"><a href="#4-1、innodb数据页结构" class="headerlink" title="4.1、innodb数据页结构"></a>4.1、innodb数据页结构</h2><p><code>页</code>的概念，是<code>innodb</code>管理存储空间的<strong>基本单位</strong>，一个页的大小一般是 <code>16KB</code>。可以理解是盛放记录的大盒子。</p>
+<h3 id="4-1-1、页的种类"><a href="#4-1-1、页的种类" class="headerlink" title="4.1.1、页的种类"></a>4.1.1、页的种类</h3><p><code>innodb</code>为了不同的目的设计了许多<strong>不同类型的页</strong>，比如</p>
+<ul>
+<li>存放表空间头部信息的页</li>
+<li>存放 <code>insert buffer</code> 信息的页</li>
+<li>存放 <code>INODE</code> 信息的页</li>
+<li>存放 <code>undo</code> 日志信息的页</li>
+<li>存放记录的页 （<strong>数据页</strong>）</li>
+</ul>
+<h3 id="4-1-2、数据页结构"><a href="#4-1-2、数据页结构" class="headerlink" title="4.1.2、数据页结构"></a>4.1.2、数据页结构</h3><p><strong>数据页</strong>代表的这块 <code>16KB</code> 大小的存储空间，可以划分为多个部分，不同部分有不同的功能，各个部分如图所示：<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E6%95%B0%E6%8D%AE%E9%A1%B5%E7%BB%93%E6%9E%84.png" alt="innodb_数据页结构"></p>
+<h4 id="4-1-2-1、File-header"><a href="#4-1-2-1、File-header" class="headerlink" title="4.1.2.1、File header"></a>4.1.2.1、File header</h4><p>文件头部，存放页的一些通用信息。常见的信息如下：</p>
+<table>
+<thead>
+<tr>
+<th>数据</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>FIL_PAGE_OFFSET</strong></td>
+<td>每一个页都有一个单独的页号，InnoDB 通过页号来唯一定位一个页。</td>
+</tr>
+<tr>
+<td><strong>FIL_PAGE_SPACE_OR_CHKSUM</strong></td>
+<td>这个代表当前页面的校验和（<code>checksum</code>），每当一个页面在内存中修改了，在同步之前就要把它的校验和算出来。在一个页面被刷到磁盘的时候，首先被写入磁盘的就是这个 <code>checksum</code>。</td>
+</tr>
+<tr>
+<td><strong>FIL_PAGE_PREV 和 FIL_PAGE_NEXT</strong></td>
+<td>通过 <code>FIL_PAGE_PREV</code> 和 <code>FIL_PAGE_NEXT</code> 将上一页和下一页连起来，就形成了一个双向链表。这样就通过一个<em><strong>双向链表</strong></em>把许许多多的页就都串联起来了，而无需这些页在物理上真正连着。</td>
+</tr>
+<tr>
+<td><strong>FIL_PAGE_TYPE</strong></td>
+<td>这个代表当前页的类型，InnoDB 为了不同的目的而设计了<strong>许多种不同类型的页</strong>。- <strong>数据页（<code>Data Page</code>）</strong>：用于存储实际的数据行。- <strong>索引页（<code>Index Page</code>）</strong>：用于存储索引信息，如主键索引或二级索引。- <strong>系统页（<code>System Page</code>）</strong>：包含系统表空间的一些元数据信息。- <strong>事务数据页（<code>Transaction Data Page</code>）</strong>：与事务处理相关的页。- <strong>插入缓冲页（<code>Insert Buffer Page</code>）</strong>：用于合并非聚集索引的插入操作。</td>
+</tr>
+</tbody></table>
+<p>如图所示：数据页是有<code>FIL_PAGE_PREV</code>和<code>FIL_PAGE_NEXT</code>着两个属性的，所以所有的<strong>数据页其实是一个双向链表</strong>。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/File_header.png" alt="File_header"></p>
+<h4 id="4-1-2-2、Page-Header"><a href="#4-1-2-2、Page-Header" class="headerlink" title="4.1.2.2、Page Header"></a>4.1.2.2、Page Header</h4><p>为了得到一个数据页中存储的记录的状态信息，比如本页中<strong>已经存储了多少条记录，第一条记录的地址是什么，页目录中存储了多少个槽等等</strong>，特意在页中定义了一个叫 <code>Page Header</code>的部分，是页的第二部分，占用固定的 <code>56</code> 个字节，专门存储各种状态信息。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/page_header.png" alt="page_header"><br>数据页专有的一些信息</p>
+<ul>
+<li><strong>PAGE_LEVEL</strong><br>当前页在索引树中的位置，Ox00代表叶节点，叶节点总是在第0层</li>
+<li><strong>PAGE_N_HEAP</strong><br>本页中的记录的数量，包括<strong>最小记录</strong>（<code>Infimum</code>）和<strong>最大记录</strong>（<code>Supremum</code>）以及标记为删除（<code>delete_mask=1</code>）的记录</li>
+</ul>
+<h4 id="4-1-2-3、Infimum-supermum"><a href="#4-1-2-3、Infimum-supermum" class="headerlink" title="4.1.2.3、Infimum + supermum"></a>4.1.2.3、Infimum + supermum</h4><p><strong>最小记录</strong>和<strong>最大记录</strong>：两个虚拟的行记录</p>
+<ul>
+<li>最大记录是这个数据页中逻辑上最大的记录，所有用户的记录都小于它。</li>
+<li>最小记录是数据页上最小的记录，所有用户记录都大于它。</li>
+</ul>
+<p>他们在数据页被创建的时候创建，而且不能被删除。引入他们主要是方便页内操作。</p>
+<h4 id="4-1-2-4、user-records-Free-space"><a href="#4-1-2-4、user-records-Free-space" class="headerlink" title="4.1.2.4、user records + Free space"></a>4.1.2.4、user records + Free space</h4><p>存储的记录会按照我们指定的 <strong>行格式</strong> 存储到 <code>User Records</code> 区域。</p>
+<p>但是在一开始生成页的时候，其实并没有 <code>User Records</code>区域，每当我们插入一条记录，都会从 <code>Free Space</code>（也就是尚未使用的存储空间）中申请一个记录大小的空间划分到<code>User Records</code>。</p>
+<p>当所有的 <code>Free Space</code> 使用完后，意味着这个页使用完了，如果插入新的数据，则需要去申请新的页了。</p>
+<h5 id="1-如何管理-User-Records中的记录"><a href="#1-如何管理-User-Records中的记录" class="headerlink" title="1. 如何管理 User Records中的记录"></a>1. 如何管理 <code>User Records</code>中的记录</h5><p>之前的innodb<strong>行格式</strong>章节中介绍了行记录的记录头信息，如下图：<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E8%A1%8C%E8%AE%B0%E5%BD%95_%E8%AE%B0%E5%BD%95%E5%A4%B4.png" alt="innodb_行记录_记录头"></p>
+<h6 id="delete-mask"><a href="#delete-mask" class="headerlink" title="delete_mask"></a>delete_mask</h6><ul>
+<li>这个属性标记着当前记录是否被删除，占用1个二进制位，值为 <code>0</code> 的时候代表记录并没有被删除，为 <code>1</code> 的时候代表记录被删除掉了。</li>
+<li>啥？被删除的记录还在 页 中么？是的，摆在台面上的和背地里做的可能大相径庭，你以为它删除了，可它还在真实的磁盘上。这些被删除的记录之所以不立即从磁盘上移除，是因为移除它们之后把其他的记录在磁盘上重新排列需要性能消耗，所以只是打一个删除标记而已，所有被删除掉的记录都会组成一个所谓的 垃圾链表，在这个链表中的记录占用的空间称之为 “可重用空间”，之后如果有新记录插入到表中的话，可能把这些被删除的记录占用的存储空间覆盖掉。</li>
+</ul>
+<h6 id="min-rec-mask"><a href="#min-rec-mask" class="headerlink" title="min_rec_mask"></a>min_rec_mask</h6><p>B+树的每层<strong>非叶子节点</strong>中最小记录都会添加该标记</p>
+<h6 id="heap-no"><a href="#heap-no" class="headerlink" title="heap_no"></a>heap_no</h6><p>这个属性表示当前记录在本页中的位置。</p>
+<h6 id="next-record"><a href="#next-record" class="headerlink" title="next_record"></a>next_record</h6><p>非常重要，表示从当前记录的真实数据到下一条记录的真实数据的地址偏移量。比方说第一条记录的<code>next_record</code>值为<code>32</code>，意味着从第一条记录的真实数据的地址处向后找<code>32字节</code>便是下一条记录的真实数据。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E8%A1%8C%E8%AE%B0%E5%BD%95_%E9%93%BE%E8%A1%A8.png" alt="innodb_行记录_链表"><br>从图中可以看到，记录按照主键从小到大的顺序形成了一个<strong>单链表</strong>。最大记录的<code>next_record=0</code>，也就是说没有下一条记录了。</p>
+<blockquote>
+<p>tips：会不会觉得<code>next_record</code>这个指针有点儿怪，为啥要指向记录头信息和真实数据之间的位置呢？为啥不干脆指向整条记录的开头位置？也就是记录的额外信息开头的位置呢？</p>
+<p>因为这个位置刚刚好，向左读取就是记录头信息，向右读取就是真实数据。可能会提高高速缓存的命中率。</p>
+</blockquote>
+<p><code class="red">存在的问题</code>：单链表查找数据，时间复杂度为O(n)，随着数据越来越多，性能会越来越差。怎么解决呢？</p>
+<blockquote>
+<p>通过<code>next_record</code>这个指针，将页中的数据<strong>小到大顺序串联成了一个单链表</strong>，那如果我们想根据主键值查找页中的某条记录该咋办呢？<br>比如查询语句 <code>select * from table where c1 = 3;</code></p>
+<p><strong>最笨的方法</strong>：从 <code>Infimum</code> 记录（最小记录）开始，沿着链表一直往后找，总有一天会找到。这个方法在页中存储的记录数量比较少的情况没啥问题，但是如果一个页中存储了非常多的记录，那么性能有损耗。</p>
+<p><em><strong>优化：</strong></em><br>平常我们想从一本书中查找某个内容，一般会先看<strong>目录</strong>，找对需要查找的内容对应的<strong>页码</strong>，然后到对应的<strong>页码</strong>查看内容。优化方向就是制作一个类似的目录。所以引入了<strong>页目录（Page Directory）</strong>。</p>
+</blockquote>
+<h4 id="4-1-2-5、Page-Directory【页目录】"><a href="#4-1-2-5、Page-Directory【页目录】" class="headerlink" title="4.1.2.5、Page Directory【页目录】"></a>4.1.2.5、Page Directory【页目录】</h4><p><code>Page directory（页目录）</code>是Innodb中数据页的核心结构之一，用于加速记录的查找和管理。它通过<code class="red">将记录划分成多个组，并为每个组维护一个“槽（Slot）”</code>，实现高效的二分查找。</p>
+<h5 id="1-作用"><a href="#1-作用" class="headerlink" title="1. 作用"></a>1. 作用</h5><ul>
+<li><strong>快速定位记录</strong>：通过<code>槽（Slot）</code>和<code>分组机制</code>，将记录划分为多个组，减少查找范围。</li>
+<li><strong>支持二分查找</strong>：结合<code>Page Directory </code>和 <code>Page Header</code>（存储槽（<code>Slot</code>）的数量），实现类似二分查找的高效检索。</li>
+<li><strong>管理记录分组</strong>：通过 <code>n_owned</code> 属性维护每个组的记录数量，优化插入和删除操作。</li>
+</ul>
+<h5 id="2-工作原理"><a href="#2-工作原理" class="headerlink" title="2. 工作原理"></a>2. 工作原理</h5><p><code>Page Directory</code>将数据页中的记录划分为若干个槽。每个槽（<code>Slot</code>）对应着页中的一组记录。</p>
+<p>如下图所示：总共<code>16</code>条数据，分成<code>5</code>个槽，每个槽<code>4</code>条记录<br><img src="/2020/08/05/2020-08-05-mysql-innodb/page_directory.png" alt="page_directory"></p>
+<ul>
+<li>可以看到，页中的数据经过分组后在 <code>Page Directory</code> 中就形成了一个<strong>目录槽</strong>，每个槽就指向了分组中的最大记录，最大记录的记录头中的 <code>n_owned</code> 就记录了这个组中的记录数。</li>
+<li>有了目录槽之后，<code>InnoDB</code>就会利用<strong>二叉查找</strong>迅速确定记录所在的槽，并找到该槽所在分组中主键值最小的那条记录，再通过最小记录的 <code>next_record</code> 遍历记录，就能快速定位到匹配的那条记录了。</li>
+</ul>
+<h5 id="3-查找过程"><a href="#3-查找过程" class="headerlink" title="3. 查找过程"></a>3. 查找过程</h5><p>现在来看怎么从这个 <strong>“页目录”</strong> 中查找记录。</p>
+<p>上图中有4个槽，编号分别是<code>0、1、2、3、4</code>。比如说我们想找主键值为<code>6</code>的记录，过程是这样的：</p>
+<ol>
+<li><strong>计算中间槽的位置</strong>：<code>（0+4）/2=2</code>，所以查找 <code>槽2</code> 对应的主键值为<code>8</code>，又因为 <code>8&gt;6</code>，所以设置 <code>high=2</code>，<code>low</code>保持不变。</li>
+<li><strong>重新计算中间槽的位置</strong>：<code>(0+2)/2=1</code>，所以查看 <code>槽1</code> 对应的主键值为<code>4</code>， 又因为 <code>4&lt;6</code>，所以设置 <code>low=1</code>，<code>high</code>保持不变。</li>
+<li>因为 <code>high-low=1</code>，所以确定主键值为<code>5</code>的记录在 <code>槽2</code> 对应的组中。此刻我们需要找到 <code>槽2</code> 中主键值最小的那条记录，然后沿着单向链表遍历 <code>槽2</code> 中的记录。</li>
+</ol>
+<h4 id="4-1-2-6、数据页小结"><a href="#4-1-2-6、数据页小结" class="headerlink" title="4.1.2.6、数据页小结"></a>4.1.2.6、数据页小结</h4><ol>
+<li>每个数据页的<code>File Header</code> 部分都有<strong>上一个</strong>和<strong>下一个页</strong>的编号，所以所有的数据页会组成一个<strong>双向链表</strong>。</li>
+<li>每个记录的头信息中都有一个<code>next_record</code>属性，从而使页中的所有记录串联成一个 <strong>单链表</strong>。</li>
+<li>为了<strong>提高单链表的查询效率</strong>，页中引入了 “<code>page dictory</code>（页目录）”，通过<strong>二分查找</strong>提高查询效率。</li>
+</ol>
+<h4 id="4-1-2-7、多个数据页如何查询"><a href="#4-1-2-7、多个数据页如何查询" class="headerlink" title="4.1.2.7、多个数据页如何查询"></a>4.1.2.7、多个数据页如何查询</h4><p>示例如下：B+树的<strong>叶子节点</strong>，组成一个<strong>双向链表</strong><br><img src="/2020/08/05/2020-08-05-mysql-innodb/%E6%95%B0%E6%8D%AE%E9%A1%B5%E6%9F%A5%E8%AF%A2.png" alt="数据页查询"><br>如果我们要查找 <code>ID=32</code> 的这行数据，那流程是怎么样的呢？</p>
+<blockquote>
+<p>具体流程，查看后面的索引文章。</p>
+</blockquote>
+<p>既然解析了<strong>页</strong>，那接下来解析页中的记录。</p>
+<h2 id="4-2、innodb-行数据（记录）"><a href="#4-2、innodb-行数据（记录）" class="headerlink" title="4.2、innodb 行数据（记录）"></a>4.2、innodb 行数据（记录）</h2><p>我们平常是以<strong>记录</strong>为单位来向表中插入数据的，这些记录<strong>在磁盘上的存放方式</strong>也被称为 <font color="green"><strong>行格式</strong></font> 或者 <font color="green"><strong>记录格式</strong></font>。</p>
 <p>innodb存储引擎有4种不同类型的行格式：</p>
 <ul>
 <li>compact</li>
@@ -368,24 +569,23 @@ table tr th:nth-child(1) {
 <li>dynamic</li>
 <li>compressed</li>
 </ul>
-<h3 id="3-1-1、如何设置行格式？"><a href="#3-1-1、如何设置行格式？" class="headerlink" title="3.1.1、如何设置行格式？"></a>3.1.1、如何设置行格式？</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE 表 (</span><br><span class="line">...</span><br><span class="line">)ROW_FORMST=COMPACT</span><br></pre></td></tr></table></figure>
+<h3 id="4-2-1、如何设置行格式？"><a href="#4-2-1、如何设置行格式？" class="headerlink" title="4.2.1、如何设置行格式？"></a>4.2.1、如何设置行格式？</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE 表 (</span><br><span class="line">...</span><br><span class="line">)ROW_FORMST=COMPACT</span><br></pre></td></tr></table></figure>
 
-<h3 id="3-1-2、compact行格式"><a href="#3-1-2、compact行格式" class="headerlink" title="3.1.2、compact行格式"></a>3.1.2、compact行格式</h3><p><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_compact_%E8%A1%8C%E6%A0%BC%E5%BC%8F.png" alt="innodb_compact_行格式"><br>一条完整的记录，其实可以分为 “记录的额外信息” 和 “记录的真实数据” 两大部分。</p>
-<h4 id="3-1-2-1、额外信息"><a href="#3-1-2-1、额外信息" class="headerlink" title="3.1.2.1、额外信息"></a>3.1.2.1、额外信息</h4><p>额外信息分为3类：</p>
+<h3 id="4-2-2、compact行格式"><a href="#4-2-2、compact行格式" class="headerlink" title="4.2.2、compact行格式"></a>4.2.2、compact行格式</h3><p><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_compact_%E8%A1%8C%E6%A0%BC%E5%BC%8F.png" alt="innodb_compact_行格式"><br>一条完整的记录，其实可以分为 “<strong>记录的额外信息</strong>” 和 “<strong>记录的真实数据</strong>” 两大部分。</p>
+<h4 id="4-2-2-1、额外信息"><a href="#4-2-2-1、额外信息" class="headerlink" title="4.2.2.1、额外信息"></a>4.2.2.1、额外信息</h4><p>额外信息分为3类：</p>
 <ul>
 <li>变长字段长度列表</li>
 <li>NULL值列表</li>
 <li>记录头信息</li>
 </ul>
-<h5 id="1-变长字段长度表"><a href="#1-变长字段长度表" class="headerlink" title="1. 变长字段长度表"></a>1. 变长字段长度表</h5><p>对于像 varchar， varbinary，text，blob，json以及他们的各种类型的可变长度字段【可称为变长字段】，需要将他们到底占用多少字节存储起来，这样就省去了列数据之间的边界定义，MySQL 就可以分清楚哪些数据属于这一列，哪些不属于。</p>
+<h5 id="1-变长字段长度表"><a href="#1-变长字段长度表" class="headerlink" title="1. 变长字段长度表"></a>1. 变长字段长度表</h5><p>对于像 <code>varchar， varbinary，text，blob，json</code>以及他们的各种类型的可变长度字段【可称为变长字段】，需要将他们到底占用多少字节存储起来，这样就省去了列数据之间的边界定义，MySQL 就可以分清楚哪些数据属于这一列，哪些不属于。</p>
 <p>所以这些变长字段占用的存储空间分为两部分：</p>
 <ol>
 <li>真正的数据内容。</li>
 <li>占用的字节数。</li>
 </ol>
-<p>在compact行格式中，把所有变长字段的真实数据占用的字节长度都存放在记录的开头部位，从而形成一个变长字段长度列表，各变长字段数据占用的字节数按照列的顺序<font color="green"><strong>逆序存放</strong></font>。</p>
-<p>示例：<br>假设</p>
-<h5 id="2-NUll值列表"><a href="#2-NUll值列表" class="headerlink" title="2. NUll值列表"></a>2. NUll值列表</h5><p>NULL值列表（NULL Value list），这个列表是行记录的一部分，用于优化存储空间和提高查询效率。</p>
+<p>在<code>compact</code>行格式中，把所有变长字段的真实数据占用的字节长度都存放在记录的开头部位，从而形成一个变长字段长度列表，各变长字段数据占用的字节数按照列的顺序<font color="green"><strong>逆序存放</strong></font>。</p>
+<h5 id="2-NUll值列表"><a href="#2-NUll值列表" class="headerlink" title="2. NUll值列表"></a>2. NUll值列表</h5><p><code>NULL</code>值列表（<code>NULL Value list</code>），这个列表是行记录的一部分，用于优化存储空间和提高查询效率。</p>
 <p>作用：</p>
 <ul>
 <li><strong>标识NULL列</strong>：对于允许 NULL的列，如果某一行的该列值为NULL，则不需要实际存储NULL值，而是通过NULL值列表中的位(bit)来标识。</li>
@@ -398,227 +598,256 @@ table tr th:nth-child(1) {
 <li>record_type<ul>
 <li>0：普通记录</li>
 <li>2：最小记录</li>
-<li>3：最大记录 </li>
+<li>3：最大记录</li>
 <li>1：目录项记录（索引）</li>
 </ul>
 </li>
 </ul>
-<h4 id="3-1-2-2、真实数据"><a href="#3-1-2-2、真实数据" class="headerlink" title="3.1.2.2、真实数据"></a>3.1.2.2、真实数据</h4><h5 id="1-隐藏列"><a href="#1-隐藏列" class="headerlink" title="1. 隐藏列"></a>1. 隐藏列</h5><p>mysql会为每个记录默认的添加一些列（也称为 隐藏列），具体的列如下：</p>
+<h4 id="4-2-2-2、真实数据"><a href="#4-2-2-2、真实数据" class="headerlink" title="4.2.2.2、真实数据"></a>4.2.2.2、真实数据</h4><h5 id="1-隐藏列"><a href="#1-隐藏列" class="headerlink" title="1. 隐藏列"></a>1. 隐藏列</h5><p>mysql会为每个记录默认的添加一些列（也称为 隐藏列），具体的列如下：</p>
 <ul>
-<li>DB_ROW_ID<ul>
+<li><code>DB_ROW_ID</code><ul>
 <li>6字节</li>
 <li>主键ID，这个列不一定会生成。优先使用用户自定义主键作为主键，如果用户没有定义主键，则选取一个 Unique 键作为主键，如果表中连 Unique 键都没有定义的话，则会为表默认添加一个名为 DB_ROW_ID 的隐藏列作为主键</li>
 </ul>
 </li>
-<li>DB_TRX_ID<ul>
+<li><code>DB_TRX_ID</code><ul>
 <li>6字节</li>
 <li>产生当前记录项的事务id，每开始一个新的事务时，系统版本号会自动递增，而事务开始时刻的系统版本号会作为事务id，事务 commit 的话，就会更新这里的 DB_TRX_ID</li>
 </ul>
 </li>
-<li>DB_ROLL_PTR<ul>
+<li><code>DB_ROLL_PTR</code><ul>
 <li>7字节</li>
 <li>undo log 指针，指向当前记录项的 undo log，找之前版本的数据需通过此指针。如果事务回滚的话，则从 undo Log 中把原始值读取出来再放到记录中去</li>
 </ul>
 </li>
 </ul>
-<h4 id="3-1-2-3、示例："><a href="#3-1-2-3、示例：" class="headerlink" title="3.1.2.3、示例："></a>3.1.2.3、示例：</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">+-------+------------+------+----------+------------------+</span><br><span class="line">| id    | score      | name | content  | extra            |</span><br><span class="line">+-------+------------+------+----------+------------------+</span><br><span class="line">|     1 |       78.5 | hash | wodetian | nidetiantadetian |</span><br><span class="line">+-------+------------+------+----------+------------------+</span><br></pre></td></tr></table></figure>
+<h4 id="4-2-2-3、示例："><a href="#4-2-2-3、示例：" class="headerlink" title="4.2.2.3、示例："></a>4.2.2.3、示例：</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">+-------+------------+------+----------+------------------+</span><br><span class="line">| id    | score      | name | content  | extra            |</span><br><span class="line">+-------+------------+------+----------+------------------+</span><br><span class="line">|     1 |       78.5 | hash | wodetian | nidetiantadetian |</span><br><span class="line">+-------+------------+------+----------+------------------+</span><br></pre></td></tr></table></figure>
 <p>有两个数据不为NULL的字段</p>
 <ul>
-<li>content：长度分别是 8。转换为 16 进制分别是：0x08</li>
-<li>extra：长度分别是 16，转换为 16 进制分别是：0x10。</li>
+<li><code>content</code>：长度分别是 8。转换为 16 进制分别是：0x08</li>
+<li><code>extra</code>：长度分别是 16，转换为 16 进制分别是：0x10。</li>
 </ul>
 <p>倒序的顺序排列就是10 08</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">变长字段长度列表：10 08</span><br><span class="line">Null值列表：00</span><br><span class="line">记录头信息：00 00 10 00 47</span><br><span class="line">隐藏列DB_ROW_ID：00 00 00 00 08 0c</span><br><span class="line">隐藏列DB_TRX_ID：00 00 00 03 c9 4d</span><br><span class="line">隐藏列DB_ROLL_PTR：b9 00 00 01 2d 01 10</span><br><span class="line">列数据id(1)：80 00 00 00 00 00 00 01</span><br><span class="line">列数据score(78.5)：00 00 00 00 00 a0 53 40</span><br><span class="line">列数据name(hash)：68 61 73 68</span><br><span class="line">列数据content(wodetian)：77 6f 64 65 74 69 61 6e</span><br><span class="line">列数据extra(nidetiantadetian)：6e 69 64 65 74 69 61 6e 74 61 64 65 74 69 61 6e</span><br></pre></td></tr></table></figure>
 
 
-<h3 id="3-1-3、redundant行格式"><a href="#3-1-3、redundant行格式" class="headerlink" title="3.1.3、redundant行格式"></a>3.1.3、redundant行格式</h3><p>这个是最古老的，最简单粗暴的行格式了，现在基本上已经不用了，因为占用空间最多，从而导致内存碎片化最严重，是最低效的行格式了。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_redundant_%E8%A1%8C%E6%A0%BC%E5%BC%8F.png" alt="innodb_redundant_行格式"></p>
-<h2 id="3-2、innodb数据页结构"><a href="#3-2、innodb数据页结构" class="headerlink" title="3.2、innodb数据页结构"></a>3.2、innodb数据页结构</h2><p><code>页</code>的概念，是innodb管理存储空间的基本单位，一个页的大小一般是 <code>16KB</code>。可以理解是盛放记录的大盒子。</p>
-<h3 id="3-2-1、页的种类："><a href="#3-2-1、页的种类：" class="headerlink" title="3.2.1、页的种类："></a>3.2.1、页的种类：</h3><p>innodb为了不同的目的设计了许多不同类型的页，比如</p>
+<h3 id="4-2-3、redundant行格式"><a href="#4-2-3、redundant行格式" class="headerlink" title="4.2.3、redundant行格式"></a>4.2.3、redundant行格式</h3><p>这个是最古老的，最简单粗暴的行格式了，现在基本上已经不用了，因为占用空间最多，从而导致内存碎片化最严重，是最低效的行格式了。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_redundant_%E8%A1%8C%E6%A0%BC%E5%BC%8F.png" alt="innodb_redundant_行格式"></p>
+<h2 id="4-3、表空间"><a href="#4-3、表空间" class="headerlink" title="4.3、表空间"></a>4.3、表空间</h2><p><strong>表空间</strong>（<code>Tablespace</code>）是一个逻辑概念，它是用来管理存储在硬盘上的表数据和索引数据的容器。</p>
+<h3 id="4-3-1、为什么需要表空间？"><a href="#4-3-1、为什么需要表空间？" class="headerlink" title="4.3.1、为什么需要表空间？"></a>4.3.1、为什么需要表空间？</h3><p>主要是为了组织和管理数据库的数据，提高存储和查询效率，以及方便数据库的维护和恢复。</p>
+<h3 id="4-3-2、表空间结构"><a href="#4-3-2、表空间结构" class="headerlink" title="4.3.2、表空间结构"></a>4.3.2、表空间结构</h3><p><code>innodb</code> 是使用 <strong>“页”</strong> 为基本单位来管理存储空间的，默认的大小为 <code>16KB</code>。为了管理这些页，<code>innodb</code> 提出了一个 “<strong>表空间</strong>” 或者 “<strong>文件空间</strong>”（英文名：<code>table space</code> 或者 <code>file space</code>）的概念。</p>
+<p>这个<strong>表空间</strong>是一个抽象的概念，它可以对应文件系统上<strong>一个或多个真实文件</strong>。每一个 “表空间” 可以被划分为很多很多很多个 “页”，我们的表数据就存放在某个 “<strong>表空间</strong>” 下的某些页里。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>系统表空间</th>
+<th>独立表空间</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>文件</td>
+<td><code>ibdata1</code>文件</td>
+<td><code>.ibd</code>文件</td>
+</tr>
+<tr>
+<td>开启</td>
+<td></td>
+<td><code>innodb_file_per_table</code>：控制每个表是否使用独立的表空间文件，<code>MySQL5.6.6</code> 以及之后的版本中默认启用。开启时，元数据仍然存储在共享表空间（如ibdata1）</td>
+</tr>
+<tr>
+<td>作用</td>
+<td>存储<code>数据字典（Data Dictionary）</code>：存储所有表、索引的元数据（如表结构、列定义、索引类型等）；<code>双写缓冲区（DoubleWrite Buffer）</code>：用于崩溃恢复时防止页损坏；<code>变更缓冲区（Change buffer）</code>：缓存对非唯一索引的更新操作；<code>回滚段（Rollback Segments)</code>：存储事务的回滚信息，支持MVCC</td>
+<td>每个表有独立的<code>.ibd</code>文件，存储该表的<strong>数据和索引</strong>。</td>
+</tr>
+<tr>
+<td>结构</td>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%B3%BB%E7%BB%9F%E8%A1%A8%E7%A9%BA%E9%97%B4%E7%BB%93%E6%9E%84.png" alt="innodb_系统表空间结构"></td>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%8B%AC%E7%AB%8B%E8%A1%A8%E7%A9%BA%E9%97%B4%E7%BB%93%E6%9E%84.png" alt="innodb_独立表空间结构"></td>
+</tr>
+<tr>
+<td>优点</td>
+<td>集中管理</td>
+<td>允许独立备份、恢复和迁移表。减少系统表空间负载，便于管理单个表的碎片</td>
+</tr>
+<tr>
+<td>缺点</td>
+<td>文件过大，难以独立备份或迁移，易产生I&#x2F;O瓶颈</td>
+<td>文件数量过多，影响维护效率</td>
+</tr>
+</tbody></table>
+<p><strong>元数据的定义</strong></p>
 <ul>
-<li>存放表空间头部信息的页</li>
-<li>存放 <code>insert buffer</code> 信息的页</li>
-<li>存放 <code>INODE</code> 信息的页</li>
-<li>存放 <code>undo</code> 日志信息的页</li>
-<li>存放记录的页 （数据页）</li>
+<li>表名、列名、数据类型。</li>
+<li>索引的定义（如主键、唯一索引）</li>
+<li>表空间的分配信息（如.ibd文件的路径）</li>
+<li>事务和锁的信息。</li>
 </ul>
-<h3 id="3-2-2、数据页结构"><a href="#3-2-2、数据页结构" class="headerlink" title="3.2.2、数据页结构"></a>3.2.2、数据页结构</h3><p>数据页代表的这块 16KB 大小的存储空间，可以划分为多个部分，不同部分有不同的功能，各个部分如图所示：<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E6%95%B0%E6%8D%AE%E9%A1%B5%E7%BB%93%E6%9E%84.png" alt="innodb_数据页结构"></p>
-<h4 id="3-2-2-1、File-header"><a href="#3-2-2-1、File-header" class="headerlink" title="3.2.2.1、File header"></a>3.2.2.1、File header</h4><p>文件头部，存放页的一些通用信息。</p>
-<p>常见的信息如下：</p>
+<h3 id="4-3-3、系统表空间-独立表空间"><a href="#4-3-3、系统表空间-独立表空间" class="headerlink" title="4.3.3、系统表空间 &amp; 独立表空间"></a>4.3.3、系统表空间 &amp; 独立表空间</h3><p>从上文可以看到，系统表空间和独立表空间的前<code>3个页</code>的类型都是一样的（<code>FSP_HDR, IBUF_BITMAP, INODE</code>），只是 <code>3~7</code> 的页是系统表空间独有的。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%B3%BB%E7%BB%9F%E8%A1%A8%E7%A9%BA%E9%97%B4_%E7%8B%AC%E6%9C%89%E7%BB%93%E6%9E%84.png" alt="innodb_系统表空间_独有结构"></p>
+<h3 id="4-3-3、表空间数据解析"><a href="#4-3-3、表空间数据解析" class="headerlink" title="4.3.3、表空间数据解析"></a>4.3.3、表空间数据解析</h3><p>通过 <code>ibdNinja</code>工具解析 <code>ibdata</code> 文件，并查看其中的表数据。假设目标数据库为 <code>mydb</code>，表名为 <code>mytable</code>，且 <code>ibdata</code> 文件路径为 <code>/var/lib/mysql/ibdata1</code></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>表信息</th>
+<th>Page信息</th>
+<th>Record信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>命令</td>
+<td><code>./ibdNinja -f /var/lib/mysql/ibdata1 --list-tables</code></td>
+<td><code>./ibdNinja -f /var/lib/mysql/ibdata1 --parse-page 7</code></td>
+<td></td>
+</tr>
+<tr>
+<td>信息</td>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/%E8%A1%A8%E7%A9%BA%E9%97%B4_%E8%A1%A8%E4%BF%A1%E6%81%AF.png" alt="表信息"></td>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/%E8%A1%A8%E7%A9%BA%E9%97%B4_page.png" alt="Page信息"></td>
+<td><img src="/2020/08/05/2020-08-05-mysql-innodb/%E8%A1%A8%E7%A9%BA%E9%97%B4_records.png" alt="Page信息"></td>
+</tr>
+<tr>
+<td>描述</td>
+<td>ibd文件包含的所有表的表ID及表名</td>
+<td>比如<code>slibling pages no</code> 可以知道该<code>page</code>的左及右<code>page no</code>，<code>Belongs to</code>可以知道该<code>page</code>数据那个索引，<code>Page leve</code>可以知道该<code>Page</code>所处的层数等等</td>
+<td><code>Length</code>是<code>89B</code>，其中<code>header</code>是<code>11B</code>，<code>body</code>是<code>78B</code>，包含<code>10</code>个fields，然后是<code>Header</code>的<code>11</code>个字节的<code>16</code>进制打印，接着是每一个<code>field</code>的详细信息，如<code>name</code>，<code>length</code>，<code>type</code>及<code>16</code>进制的详细<code>value</code>打印</td>
+</tr>
+</tbody></table>
+<h2 id="4-4、段（segment）"><a href="#4-4、段（segment）" class="headerlink" title="4.4、段（segment）"></a>4.4、段（segment）</h2><p><strong>表空间</strong>是由各个段组成的，常见的段有</p>
 <ul>
-<li><strong>FIL_PAGE_OFFSET</strong><br>每一个页都有一个单独的页号，InnoDB 通过页号来唯一定位一个页。</li>
-<li><strong>FIL_PAGE_SPACE_OR_CHKSUM</strong><br>这个代表当前页面的校验和（checksum），每当一个页面在内存中修改了，在同步之前就要把它的校验和算出来。在一个页面被刷到磁盘的时候，首先被写入磁盘的就是这个 checksum。</li>
-<li><strong>FIL_PAGE_PREV 和 FIL_PAGE_NEXT</strong><br>通过 FIL_PAGE_PREV 和 FIL_PAGE_NEXT 将上一页和下一页连起来，就形成了一个双向链表。这样就通过一个双向链表把许许多多的页就都串联起来了，而无需这些页在物理上真正连着。</li>
-<li><strong>FIL_PAGE_TYPE</strong><br>这个代表当前页的类型，InnoDB 为了不同的目的而设计了许多种不同类型的页。<ul>
-<li><strong>数据页（Data Page）</strong>：用于存储实际的数据行。</li>
-<li><strong>索引页（Index Page）</strong>：用于存储索引信息，如主键索引或二级索引。</li>
-<li><strong>系统页（System Page）</strong>：包含系统表空间的一些元数据信息。</li>
-<li><strong>事务数据页（Transaction Data Page）</strong>：与事务处理相关的页。</li>
-<li><strong>插入缓冲页（Insert Buffer Page）</strong>：用于合并非聚集索引的插入操作。</li>
+<li><strong>数据段</strong>：存储表的行数据（如主键索引的数据页）</li>
+<li><strong>索引段</strong>：存储索引的叶子节点和非叶子节点。</li>
+<li><strong>回滚段</strong>：存储事务的回滚信息（用于MVCC）</li>
 </ul>
-</li>
-</ul>
-<p><img src="/2020/08/05/2020-08-05-mysql-innodb/File_header.png" alt="File_header"><br>如图所示：数据页是有FIL_PAGE_PREV和FIL_PAGE_NEXT着两个属性的，所以所有的数据页其实是一个双向链表。</p>
-<h4 id="3-2-2-2、Page-Header"><a href="#3-2-2-2、Page-Header" class="headerlink" title="3.2.2.2、Page Header"></a>3.2.2.2、Page Header</h4><p>为了得到一个数据页中存储的记录的状态信息，比如本页中已经存储了多少条记录，第一条记录的地址是什么，页目录中存储了多少个槽等等，特意在页中定义了一个叫 Page Header的部分，是页的第二部分，占用固定的 56 个字节，专门存储各种状态信息。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/page_header.png" alt="page_header"><br>数据页专有的一些信息</p>
-<ul>
-<li><strong>PAGE_LEVEL</strong><br>当前页在索引树中的位置，Ox00代表叶节点，叶节点总是在第0层</li>
-<li><strong>PAGE_N_HEAP</strong><br>本页中的记录的数量，包括最小记录（Infimum）和最大记录（Supremum）以及标记为删除（delete_mask&#x3D;1）的记录</li>
-</ul>
-<h4 id="3-2-2-3、Infimum-supermum"><a href="#3-2-2-3、Infimum-supermum" class="headerlink" title="3.2.2.3、Infimum + supermum"></a>3.2.2.3、Infimum + supermum</h4><p>最小记录和最大记录：两个虚拟的行记录</p>
-<ul>
-<li>最大记录是这个数据页中逻辑上最大的记录，所有用户的记录都小于它。</li>
-<li>最小记录是数据页上最小的记录，所有用户记录都大于它。</li>
-</ul>
-<p>他们在数据页被创建的时候创建，而且不能被删除。引入他们主要是方便页内操作。</p>
-<h4 id="3-2-2-4、user-records-Free-space"><a href="#3-2-2-4、user-records-Free-space" class="headerlink" title="3.2.2.4、user records + Free space"></a>3.2.2.4、user records + Free space</h4><p>存储的记录会按照我们指定的 行格式 存储到 <code>User Records</code> 区域。</p>
-<p>但是在一开始生成页的时候，其实并没有 <code>User Records</code>区域，每当我们插入一条记录，都会从 <code>Free Space</code>（也就是尚未使用的存储空间）中申请一个记录大小的空间划分到<code>User Records</code>。</p>
-<p>当所有的 <code>Free Space</code> 使用完后，意味着这个页使用完了，如果插入新的数据，则需要去申请新的页了。</p>
-<h5 id="1-如何管理-User-Records中的记录"><a href="#1-如何管理-User-Records中的记录" class="headerlink" title="1. 如何管理 User Records中的记录"></a>1. 如何管理 <code>User Records</code>中的记录</h5><p>之前的innodb行格式章节中介绍了行记录的记录头信息，如下图：<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E8%A1%8C%E8%AE%B0%E5%BD%95_%E8%AE%B0%E5%BD%95%E5%A4%B4.png" alt="innodb_行记录_记录头"></p>
-<h6 id="delete-mask"><a href="#delete-mask" class="headerlink" title="delete_mask"></a>delete_mask</h6><ul>
-<li>这个属性标记着当前记录是否被删除，占用1个二进制位，值为 0 的时候代表记录并没有被删除，为 1 的时候代表记录被删除掉了。</li>
-<li>啥？被删除的记录还在 页 中么？是的，摆在台面上的和背地里做的可能大相径庭，你以为它删除了，可它还在真实的磁盘上。这些被删除的记录之所以不立即从磁盘上移除，是因为移除它们之后把其他的记录在磁盘上重新排列需要性能消耗，所以只是打一个删除标记而已，所有被删除掉的记录都会组成一个所谓的 垃圾链表，在这个链表中的记录占用的空间称之为 “可重用空间”，之后如果有新记录插入到表中的话，可能把这些被删除的记录占用的存储空间覆盖掉。</li>
-</ul>
-<h6 id="min-rec-mask"><a href="#min-rec-mask" class="headerlink" title="min_rec_mask"></a>min_rec_mask</h6><p>B+树的每层非叶子节点中最小记录都会添加该标记</p>
-<h6 id="heap-no"><a href="#heap-no" class="headerlink" title="heap_no"></a>heap_no</h6><p>这个属性表示当前记录在本页中的位置。</p>
-<h6 id="next-record"><a href="#next-record" class="headerlink" title="next_record"></a>next_record</h6><p>非常重要，表示从当前记录的真实数据到下一条记录的真实数据的地址偏移量。比方说第一条记录的next_record值为32，意味着从第一条记录的真实数据的地址处向后找32字节便是下一条记录的真实数据。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E8%A1%8C%E8%AE%B0%E5%BD%95_%E9%93%BE%E8%A1%A8.png" alt="innodb_行记录_链表"><br>从图中可以看到，记录按照主键从小到大的顺序形成了一个单链表。最大记录的next_record&#x3D;0，也就是说没有下一条记录了。</p>
-<blockquote>
-<p>tips：会不会觉得next_record这个指针有点儿怪，为啥要指向记录头信息和真实数据之间的位置呢？为啥不干脆指向整条记录的开头位置？也就是记录的额外信息开头的位置呢？<br>因为这个位置刚刚好，向左读取就是记录头信息，向右读取就是真实数据。可能会提高高速缓存的命中率。</p>
-</blockquote>
-<h4 id="3-2-2-5、Page-Directory【页目录】"><a href="#3-2-2-5、Page-Directory【页目录】" class="headerlink" title="3.2.2.5、Page Directory【页目录】"></a>3.2.2.5、Page Directory【页目录】</h4><h5 id="1-定义"><a href="#1-定义" class="headerlink" title="1. 定义"></a>1. 定义</h5><p>页目录, 用来辅助进行数据查找和定位的一种结构。</p>
-<p>从<code>3.2.2.4</code>章节中我们了解了记录在页中按照主键值由小到大顺序串联成了一个单链表，那如果我们想根据主键值查找页中的某条记录该咋办呢？</p>
-<p>比如查询语句 <code>select * from table where c1 = 3;</code><br>最笨的方法：从 Infimum 记录（最小记录）开始，沿着链表一直往后找，总有一天会找到。这个方法在页中存储的记录数量比较少的情况没啥问题，但是如果一个页中存储了非常多的记录，那么性能有损耗。</p>
-<p>优化：<br>平常我们想从一本书中查找某个内容，一般会先看目录，找对需要查找的内容对应的页码，然后到对应的页码查看内容。优化方向就是制作一个类似的目录。</p>
-<h5 id="1-工作原理"><a href="#1-工作原理" class="headerlink" title="1. 工作原理"></a>1. 工作原理</h5><p>槽（Slot）划分<br><img src="/2020/08/05/2020-08-05-mysql-innodb/page_directory.png" alt="page_directory"><br>Page Directory将数据页中的记录划分为若干个槽。每个槽（Slot）对应着页中的一组记录</p>
-<ul>
-<li>可以看到，页中的数据经过分组后在 Page Directory 中就形成了一个目录槽，每个槽就指向了分组中的最大记录，最大记录的记录头中的 n_owned 就记录了这个组中的记录数。</li>
-<li>有了目录槽之后，InnoDB就会利用二叉查找迅速确定记录所在的槽，并找到该槽所在分组中主键值最小的那条记录，再通过最小记录的 next_record 遍历记录，就能快速定位到匹配的那条记录了。</li>
-</ul>
-<h5 id="2-查找过程"><a href="#2-查找过程" class="headerlink" title="2. 查找过程"></a>2. 查找过程</h5><p>现在来看怎么从这个 “页目录” 中查找记录。</p>
-<p>上图中有4个槽，编号分别是0、1、2、3、4。比如说我们想找主键值为6的记录，过程是这样的：</p>
-<ol>
-<li>计算中间槽的位置：（0+4）&#x2F;2&#x3D;2，所以查找 槽2 对应的主键值为8，又因为 8&gt;6，所以设置 high&#x3D;2，low保持不变。</li>
-<li>重新计算中间槽的位置：(0+2)&#x2F;2&#x3D;1，所以查看 槽1 对应的主键值为4， 又因为 4&lt;6，所以设置 low&#x3D;1，high保持不变。</li>
-<li>因为 high-low&#x3D;1，所以确定主键值为5的记录在 槽2 对应的组中。此刻我们需要找到 槽2 中主键值最小的那条记录，然后沿着单向链表遍历 槽2 中的记录。</li>
-</ol>
-<h4 id="3-2-2-6、数据页小结"><a href="#3-2-2-6、数据页小结" class="headerlink" title="3.2.2.6、数据页小结"></a>3.2.2.6、数据页小结</h4><ol>
-<li>每个数据页的File Header 部分都有上一个和下一个页的编号，所以所有的数据页会组成一个<strong>双向链表</strong>。</li>
-<li>每个记录的头信息中都有一个next_record属性，从而使页中的所有记录串联成一个 <strong>单链表</strong>。<ol>
-<li>为了提高单链表的查询效率，页中引入了 “page dictory（页目录）”，通过二分查找提高查询效率。</li>
-</ol>
-</li>
-</ol>
-<h4 id="3-2-2-7、多个数据页如何查询"><a href="#3-2-2-7、多个数据页如何查询" class="headerlink" title="3.2.2.7、多个数据页如何查询"></a>3.2.2.7、多个数据页如何查询</h4><p>示例如下：B+树的叶子节点，组成一个双向链表<br><img src="/2020/08/05/2020-08-05-mysql-innodb/%E6%95%B0%E6%8D%AE%E9%A1%B5%E6%9F%A5%E8%AF%A2.png" alt="数据页查询"><br>如果我们要查找 ID&#x3D;32 的这行数据，那流程是怎么样的呢？</p>
-<blockquote>
-<p>具体流程，查看后面的索引文章。</p>
-</blockquote>
-<h1 id="四、innodb架构"><a href="#四、innodb架构" class="headerlink" title="四、innodb架构"></a>四、innodb架构</h1><p>从下图中可见，InnoDB存储引擎由<strong>内存池，后台线程和磁盘文件</strong>三大部分组成。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E6%9E%B6%E6%9E%84%E5%9B%BE.png" alt="innodb_架构图"><br>主要分为内存区域和文件区域：</p>
-<ul>
-<li>内存区域：<ul>
-<li><code>Buffer Pool</code> 缓冲区，放经常使用的数据页和索引页</li>
-<li><code>Change Buffer</code> 修改缓冲区，对数据进行增删改操作时，先把数据放到这里</li>
-<li><code>Log Buffer</code> 重做日志缓冲区，redo log, 保证数据库不丢失数据的重要环节，只要数据写入redo log成功，则认为更新成功。</li>
-</ul>
-</li>
-<li>文件区域:<ul>
-<li><code>System Tablespace</code> 系统表空间，ibdata1,记录系统相关的数据<ul>
-<li><code>InnoDB Data Dictionary</code>:系统表空间的数据字典</li>
-<li><code>Doublewrite Buffer</code>:双写缓冲区</li>
-<li><code>Change Buffer</code>:修改的数据</li>
-<li><code>Undo Logs</code>:回滚日志，可以配置为回滚表空间独立出来</li>
-</ul>
-</li>
-<li><code>File-Per-Table Tablespace</code> 用户表空间，每一个表对应一个表空间（*.ibd文件）存储用户表的数据以及索引</li>
-<li><code>Genaral Tablespace</code> 通用表空间，</li>
-<li><code>Temporary Tablespace</code> 临时表空间</li>
-<li><code>Redo Log</code> 重做日志 ib_logfile0,ib_logfile1</li>
-</ul>
-</li>
-</ul>
-<p><strong>更为简洁的图入下：</strong><br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E%E4%BD%93%E7%B3%BB%E6%9E%B6%E6%9E%84.png" alt="innodb_存储引擎体系架构"></p>
-<h2 id="4-1、后台线程"><a href="#4-1、后台线程" class="headerlink" title="4.1、后台线程"></a>4.1、后台线程</h2><p>后台线程的主要作用是负责刷新内存池中的数据，保证缓存中的数据是最新的。此外将已经修改的数据文件刷新到磁盘文件，同时保证在数据库发生异常时innodb能够恢复到正常运行状态。</p>
-<ol>
-<li><strong>master thread</strong><br>master thread 是一个非常核心的后台线程，主要负责将缓冲池中的数据异步刷新到磁盘，保证数据的一致性，包括脏页的刷新、合并插入缓冲（insert buffer）、undo页的回收等。</li>
-<li><strong>IO thread</strong><br>在innodb中大量使用了AIO（async io）来处理写IO请求。而IO thread的工作主要是负责这些IO请求的回调（call back）处理。</li>
-<li><strong>purge thread</strong><br>事务提交后，其所使用的undo log可能不再需要，因此需要purge thread 来回收已经使用并分配的undo 页。</li>
-</ol>
-<h2 id="4-2、innodb磁盘文件"><a href="#4-2、innodb磁盘文件" class="headerlink" title="4.2、innodb磁盘文件"></a>4.2、innodb磁盘文件</h2><p><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6.png" alt="innodb_磁盘文件"><br>InnoDB的主要的磁盘文件主要分为三大块：</p>
-<ul>
-<li>一是系统表空间</li>
-<li>二是用户表空间</li>
-<li>三是redo日志文件和归档文件</li>
-</ul>
-<blockquote>
-<p>二进制文件(binlog)等文件是MySQL Server层维护的文件，所以未列入InnoDB的磁盘文件中。</p>
-</blockquote>
-<h3 id="4-2-1、系统表空间"><a href="#4-2-1、系统表空间" class="headerlink" title="4.2.1、系统表空间"></a>4.2.1、系统表空间</h3><p>系统表空间是一个共享的表空间，因为它是被多个表共享的。InnoDB系统表空间包含InnoDB数据字典(元数据以及相关对象)、double write buffer、changebuffer、undo logs的存储区域。系统表空间也默认包含任何用户在系统表空间创建的表数据和索引数据。</p>
-<p>系统表空间是由一个或者多个数据文件组成。</p>
-<p>默认情况下，一个初始大小为10MB，名为<font color="red"><strong>ibdata1</strong></font>的系统数据文件在MySQL的data目录下被创建。用户可以使用 innodb_data_file_path 对数据文件的大小和数量进行配置。</p>
-<h3 id="4-2-2、独立表空间"><a href="#4-2-2、独立表空间" class="headerlink" title="4.2.2、独立表空间"></a>4.2.2、独立表空间</h3><p>每一个表对应一个<font color="red"><em><em>表空间（</em>.ibd文件）</em>*</font>存储用户表的数据以及索引。</p>
-<h3 id="4-2-3、重做日志文件"><a href="#4-2-3、重做日志文件" class="headerlink" title="4.2.3、重做日志文件"></a>4.2.3、重做日志文件</h3><h4 id="4-2-3-1、什么是重做日志文件？"><a href="#4-2-3-1、什么是重做日志文件？" class="headerlink" title="4.2.3.1、什么是重做日志文件？"></a>4.2.3.1、什么是重做日志文件？</h4><p>默认情况下，在InnoDB存储引擎的数据目录下会有两个名为<font color="red"><strong>ib_logfile0和ib_logfile1</strong></font>的文件，这就是InnoDB的重做日志文件(redo log file)，它记录了对于InnoDB存储引擎的事务日志。achieve redo log（重做日志归档）在InnoDB非常古老的版本（MySQL 4.0.6之前的版本）才存在，不过这个功能当时没什么用，所以取消了。自从MySQL 8.0.17发布后，又恢复了redo log归档（redo log archiving）功能。我们学习的版本中5.7.29中没有此功能。</p>
-<h4 id="4-2-3-2、重做日志文件的作用是什么？"><a href="#4-2-3-2、重做日志文件的作用是什么？" class="headerlink" title="4.2.3.2、重做日志文件的作用是什么？"></a>4.2.3.2、重做日志文件的作用是什么？</h4><p>对mysql数据完整性一个有力的保障</p>
-<ul>
-<li>当InnoDB的数据存储文件发生错误时，重做日志文件就能派上用场。InnoDB存储引擎可以使用重做日志文件将数据恢复为正确状态，以此来保证数据的正确性和完整性。</li>
-<li>为了得到更高的可靠性，用户可以设置多个镜像日志组，将不同的文件组放在不同的磁盘上，以此来提高重做日志的高可用性。</li>
-</ul>
-<h2 id="4-3、InnoDB逻辑存储结构"><a href="#4-3、InnoDB逻辑存储结构" class="headerlink" title="4.3、InnoDB逻辑存储结构"></a>4.3、InnoDB逻辑存储结构</h2><p>InnoDB存储引擎逻辑存储结构可分为五级：表空间、段、区、页、行。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E8%A1%A8%E7%A9%BA%E9%97%B4.png" alt="innodb_表空间"></p>
-<h3 id="4-3-1、表空间"><a href="#4-3-1、表空间" class="headerlink" title="4.3.1、表空间"></a>4.3.1、表空间</h3><p>innodb 是使用 “页” 为基本单位来管理存储空间的，默认的大小为 16KB。为了管理这些页，innodb 提出了一个 “表空间” 或者 “文件空间”（英文名：table space 或者 file space）的概念。</p>
-<p>这个表空间是一个抽象的概念，它可以对应文件系统上一个或多个真实文件。每一个 “表空间” 可以被划分为很多很多很多个 “页”，我们的表数据就存放在某个 “表空间” 下的某些页里。</p>
-<h4 id="4-3-1-1、系统表空间（system-tablespace）"><a href="#4-3-1-1、系统表空间（system-tablespace）" class="headerlink" title="4.3.1.1、系统表空间（system tablespace）"></a>4.3.1.1、系统表空间（system tablespace）</h4><p>这个所谓的“系统表空间”可以对应文件系统上一个或多个实际的文件，默认情况下，innodb 会在 数据目录 下创建一个名为 ibdata1 , 大小为 12M 的文件（会自己增加文件大小）</p>
-<blockquote>
-<p>需要注意的一点是，在一个MySQL服务器中，系统表空间只有一份。从MySQL5.5.7 ~ MySQL5.6.6之间的各个版本中，我们表中的数据都会被默认存储到这个 “系统表空间”</p>
-</blockquote>
-<p><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%B3%BB%E7%BB%9F%E8%A1%A8%E7%A9%BA%E9%97%B4%E7%BB%93%E6%9E%84.png" alt="innodb_系统表空间结构"></p>
-<h4 id="4-3-1-2、独立表空间（file-per-table-tablespace）"><a href="#4-3-1-2、独立表空间（file-per-table-tablespace）" class="headerlink" title="4.3.1.2、独立表空间（file-per-table tablespace）"></a>4.3.1.2、独立表空间（file-per-table tablespace）</h4><p>在MySQL5.6.6 以及之后的版本中， innodb 并不会默认的把各个表的数据存储到 “系统表空间”中，而是为每一个表建立一个独立表空间，也就是说我们创建了多少个表，就有多少个<strong>独立表空间</strong>。</p>
-<p>每一个表对应一个<font color="red"><em><em>表空间（</em>.ibd文件）</em>*</font>存储用户表的数据以及索引。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%8B%AC%E7%AB%8B%E8%A1%A8%E7%A9%BA%E9%97%B4%E7%BB%93%E6%9E%84.png" alt="innodb_独立表空间结构"></p>
-<h4 id="4-3-1-3、系统表空间-独立表空间"><a href="#4-3-1-3、系统表空间-独立表空间" class="headerlink" title="4.3.1.3、系统表空间 &amp; 独立表空间"></a>4.3.1.3、系统表空间 &amp; 独立表空间</h4><p>从上文可以看到，系统表空间和独立表空间的前3个页的类型都是一样的（FSP_HDR, IBUF_BITMAP, INODE），只是 3~7 的页是系统表空间独有的。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E7%B3%BB%E7%BB%9F%E8%A1%A8%E7%A9%BA%E9%97%B4_%E7%8B%AC%E6%9C%89%E7%BB%93%E6%9E%84.png" alt="innodb_系统表空间_独有结构"></p>
-<h3 id="4-3-2、区（extent）"><a href="#4-3-2、区（extent）" class="headerlink" title="4.3.2、区（extent）"></a>4.3.2、区（extent）</h3><p>表空间中的页实在是太多了，为了更好的管理这些页面，innodb提出了<code>区（英文名：extent）</code>的概念。</p>
-<ul>
-<li>对于 16KB 的页来说，连续的64个页就是一个 区，也就是说一个区默认占用1MB空间大小。 区 &#x3D; 64 * 页（1M &#x3D; 64 * 16KB）</li>
-</ul>
-<h4 id="4-3-2-1、为什么引入区？"><a href="#4-3-2-1、为什么引入区？" class="headerlink" title="4.3.2.1、为什么引入区？"></a>4.3.2.1、为什么引入区？</h4><p>当数据量非常多的时候，如果链表中相邻的两个页物理位置离得非常远（<font color="gray"><strong>页会组成一个双向链表，具体查看后续的索引章节</strong></font>），就是所谓的“随机I&#x2F;O”，效率很低。</p>
-<p>所以为了尽量让链表中相邻的页的物理位置也相邻，这样进行范围查询的时候才可以使用所谓的 “顺序I&#x2F;O”，所以才引入了 <code>区（英文名：extent）</code>的概念。</p>
-<p>当表中的数据量大的时候，为某个索引分配空间的时候就不再按照页的单位分配了，而是按照 区 为单位分配。</p>
-<h4 id="4-3-2-2、区的结构"><a href="#4-3-2-2、区的结构" class="headerlink" title="4.3.2.2、区的结构"></a>4.3.2.2、区的结构</h4><p>innodb设计了一个称为 XDES Entry的结构（全称就是 Extent Descriptor Entry），每一个区对应着一个XDES Entry结构。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%8C%BA_%E7%BB%93%E6%9E%84.png" alt="innodb_区_结构"></p>
-<ul>
-<li>segment ID：8字节，该区所在的段。</li>
-</ul>
-<h3 id="4-3-3、段（segment）"><a href="#4-3-3、段（segment）" class="headerlink" title="4.3.3、段（segment）"></a>4.3.3、段（segment）</h3><p>表空间是由各个段组成的，常见的段有数据段、索引段、回滚段等。</p>
-<p>一个段的空间大小是随着表的大小自动扩展的：表有多大，段就有多大。</p>
+<p>一个<strong>段</strong>的空间大小是随着表的大小自动扩展的：表有多大，段就有多大。</p>
 <p>一个段会包含多个区，至少会有一个区，段扩展的最小单位是区。</p>
-<h4 id="4-3-3-1、为什么引入段？"><a href="#4-3-3-1、为什么引入段？" class="headerlink" title="4.3.3.1、为什么引入段？"></a>4.3.3.1、为什么引入段？</h4><p>范围查询，其实是对 B+ 树叶子节点中的记录进行顺序扫描，而如果不区分叶子节点和非叶子节点，统统把节点代表的页面放到申请到的区中的话，进行范围扫描的效果就大打折扣。</p>
-<p>所以为了对叶子节点和非叶子节点进行区别对待，也就是说叶子节点有自己独有的区，非叶子节点也有自己独有的区。</p>
-<ul>
-<li>存放叶子节点的区的集合就算是一个段（segment）</li>
-<li>存放非叶子节点的区的集合也算是一个段（segment）。</li>
-<li>也就是说：一个索引会生成2个段，一个叶子节点段，一个非叶子节点段（<strong>数据段和索引段</strong>）。</li>
+<h3 id="4-4-1、为什么需要段？"><a href="#4-4-1、为什么需要段？" class="headerlink" title="4.4.1、为什么需要段？"></a>4.4.1、为什么需要段？</h3><h4 id="4-4-1-1、B-树索引的结构特点"><a href="#4-4-1-1、B-树索引的结构特点" class="headerlink" title="4.4.1.1、B+ 树索引的结构特点"></a>4.4.1.1、B+ 树索引的结构特点</h4><ul>
+<li><code>B+</code> 树的叶子节点存储的是实际数据，而非叶子节点存储的是索引键值和指针。</li>
+<li>如果不区分<strong>叶子节点</strong>和<strong>非叶子节点</strong>的存储，会导致以下问题：<ul>
+<li><strong>查询性能下降</strong>：范围查询需要扫描所有节点，而非叶子节点可能包含大量冗余的索引键值。</li>
+<li><strong>空间利用率低</strong>：非叶子节点的存储需求与叶子节点不同，混合存储可能导致碎片化。</li>
 </ul>
-<h4 id="4-3-3-2、段的结构"><a href="#4-3-3-2、段的结构" class="headerlink" title="4.3.3.2、段的结构"></a>4.3.3.2、段的结构</h4><p><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E6%AE%B5_%E7%BB%93%E6%9E%84.png" alt="innodb_段_结构"></p>
-<h2 id="4-4、innodb内存结构"><a href="#4-4、innodb内存结构" class="headerlink" title="4.4、innodb内存结构"></a>4.4、innodb内存结构</h2><p><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%86%85%E5%AD%98%E7%BB%93%E6%9E%84.png" alt="innodb_内存结构"></p>
-<h3 id="4-4-1、缓冲池（buffer-pool）"><a href="#4-4-1、缓冲池（buffer-pool）" class="headerlink" title="4.4.1、缓冲池（buffer pool）"></a>4.4.1、缓冲池（buffer pool）</h3><p>缓冲池简单来说就是一块内存区域，通过内存的速度来弥补磁盘速度较慢对数据库性能的影响。</p>
+</li>
+</ul>
+<p>解决方案</p>
+<ul>
+<li>为每个索引创建两个段：<ul>
+<li>叶子节点段（Leaf Segment）：存储B+ 树的叶子节点（实际数据）</li>
+<li>非叶子节点段（Non-leaf Segment）：存储B+ 树的非叶子节点（索引键值和指针）</li>
+</ul>
+</li>
+<li>通过这种分离，Innodb 可以针对不同类型的节点进行优化存储和访问。</li>
+</ul>
+<h4 id="4-4-1-2、提高存储空间管理效率"><a href="#4-4-1-2、提高存储空间管理效率" class="headerlink" title="4.4.1.2、提高存储空间管理效率"></a>4.4.1.2、提高存储空间管理效率</h4><ul>
+<li><code>区</code>（Extent）的局限性<ul>
+<li>区是连续的 <code>64</code> 个页（默认<code>1MB</code>），但直接按区分配存储可能导致以下问题<ul>
+<li><strong>空间浪费</strong>：如果某个索引需要频繁扩展，按区分配可能导致区未被充分利用。</li>
+<li><strong>碎片化</strong>：频繁的插入&#x2F;删除操作可能导致页分散，降低I&#x2F;O性能。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="4-4-2、段的结构"><a href="#4-4-2、段的结构" class="headerlink" title="4.4.2、段的结构"></a>4.4.2、段的结构</h3><p><code>InnoDB</code> 为<strong>每个段</strong>都定义了一个 <code>INODE Entry</code> 结构来记录<strong>段</strong>中的属性。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E6%AE%B5_%E7%BB%93%E6%9E%84.png" alt="INODE Entry结构示意图"></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Segment ID</strong></td>
+<td>就是指这个 INODE Entry 结构对应的段的编号（ID）。</td>
+</tr>
+<tr>
+<td><strong>NOT_FULL_N_USED</strong></td>
+<td>这个字段指的是在 <code>NOT_FULL</code> 链表中已经使用了多少个页面。下次从 NOT_FULL 链表分配空闲页面时可以直接根据这个字段的值定位到。而不用从链表中的第一个页面开始遍历着寻找空闲页面。</td>
+</tr>
+<tr>
+<td><strong>List Base Node</strong></td>
+<td>分别为段的 <code>FREE</code> 链表、 <code>NOT_FULL</code> 链表、 FULL 链表定义了 List Base Node ，这样我们想查找某个段的某个链表的头节点和尾节点的时候，就可以直接到这个部分找到对应链表的 List Base Node 。</td>
+</tr>
+<tr>
+<td><strong>Magic Number</strong></td>
+<td>这个值是用来标记这个 <code>INODE Entry</code> 是否已经被初始化了（初始化的意思就是把各个字段的值都填进去了）。如果这个数字是值的 97937874 ，表明该 INODE Entry 已经初始化，否则没有被初始化。</td>
+</tr>
+<tr>
+<td><strong>Fragment Array Entry</strong></td>
+<td>每个 <code>Fragment Array Entry</code> 结构都对应着一个零散的页面，这个结构一共4个字节，表示一个零散页面的页号。</td>
+</tr>
+</tbody></table>
+<h4 id="4-4-2-1、段链表"><a href="#4-4-2-1、段链表" class="headerlink" title="4.4.2.1、段链表"></a>4.4.2.1、段链表</h4><p><code>InnoDB</code> 为每个段中的区对应的 <code>XDES Entry</code> 结构建立了三个链表：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>FREE 链表</td>
+<td>同一个段中，所有页面都是空闲的区对应的 <code>XDES Entry</code> 结构会被加入到这个链表。注意和直属于表空间的FREE链表区别开了，此处的 FREE 链表是附属于某个段的。</td>
+</tr>
+<tr>
+<td>NOT_FULL 链表</td>
+<td>同一个段中，仍有空闲空间的区对应的 <code>XDES Entry</code> 结构会被加入到这个链表。</td>
+</tr>
+<tr>
+<td>FULL 链表</td>
+<td>同一个段中，已经没有空闲空间的区对应的 XDES Entry 结构会被加入到这个链表。</td>
+</tr>
+</tbody></table>
+<p>每个段都会维护上述的三个链表。</p>
+<h2 id="4-3、区（extent）"><a href="#4-3、区（extent）" class="headerlink" title="4.3、区（extent）"></a>4.3、区（extent）</h2><p>表空间中的页实在是太多了，为了更好的管理这些页面，innodb提出了<code>区（英文名：extent）</code>的概念。</p>
+<ul>
+<li>对于 <code>16KB</code> 的页来说，连续的<code>64个页</code>就是一个 <strong>区</strong>，也就是说一个区默认占用<code>1MB</code>空间大小。 <code>区 = 64 * 页（1M = 64 * 16KB）</code></li>
+</ul>
+<h3 id="4-3-1、为什么引入区？"><a href="#4-3-1、为什么引入区？" class="headerlink" title="4.3.1、为什么引入区？"></a>4.3.1、为什么引入区？</h3><p>当数据量非常多的时候，如果链表中<strong>相邻的两个页</strong>物理位置离得非常远（<font color="gray"><strong>页会组成一个双向链表，具体查看后续的索引章节</strong></font>），就是所谓的“随机I&#x2F;O”，效率很低。</p>
+<p>所以为了<code class="red">尽量让链表中相邻的页的物理位置也相邻</code>，这样进行范围查询的时候才可以使用所谓的 “顺序I&#x2F;O”，所以才引入了 <code>区（英文名：extent）</code>的概念。</p>
+<blockquote>
+<p>一个区中的页，在物理空间中是连续的，所以在读取时可以减少随机 IO 的次数，从而提高读取速度。</p>
+</blockquote>
+<p>当表中的数据量大的时候，为某个索引分配空间的时候就不再按照页的单位分配了，而是按照 <strong>区</strong> 为单位分配。</p>
+<h3 id="4-3-2、区的结构"><a href="#4-3-2、区的结构" class="headerlink" title="4.3.2、区的结构"></a>4.3.2、区的结构</h3><p><code>innodb</code>设计了一个称为 <code>XDES Entry</code>的结构（全称就是 <code>Extent Descriptor Entry</code>），每一个区对应着一个<code>XDES Entry</code>结构。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%8C%BA_%E7%BB%93%E6%9E%84.png" alt="innodb_区_结构"></p>
+<ul>
+<li><code>Segment ID</code>：每一个段都有一个唯一的 ID。<code>Segment ID</code> 字段表示该区所在的段，前提是该区已经被分配给某个段了，不然该字段的值没有意义；</li>
+<li><code>ListNode</code>：这个部分可以将若干个 <code>XDES Entry</code> 结构串联成一个双向链表；</li>
+<li><code>State</code>：区的状态，总共有四种类型。处于 <code>FREE、FREE_FRAG、FULL_FRAG</code> 这三种状态的区都是独立的，算是直属于表空间；而处于 <code>FSEG</code> 状态的区是附属于某个段的：<ul>
+<li><code>FREE</code>，空闲的区：现在还没有用到这个区中的任何页面；</li>
+<li><code>FREE_FRAG</code>，有剩余空间的碎片区：表示碎片区中还有可用的页面；</li>
+<li><code>FULL_FRAG</code>，没有剩余空间的碎片区：表示碎片区中的所有页面都被使用，没有空闲页面；</li>
+<li><code>FSEG</code>，附属于某个段的区：每一个索引都可以分为叶子节点段和非叶子节点段，除此之外 InnoDB 还会另外定义一些特殊作用的段，在这些段中的数据量很大时将使用区来作为基本的分配单位。</li>
+</ul>
+</li>
+<li><code>Page State Bitmap</code>：这个部分共占用 <code>16</code> 字节，也就是 <code>128</code> 位，一个区默认有 <code>64</code> 个页，这 <code>128</code> 位被划分为 <code>64</code> 个部分，每个部分有 <code>2</code> 位，对应区中的 <code>1</code> 个页。第一个位表示对应的页是否是空闲的，第二个比特位还没有用。</li>
+</ul>
+<h1 id="五、innodb内存结构"><a href="#五、innodb内存结构" class="headerlink" title="五、innodb内存结构"></a>五、innodb内存结构</h1><p><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_%E5%86%85%E5%AD%98%E7%BB%93%E6%9E%84.png" alt="innodb_内存结构"></p>
+<h2 id="5-1、缓冲池（buffer-pool）"><a href="#5-1、缓冲池（buffer-pool）" class="headerlink" title="5.1、缓冲池（buffer pool）"></a>5.1、缓冲池（buffer pool）</h2><p>缓冲池简单来说就是一块内存区域，通过内存的速度来弥补磁盘速度较慢对数据库性能的影响。</p>
 <ul>
 <li>在数据库中进行读取页的操作，首先将从磁盘读到的页存放在缓冲池中，这个过程称为将页“fix”在缓冲池中。下一次再读相同的页时，首先判断该页是否在缓冲池中。若在缓冲池中，称该页在缓冲池中被命中，直接读取该页。否则，读取磁盘上的页。</li>
 <li>对数据库页的修改操作，首先修改缓冲池中的页，然后再以一定的频率刷新到磁盘上。</li>
 </ul>
 <p>缓存池中缓存的数据页类型有：索引页、数据页、undo 页、插入缓冲（insert buffer）、自适应哈希索引（adaptive hash index）、innodb存储的锁信息（lock info）、数据字典信息（data dictionary）等。</p>
-<h3 id="4-4-2、LRU-list、Free-List-和-Flush-List"><a href="#4-4-2、LRU-list、Free-List-和-Flush-List" class="headerlink" title="4.4.2、LRU list、Free List 和 Flush List"></a>4.4.2、LRU list、Free List 和 Flush List</h3><p>如果对内存区域进行管理的呢？</p>
-<p>通常来说，数据库中的缓冲池是通过 LRU（latest recent used，最近最少使用）算法来进行管理的。</p>
-<h3 id="4-4-3、重做日志缓存（redo-log-buffer）"><a href="#4-4-3、重做日志缓存（redo-log-buffer）" class="headerlink" title="4.4.3、重做日志缓存（redo log buffer）"></a>4.4.3、重做日志缓存（redo log buffer）</h3><p>redo log是一个顺序写的日志文件，符合WAL(Write Ahead Log)模式。顺序写比随机写效率高很多。redo log暂存已经提交成功的数据。若系统崩溃，可以使用redo log 恢复数据。</p>
-<p>redo log 是一个缓冲区，定时将缓冲区的数据保存到磁盘。默认1秒保存一次。默认在执行commit操作之前刷新redo log buffer。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_redolog_buffer.png" alt="innodb_redolog_buffer"><br>如上图所示，InnoDB在缓冲池中变更数据时，会首先将相关变更写入重做日志缓冲中，然后再按时或者当事务提交时写入磁盘，这符合Force-log-at-commit原则；当重做日志写入磁盘后，缓冲池中的变更数据才会依据checkpoint机制择时写入到磁盘中，这符 合WAL原则。</p>
-<p>在通常情况下，8MB 的redo log buffer缓冲池足以满足绝大部分的应用，因为重做日志在下列三种情况下会将redo log buffer内容刷新到磁盘的redo log文件中</p>
+<h2 id="5-2、LRU-list、Free-List-和-Flush-List"><a href="#5-2、LRU-list、Free-List-和-Flush-List" class="headerlink" title="5.2、LRU list、Free List 和 Flush List"></a>5.2、LRU list、Free List 和 Flush List</h2><p>如果对内存区域进行管理的呢？</p>
+<p>通常来说，数据库中的缓冲池是通过 <code>LRU（latest recent used</code>，最近最少使用）算法来进行管理的。</p>
+<h2 id="5-3、重做日志缓存（redo-log-buffer）"><a href="#5-3、重做日志缓存（redo-log-buffer）" class="headerlink" title="5.3、重做日志缓存（redo log buffer）"></a>5.3、重做日志缓存（redo log buffer）</h2><p><code>redo log</code>是一个顺序写的日志文件，符合<code>WAL(Write Ahead Log)</code>模式。顺序写比随机写效率高很多。<code>redo log</code>暂存已经提交成功的数据。若系统崩溃，可以使用<code>redo log</code> 恢复数据。</p>
+<p><code>redo log</code> 是一个缓冲区，定时将缓冲区的数据保存到磁盘。默认<code>1</code>秒保存一次。默认在执行<code>commit</code>操作之前刷新<code>redo log buffer</code>。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_redolog_buffer.png" alt="innodb_redolog_buffer"><br>如上图所示，<code>InnoDB</code>在缓冲池中变更数据时，会首先将相关变更写入重做日志缓冲中，然后再按时或者当事务提交时写入磁盘，这符合<code>Force-log-at-commit</code>原则；当重做日志写入磁盘后，缓冲池中的变更数据才会依据<code>checkpoint</code>机制择时写入到磁盘中，这符 合<code>WAL</code>原则。</p>
+<p>在通常情况下，<code>8MB</code> 的<code>redo log buffer</code>缓冲池足以满足绝大部分的应用，因为重做日志在下列三种情况下会将<code>redo log buffer</code>内容刷新到磁盘的<code>redo log</code>文件中</p>
 <ul>
-<li>master thread 每一秒将redo log buffer刷新到redo log 磁盘文件。</li>
-<li>每个事务commit是，将redo log buffer刷新到redo log 磁盘文件。</li>
-<li>当redo log buffer剩余空间小于 1&#x2F;2 时，将redo log buffer刷新到redo log 磁盘文件。</li>
+<li><code>master thread</code> 每一秒将<code>redo log buffer</code>刷新到<code>redo log </code>磁盘文件。</li>
+<li>每个事务<code>commit</code>时，将<code>redo log buffer</code>刷新到<code>redo log</code> 磁盘文件。</li>
+<li>当<code>redo log buffer</code>剩余空间小于 <code>1/2</code> 时，将<code>redo log buffer</code>刷新到<code>redo log</code> 磁盘文件。</li>
 </ul>
 <p>InnoDB的<code>innodb_flush_log_at_trx_commit</code>属性可以控制每次事务提交时InnoDB的行为。</p>
 <ul>
-<li>当属性值为0时，事务提交时，不会对重做日志进行写入操作，而是等待主线程按时写入每秒写入一次；</li>
-<li>当属性值为1时，事务提交时，会将重做日志写入文件系统缓存，并且调用文件系统的fsync(操作系统的一个函数，调用此函数，操作系统会立即执行刷盘操作，将缓冲区的数据刷新到磁盘)，将文件系统缓冲中的数据真正写入磁盘存储，确保不会出现数据丢失；</li>
-<li>当属性值为2时，事务提交时，也会将日志文件写入文件系统缓存，但是不会调用fsync，而是让文件系统自己去判断何时将缓存写入磁盘</li>
+<li>当属性值为<code>0</code>时，事务提交时，不会对重做日志进行写入操作，而是等待主线程按时写入每秒写入一次；</li>
+<li>当属性值为<code>1</code>时，事务提交时，会将重做日志写入文件系统缓存，并且调用文件系统的fsync(操作系统的一个函数，调用此函数，操作系统会立即执行刷盘操作，将缓冲区的数据刷新到磁盘)，将文件系统缓冲中的数据真正写入磁盘存储，确保不会出现数据丢失；</li>
+<li>当属性值为<code>2</code>时，事务提交时，也会将日志文件写入文件系统缓存，但是不会调用<code>fsync</code>，而是让文件系统自己去判断何时将缓存写入磁盘</li>
 </ul>
 <p><code>redo log </code>的刷盘机制如下图所示：<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_redolog_%E5%88%B7%E7%9B%98.png" alt="innodb_redolog_刷盘"></p>
-<h3 id="4-4-4、自适应哈希索引"><a href="#4-4-4、自适应哈希索引" class="headerlink" title="4.4.4、自适应哈希索引"></a>4.4.4、自适应哈希索引</h3><p>InnoDB会根据访问的频率和模式，为热点页建立哈希索引，来提高查询效率。</p>
-<h3 id="4-4-5、锁信息"><a href="#4-4-5、锁信息" class="headerlink" title="4.4.5、锁信息"></a>4.4.5、锁信息</h3><p>我们都知道，InnoDB存储引擎会在行级别上对表数据进行上锁。不过InnoDB也会在数据库内部其他很多地方使用锁，从而允许对多种不同资源提供并发访问。数据库系统使用锁是为了支持对共享资源进行并发访问，提供数据的完整性和一致性。</p>
-<h2 id="4-5、内存数据刷盘"><a href="#4-5、内存数据刷盘" class="headerlink" title="4.5、内存数据刷盘"></a>4.5、内存数据刷盘</h2><p>InnoDB内存缓冲池中的数据page要完成持久化的话，是通过两个流程来完成的：</p>
+<h2 id="5-4、自适应哈希索引"><a href="#5-4、自适应哈希索引" class="headerlink" title="5.4、自适应哈希索引"></a>5.4、自适应哈希索引</h2><p>InnoDB会根据访问的频率和模式，为热点页建立哈希索引，来提高查询效率。</p>
+<h2 id="5-5、锁信息"><a href="#5-5、锁信息" class="headerlink" title="5.5、锁信息"></a>5.5、锁信息</h2><p>我们都知道，InnoDB存储引擎会在行级别上对表数据进行上锁。不过InnoDB也会在数据库内部其他很多地方使用锁，从而允许对多种不同资源提供并发访问。数据库系统使用锁是为了支持对共享资源进行并发访问，提供数据的完整性和一致性。</p>
+<h2 id="5-6、内存数据刷盘"><a href="#5-6、内存数据刷盘" class="headerlink" title="5.6、内存数据刷盘"></a>5.6、内存数据刷盘</h2><p>InnoDB内存缓冲池中的数据page要完成持久化的话，是通过两个流程来完成的：</p>
 <ul>
 <li>一个是脏页落盘；</li>
 <li>一个是预写redo log日志。</li>
@@ -626,22 +855,22 @@ table tr th:nth-child(1) {
 <p>当缓冲池中的页的版本比磁盘要新时，数据库需要将新版本的页从缓冲池刷新到磁盘。但是如果每次一个页发送变化，就进行刷新，那么性能开发是非常大的，于是InnoDB采用了<code>Write Ahead Log（WAL）</code>策略和<code>Force Log at Commit</code>机制实现事务级别下数据的持久性。</p>
 <ul>
 <li>WAL要求数据的变更写入到磁盘前，首先必须将内存中的日志写入到磁盘；</li>
-<li>Force-log-at-commit要求当一个事务提交时，所有产生的日志都必须刷新到磁盘上，如果日志刷新成功后，缓冲池中的数据刷新到磁盘前数据库发生了宕机，那么重启时，数据库可以从日志中恢复数据。</li>
+<li><code>Force-log-at-commit</code>要求当一个事务提交时，所有产生的日志都必须刷新到磁盘上，如果日志刷新成功后，缓冲池中的数据刷新到磁盘前数据库发生了宕机，那么重启时，数据库可以从日志中恢复数据。</li>
 </ul>
 <p>为了确保每次日志都写入到重做日志文件，在每次将重做日志缓冲写入重做日志后，必须调用一次<code>fsync</code>操作，将缓冲文件从文件系统缓存中真正写入磁盘。可以通过 <code>innodb_flush_log_at_trx_commit</code> 来控制重做日志刷新到磁盘的策略。</p>
 <blockquote>
 <p>脏页：指的是在内存中已被修改但尚未写回磁盘的数据页。</p>
 </blockquote>
-<h2 id="4-6、double-write"><a href="#4-6、double-write" class="headerlink" title="4.6、double write"></a>4.6、double write</h2><p>double write（两次写）带给innodb存储引擎的是数据页的可靠性。</p>
-<p>当发生数据库宕机时，可能innodb正在写入某个页到表中，而这个页只写了一部分（比如16KB的页，只写了前4KB），之后就宕机，这种情况称之为部分写失效（partial page write）。在innodb未使用 double write技术前，曾经出现过因为部分写失效而导致数据丢失的情况。</p>
-<h3 id="4-6-1、定义"><a href="#4-6-1、定义" class="headerlink" title="4.6.1、定义"></a>4.6.1、定义</h3><p>在应用（apply）重做日志前，用户需要一个页的副本，当写入失效发生时，先通过页的副本来还原该页，再进行重做，这就是double write。</p>
-<p>double write由两部分组成</p>
+<h2 id="5-7、double-write"><a href="#5-7、double-write" class="headerlink" title="5.7、double write"></a>5.7、double write</h2><p><code>double write</code>（两次写）带给innodb存储引擎的是数据页的可靠性。</p>
+<p>当发生数据库宕机时，可能innodb正在写入某个页到表中，而这个页只写了一部分（比如<code>16KB</code>的页，只写了前<code>4KB</code>），之后就宕机，这种情况称之为部分写失效（<code>partial page write</code>）。在<code>innodb</code>未使用 <code>double write</code>技术前，曾经出现过因为部分写失效而导致数据丢失的情况。</p>
+<h3 id="5-7-1、定义"><a href="#5-7-1、定义" class="headerlink" title="5.7.1、定义"></a>5.7.1、定义</h3><p>在应用（<code>apply</code>）重做日志前，用户需要一个页的副本，当写入失效发生时，先通过页的副本来还原该页，再进行重做，这就是<code>double write</code>。</p>
+<p><code>double write</code>由两部分组成</p>
 <ul>
-<li>一部分是内存中的double write buffer，大小为 2MB</li>
-<li>另一部分是物理磁盘上共享表空间中连续的128个页，即2个区（extent），大小同样为 2MB。</li>
+<li>一部分是内存中的<code>double write buffer</code>，大小为 <code>2MB</code></li>
+<li>另一部分是物理磁盘上共享表空间中连续的<code>128</code>个页，即<code>2个区（extent）</code>，大小同样为 <code>2MB</code>。</li>
 </ul>
-<p>在对缓冲池的脏页进行刷新时，并不直接写磁盘，而是会通过memcpy函数将脏页先复制到内存中的double write buffer，之后再通过double write buffer再分两次，每次1MB顺序的写入共享表空间的物理磁盘上，然后马上调用fsync函数同步磁盘。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_doublewrite.png" alt="innodb_doublewrite"></p>
-<p>查看完整：<br><a href="https://juejin.cn/post/6914672970866622471">InnoDB存储引擎架构详解</a></p>
+<p>在对缓冲池的脏页进行刷新时，并不直接写磁盘，而是会通过<code>memcpy</code>函数将脏页先复制到内存中的<code>double write buffer</code>，之后再通过<code>double write buffer</code>再分两次，每次<code>1MB</code>顺序的写入共享表空间的物理磁盘上，然后马上调用<code>fsync</code>函数同步磁盘。<br><img src="/2020/08/05/2020-08-05-mysql-innodb/innodb_doublewrite.png" alt="innodb_doublewrite"></p>
+<p>查看完整：<br><a href="https://juejin.cn/post/6914672970866622471">InnoDB存储引擎架构详解</a><br><a href="https://zhuanlan.zhihu.com/p/16505194635">ibdNinja：MySQL 8.0 数据文件(.ibd)解析、分析工具</a></p>
 
     </div>
 
@@ -725,7 +954,7 @@ table tr th:nth-child(1) {
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81mysql"><span class="nav-text">一、mysql</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81mysql%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E"><span class="nav-text">二、mysql存储引擎</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81innodb%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E"><span class="nav-text">三、innodb存储引擎</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81innodb%E8%A1%8C%E6%A0%BC%E5%BC%8F"><span class="nav-text">3.1、innodb行格式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E5%A6%82%E4%BD%95%E8%AE%BE%E7%BD%AE%E8%A1%8C%E6%A0%BC%E5%BC%8F%EF%BC%9F"><span class="nav-text">3.1.1、如何设置行格式？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-2%E3%80%81compact%E8%A1%8C%E6%A0%BC%E5%BC%8F"><span class="nav-text">3.1.2、compact行格式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-2-1%E3%80%81%E9%A2%9D%E5%A4%96%E4%BF%A1%E6%81%AF"><span class="nav-text">3.1.2.1、额外信息</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E5%8F%98%E9%95%BF%E5%AD%97%E6%AE%B5%E9%95%BF%E5%BA%A6%E8%A1%A8"><span class="nav-text">1. 变长字段长度表</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-NUll%E5%80%BC%E5%88%97%E8%A1%A8"><span class="nav-text">2. NUll值列表</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-%E8%AE%B0%E5%BD%95%E5%A4%B4%E4%BF%A1%E6%81%AF"><span class="nav-text">3. 记录头信息</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-2-2%E3%80%81%E7%9C%9F%E5%AE%9E%E6%95%B0%E6%8D%AE"><span class="nav-text">3.1.2.2、真实数据</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E9%9A%90%E8%97%8F%E5%88%97"><span class="nav-text">1. 隐藏列</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-2-3%E3%80%81%E7%A4%BA%E4%BE%8B%EF%BC%9A"><span class="nav-text">3.1.2.3、示例：</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-3%E3%80%81redundant%E8%A1%8C%E6%A0%BC%E5%BC%8F"><span class="nav-text">3.1.3、redundant行格式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81innodb%E6%95%B0%E6%8D%AE%E9%A1%B5%E7%BB%93%E6%9E%84"><span class="nav-text">3.2、innodb数据页结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-1%E3%80%81%E9%A1%B5%E7%9A%84%E7%A7%8D%E7%B1%BB%EF%BC%9A"><span class="nav-text">3.2.1、页的种类：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-2%E3%80%81%E6%95%B0%E6%8D%AE%E9%A1%B5%E7%BB%93%E6%9E%84"><span class="nav-text">3.2.2、数据页结构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-1%E3%80%81File-header"><span class="nav-text">3.2.2.1、File header</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-2%E3%80%81Page-Header"><span class="nav-text">3.2.2.2、Page Header</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-3%E3%80%81Infimum-supermum"><span class="nav-text">3.2.2.3、Infimum + supermum</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-4%E3%80%81user-records-Free-space"><span class="nav-text">3.2.2.4、user records + Free space</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E5%A6%82%E4%BD%95%E7%AE%A1%E7%90%86-User-Records%E4%B8%AD%E7%9A%84%E8%AE%B0%E5%BD%95"><span class="nav-text">1. 如何管理 User Records中的记录</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#delete-mask"><span class="nav-text">delete_mask</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#min-rec-mask"><span class="nav-text">min_rec_mask</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#heap-no"><span class="nav-text">heap_no</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#next-record"><span class="nav-text">next_record</span></a></li></ol></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-5%E3%80%81Page-Directory%E3%80%90%E9%A1%B5%E7%9B%AE%E5%BD%95%E3%80%91"><span class="nav-text">3.2.2.5、Page Directory【页目录】</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E5%AE%9A%E4%B9%89"><span class="nav-text">1. 定义</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="nav-text">1. 工作原理</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-%E6%9F%A5%E6%89%BE%E8%BF%87%E7%A8%8B"><span class="nav-text">2. 查找过程</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-6%E3%80%81%E6%95%B0%E6%8D%AE%E9%A1%B5%E5%B0%8F%E7%BB%93"><span class="nav-text">3.2.2.6、数据页小结</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-7%E3%80%81%E5%A4%9A%E4%B8%AA%E6%95%B0%E6%8D%AE%E9%A1%B5%E5%A6%82%E4%BD%95%E6%9F%A5%E8%AF%A2"><span class="nav-text">3.2.2.7、多个数据页如何查询</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81innodb%E6%9E%B6%E6%9E%84"><span class="nav-text">四、innodb架构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81%E5%90%8E%E5%8F%B0%E7%BA%BF%E7%A8%8B"><span class="nav-text">4.1、后台线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81innodb%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6"><span class="nav-text">4.2、innodb磁盘文件</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-1%E3%80%81%E7%B3%BB%E7%BB%9F%E8%A1%A8%E7%A9%BA%E9%97%B4"><span class="nav-text">4.2.1、系统表空间</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-2%E3%80%81%E7%8B%AC%E7%AB%8B%E8%A1%A8%E7%A9%BA%E9%97%B4"><span class="nav-text">4.2.2、独立表空间</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-3%E3%80%81%E9%87%8D%E5%81%9A%E6%97%A5%E5%BF%97%E6%96%87%E4%BB%B6"><span class="nav-text">4.2.3、重做日志文件</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-2-3-1%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AF%E9%87%8D%E5%81%9A%E6%97%A5%E5%BF%97%E6%96%87%E4%BB%B6%EF%BC%9F"><span class="nav-text">4.2.3.1、什么是重做日志文件？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-2-3-2%E3%80%81%E9%87%8D%E5%81%9A%E6%97%A5%E5%BF%97%E6%96%87%E4%BB%B6%E7%9A%84%E4%BD%9C%E7%94%A8%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="nav-text">4.2.3.2、重做日志文件的作用是什么？</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81InnoDB%E9%80%BB%E8%BE%91%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84"><span class="nav-text">4.3、InnoDB逻辑存储结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-1%E3%80%81%E8%A1%A8%E7%A9%BA%E9%97%B4"><span class="nav-text">4.3.1、表空间</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-1-1%E3%80%81%E7%B3%BB%E7%BB%9F%E8%A1%A8%E7%A9%BA%E9%97%B4%EF%BC%88system-tablespace%EF%BC%89"><span class="nav-text">4.3.1.1、系统表空间（system tablespace）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-1-2%E3%80%81%E7%8B%AC%E7%AB%8B%E8%A1%A8%E7%A9%BA%E9%97%B4%EF%BC%88file-per-table-tablespace%EF%BC%89"><span class="nav-text">4.3.1.2、独立表空间（file-per-table tablespace）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-1-3%E3%80%81%E7%B3%BB%E7%BB%9F%E8%A1%A8%E7%A9%BA%E9%97%B4-%E7%8B%AC%E7%AB%8B%E8%A1%A8%E7%A9%BA%E9%97%B4"><span class="nav-text">4.3.1.3、系统表空间 &amp; 独立表空间</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-2%E3%80%81%E5%8C%BA%EF%BC%88extent%EF%BC%89"><span class="nav-text">4.3.2、区（extent）</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-2-1%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E5%BC%95%E5%85%A5%E5%8C%BA%EF%BC%9F"><span class="nav-text">4.3.2.1、为什么引入区？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-2-2%E3%80%81%E5%8C%BA%E7%9A%84%E7%BB%93%E6%9E%84"><span class="nav-text">4.3.2.2、区的结构</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-3%E3%80%81%E6%AE%B5%EF%BC%88segment%EF%BC%89"><span class="nav-text">4.3.3、段（segment）</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-3-1%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E5%BC%95%E5%85%A5%E6%AE%B5%EF%BC%9F"><span class="nav-text">4.3.3.1、为什么引入段？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-3-2%E3%80%81%E6%AE%B5%E7%9A%84%E7%BB%93%E6%9E%84"><span class="nav-text">4.3.3.2、段的结构</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-4%E3%80%81innodb%E5%86%85%E5%AD%98%E7%BB%93%E6%9E%84"><span class="nav-text">4.4、innodb内存结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-1%E3%80%81%E7%BC%93%E5%86%B2%E6%B1%A0%EF%BC%88buffer-pool%EF%BC%89"><span class="nav-text">4.4.1、缓冲池（buffer pool）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-2%E3%80%81LRU-list%E3%80%81Free-List-%E5%92%8C-Flush-List"><span class="nav-text">4.4.2、LRU list、Free List 和 Flush List</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-3%E3%80%81%E9%87%8D%E5%81%9A%E6%97%A5%E5%BF%97%E7%BC%93%E5%AD%98%EF%BC%88redo-log-buffer%EF%BC%89"><span class="nav-text">4.4.3、重做日志缓存（redo log buffer）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-4%E3%80%81%E8%87%AA%E9%80%82%E5%BA%94%E5%93%88%E5%B8%8C%E7%B4%A2%E5%BC%95"><span class="nav-text">4.4.4、自适应哈希索引</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-5%E3%80%81%E9%94%81%E4%BF%A1%E6%81%AF"><span class="nav-text">4.4.5、锁信息</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-5%E3%80%81%E5%86%85%E5%AD%98%E6%95%B0%E6%8D%AE%E5%88%B7%E7%9B%98"><span class="nav-text">4.5、内存数据刷盘</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-6%E3%80%81double-write"><span class="nav-text">4.6、double write</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-6-1%E3%80%81%E5%AE%9A%E4%B9%89"><span class="nav-text">4.6.1、定义</span></a></li></ol></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81mysql"><span class="nav-text">一、mysql</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81mysql%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E"><span class="nav-text">二、mysql存储引擎</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81innodb%E6%9E%B6%E6%9E%84"><span class="nav-text">三、innodb架构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E5%86%85%E5%AD%98%E5%8C%BA%E5%9F%9F"><span class="nav-text">3.1、内存区域</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81%E6%96%87%E4%BB%B6%E5%8C%BA%E5%9F%9F"><span class="nav-text">3.2、文件区域</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81%E5%90%8E%E5%8F%B0%E7%BA%BF%E7%A8%8B"><span class="nav-text">3.3、后台线程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-1-master-thread"><span class="nav-text">3.3.1. master thread</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81InnoDB%E9%80%BB%E8%BE%91%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84"><span class="nav-text">四、InnoDB逻辑存储结构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1%E3%80%81innodb%E6%95%B0%E6%8D%AE%E9%A1%B5%E7%BB%93%E6%9E%84"><span class="nav-text">4.1、innodb数据页结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-1%E3%80%81%E9%A1%B5%E7%9A%84%E7%A7%8D%E7%B1%BB"><span class="nav-text">4.1.1、页的种类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-2%E3%80%81%E6%95%B0%E6%8D%AE%E9%A1%B5%E7%BB%93%E6%9E%84"><span class="nav-text">4.1.2、数据页结构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-1%E3%80%81File-header"><span class="nav-text">4.1.2.1、File header</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-2%E3%80%81Page-Header"><span class="nav-text">4.1.2.2、Page Header</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-3%E3%80%81Infimum-supermum"><span class="nav-text">4.1.2.3、Infimum + supermum</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-4%E3%80%81user-records-Free-space"><span class="nav-text">4.1.2.4、user records + Free space</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E5%A6%82%E4%BD%95%E7%AE%A1%E7%90%86-User-Records%E4%B8%AD%E7%9A%84%E8%AE%B0%E5%BD%95"><span class="nav-text">1. 如何管理 User Records中的记录</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#delete-mask"><span class="nav-text">delete_mask</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#min-rec-mask"><span class="nav-text">min_rec_mask</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#heap-no"><span class="nav-text">heap_no</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#next-record"><span class="nav-text">next_record</span></a></li></ol></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-5%E3%80%81Page-Directory%E3%80%90%E9%A1%B5%E7%9B%AE%E5%BD%95%E3%80%91"><span class="nav-text">4.1.2.5、Page Directory【页目录】</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E4%BD%9C%E7%94%A8"><span class="nav-text">1. 作用</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="nav-text">2. 工作原理</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-%E6%9F%A5%E6%89%BE%E8%BF%87%E7%A8%8B"><span class="nav-text">3. 查找过程</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-6%E3%80%81%E6%95%B0%E6%8D%AE%E9%A1%B5%E5%B0%8F%E7%BB%93"><span class="nav-text">4.1.2.6、数据页小结</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-7%E3%80%81%E5%A4%9A%E4%B8%AA%E6%95%B0%E6%8D%AE%E9%A1%B5%E5%A6%82%E4%BD%95%E6%9F%A5%E8%AF%A2"><span class="nav-text">4.1.2.7、多个数据页如何查询</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2%E3%80%81innodb-%E8%A1%8C%E6%95%B0%E6%8D%AE%EF%BC%88%E8%AE%B0%E5%BD%95%EF%BC%89"><span class="nav-text">4.2、innodb 行数据（记录）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-1%E3%80%81%E5%A6%82%E4%BD%95%E8%AE%BE%E7%BD%AE%E8%A1%8C%E6%A0%BC%E5%BC%8F%EF%BC%9F"><span class="nav-text">4.2.1、如何设置行格式？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-2%E3%80%81compact%E8%A1%8C%E6%A0%BC%E5%BC%8F"><span class="nav-text">4.2.2、compact行格式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-2-2-1%E3%80%81%E9%A2%9D%E5%A4%96%E4%BF%A1%E6%81%AF"><span class="nav-text">4.2.2.1、额外信息</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E5%8F%98%E9%95%BF%E5%AD%97%E6%AE%B5%E9%95%BF%E5%BA%A6%E8%A1%A8"><span class="nav-text">1. 变长字段长度表</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-NUll%E5%80%BC%E5%88%97%E8%A1%A8"><span class="nav-text">2. NUll值列表</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-%E8%AE%B0%E5%BD%95%E5%A4%B4%E4%BF%A1%E6%81%AF"><span class="nav-text">3. 记录头信息</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-2-2-2%E3%80%81%E7%9C%9F%E5%AE%9E%E6%95%B0%E6%8D%AE"><span class="nav-text">4.2.2.2、真实数据</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-%E9%9A%90%E8%97%8F%E5%88%97"><span class="nav-text">1. 隐藏列</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-2-2-3%E3%80%81%E7%A4%BA%E4%BE%8B%EF%BC%9A"><span class="nav-text">4.2.2.3、示例：</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-3%E3%80%81redundant%E8%A1%8C%E6%A0%BC%E5%BC%8F"><span class="nav-text">4.2.3、redundant行格式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81%E8%A1%A8%E7%A9%BA%E9%97%B4"><span class="nav-text">4.3、表空间</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-1%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E8%A1%A8%E7%A9%BA%E9%97%B4%EF%BC%9F"><span class="nav-text">4.3.1、为什么需要表空间？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-2%E3%80%81%E8%A1%A8%E7%A9%BA%E9%97%B4%E7%BB%93%E6%9E%84"><span class="nav-text">4.3.2、表空间结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-3%E3%80%81%E7%B3%BB%E7%BB%9F%E8%A1%A8%E7%A9%BA%E9%97%B4-%E7%8B%AC%E7%AB%8B%E8%A1%A8%E7%A9%BA%E9%97%B4"><span class="nav-text">4.3.3、系统表空间 &amp; 独立表空间</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-3%E3%80%81%E8%A1%A8%E7%A9%BA%E9%97%B4%E6%95%B0%E6%8D%AE%E8%A7%A3%E6%9E%90"><span class="nav-text">4.3.3、表空间数据解析</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-4%E3%80%81%E6%AE%B5%EF%BC%88segment%EF%BC%89"><span class="nav-text">4.4、段（segment）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-1%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E6%AE%B5%EF%BC%9F"><span class="nav-text">4.4.1、为什么需要段？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-1-1%E3%80%81B-%E6%A0%91%E7%B4%A2%E5%BC%95%E7%9A%84%E7%BB%93%E6%9E%84%E7%89%B9%E7%82%B9"><span class="nav-text">4.4.1.1、B+ 树索引的结构特点</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-1-2%E3%80%81%E6%8F%90%E9%AB%98%E5%AD%98%E5%82%A8%E7%A9%BA%E9%97%B4%E7%AE%A1%E7%90%86%E6%95%88%E7%8E%87"><span class="nav-text">4.4.1.2、提高存储空间管理效率</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-2%E3%80%81%E6%AE%B5%E7%9A%84%E7%BB%93%E6%9E%84"><span class="nav-text">4.4.2、段的结构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-2-1%E3%80%81%E6%AE%B5%E9%93%BE%E8%A1%A8"><span class="nav-text">4.4.2.1、段链表</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3%E3%80%81%E5%8C%BA%EF%BC%88extent%EF%BC%89"><span class="nav-text">4.3、区（extent）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-1%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E5%BC%95%E5%85%A5%E5%8C%BA%EF%BC%9F"><span class="nav-text">4.3.1、为什么引入区？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-2%E3%80%81%E5%8C%BA%E7%9A%84%E7%BB%93%E6%9E%84"><span class="nav-text">4.3.2、区的结构</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81innodb%E5%86%85%E5%AD%98%E7%BB%93%E6%9E%84"><span class="nav-text">五、innodb内存结构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1%E3%80%81%E7%BC%93%E5%86%B2%E6%B1%A0%EF%BC%88buffer-pool%EF%BC%89"><span class="nav-text">5.1、缓冲池（buffer pool）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-2%E3%80%81LRU-list%E3%80%81Free-List-%E5%92%8C-Flush-List"><span class="nav-text">5.2、LRU list、Free List 和 Flush List</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-3%E3%80%81%E9%87%8D%E5%81%9A%E6%97%A5%E5%BF%97%E7%BC%93%E5%AD%98%EF%BC%88redo-log-buffer%EF%BC%89"><span class="nav-text">5.3、重做日志缓存（redo log buffer）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-4%E3%80%81%E8%87%AA%E9%80%82%E5%BA%94%E5%93%88%E5%B8%8C%E7%B4%A2%E5%BC%95"><span class="nav-text">5.4、自适应哈希索引</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-5%E3%80%81%E9%94%81%E4%BF%A1%E6%81%AF"><span class="nav-text">5.5、锁信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-6%E3%80%81%E5%86%85%E5%AD%98%E6%95%B0%E6%8D%AE%E5%88%B7%E7%9B%98"><span class="nav-text">5.6、内存数据刷盘</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-7%E3%80%81double-write"><span class="nav-text">5.7、double write</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-7-1%E3%80%81%E5%AE%9A%E4%B9%89"><span class="nav-text">5.7.1、定义</span></a></li></ol></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -741,20 +970,20 @@ table tr th:nth-child(1) {
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">205</span>
+          <span class="site-state-item-count">210</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">37</span>
+        <span class="site-state-item-count">38</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">67</span>
+        <span class="site-state-item-count">71</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
