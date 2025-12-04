@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   这是“mysql”系列的第四篇文章，主要介绍的是部分源码。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《mysql-源码分析》连接与线程管理">
+<meta property="og:url" content="http://yoursite.com/2020/08/10/2020-08-10-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E8%BF%9E%E6%8E%A5%E4%B8%8E%E7%BA%BF%E7%A8%8B%E7%AE%A1%E7%90%86/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   这是“mysql”系列的第四篇文章，主要介绍的是部分源码。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/08/10/2020-08-10-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E8%BF%9E%E6%8E%A5%E4%B8%8E%E7%BA%BF%E7%A8%8B%E7%AE%A1%E7%90%86/%E7%B1%BB%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/10/2020-08-10-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E8%BF%9E%E6%8E%A5%E4%B8%8E%E7%BA%BF%E7%A8%8B%E7%AE%A1%E7%90%86/%E8%BF%9E%E6%8E%A5%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B.png">
+<meta property="article:published_time" content="2020-08-09T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-05-22T15:01:26.041Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="mysql源码">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/08/10/2020-08-10-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E8%BF%9E%E6%8E%A5%E4%B8%8E%E7%BA%BF%E7%A8%8B%E7%AE%A1%E7%90%86/%E7%B1%BB%E5%9B%BE.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/08/10/2020-08-10-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E8%BF%9E%E6%8E%A5%E4%B8%8E%E7%BA%BF%E7%A8%8B%E7%AE%A1%E7%90%86/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《mysql-源码分析》连接与线程管理 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/08/10/2020-08-10-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E8%BF%9E%E6%8E%A5%E4%B8%8E%E7%BA%BF%E7%A8%8B%E7%AE%A1%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《mysql-源码分析》连接与线程管理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-08-10 00:00:00" itemprop="dateCreated datePublished" datetime="2020-08-10T00:00:00+08:00">2020-08-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-05-22 23:01:26" itemprop="dateModified" datetime="2025-05-22T23:01:26+08:00">2025-05-22</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>8.8k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>22 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.orange {
+   color: orange
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<pre><code>这是“mysql”系列的第四篇文章，主要介绍的是部分源码。
+</code></pre>
+<h1 id="一、mysql"><a href="#一、mysql" class="headerlink" title="一、mysql"></a>一、mysql</h1><p><code>MySQL</code> 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）</p>
+<span id="more"></span>
+
+<h1 id="二、连接与线程管理"><a href="#二、连接与线程管理" class="headerlink" title="二、连接与线程管理"></a>二、连接与线程管理</h1><p>在上篇的MySQL server启动源码分析中，对连接与线程管理讲解不够详细，本文进行更详细的介绍</p>
+<p><code>MySQL</code>初始化完成之后，便进入一个<strong>死循环</strong>中，接受客户端请求，并完成客户端的命令。该篇介绍<code>MySQL</code>服务中的连接与线程管理。主要将介绍与连接相关的类与流程。</p>
+<h2 id="2-1、类图与类之间关系"><a href="#2-1、类图与类之间关系" class="headerlink" title="2.1、类图与类之间关系"></a>2.1、类图与类之间关系</h2><p>与连接和线程管理相关的代码主要在<code>/sql/conn_handler</code>中，主要包括以下类：</p>
+<ul>
+<li><code>Connection_handler_manager</code>：单例类，用来管理连接处理器；</li>
+<li><code>Connection_handler</code>：连接处理的抽象类，具体实现由其子类实现；</li>
+<li><code>Per_thread_connection_handler</code>：继承了<code>Connection_handler</code>，每一个连接用单独的线程处理，默认为该实现，通过thread_handling参数可以设置；</li>
+<li><code>One_thread_connection_handler</code>：继承了Connection_handler，所有连接用同一个线程处理；</li>
+<li><code>Plugin_connection_handler</code>：继承了Connection_handler，支持由Plugin具体实现的handler，例如线程池；</li>
+<li><code>Connection_acceptor</code>：一个模版类，以模版方式支持不同的监听实现（三个listener）。并且提供一个死循环，用以监听连接；</li>
+<li><code>Mysqld_socket_listener</code>：实现以Socket的方式监听客户端的连接事件，并且支持<code>TCP socket</code>和<code>Unix socket</code>，即对应的TCP_socket和Unix_socket；</li>
+<li><code>Shared_mem_listener</code>：通过共享内存的监听方式；</li>
+<li><code>Named_pipe_listener</code>：通过命名管道来监听和接收客户请求；</li>
+<li><code>Channel_info</code>：连接信道的抽象类，具体实现有<code>Channel_info_local_socket</code>和<code>Channel_info_tcpip_socket</code>，</li>
+<li><code>Channel_info_local_socket</code>：与本地方式与服务器进行交互；</li>
+<li><code>Channel_info_tcpip_socket</code>：以TCP&#x2F;IP方式与服务器进行交互；</li>
+<li><code>TCP_socket</code>：TCP socket，与MySQL服务不同机器的连接访问；</li>
+<li><code>Unix_socket</code>：Unix socket，与MySQL服务相同主机的连接访问；</li>
+</ul>
+<p>以上为连接管理中用到的类，类之间关系如下图所示。其中，三个<code>Listener</code>将作为<code>Connection_acceptor</code>模版类作为具体的<code>Listener</code>。简单关系就是通过<code>listener</code>监听请求，并创建连接<code>Channel_Info</code>的具体类，然后通过单例<code>Connection_handler_manager</code>指派给具体的<code>Connection_Handler</code>进行调度。下面将详细介绍整个流程。<br><img src="/2020/08/10/2020-08-10-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E8%BF%9E%E6%8E%A5%E4%B8%8E%E7%BA%BF%E7%A8%8B%E7%AE%A1%E7%90%86/%E7%B1%BB%E5%9B%BE.png" alt="类图"></p>
+<h2 id="2-2、下图是连接处理的流程图。"><a href="#2-2、下图是连接处理的流程图。" class="headerlink" title="2.2、下图是连接处理的流程图。"></a>2.2、下图是连接处理的流程图。</h2><p><img src="/2020/08/10/2020-08-10-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E8%BF%9E%E6%8E%A5%E4%B8%8E%E7%BA%BF%E7%A8%8B%E7%AE%A1%E7%90%86/%E8%BF%9E%E6%8E%A5%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B.png" alt="连接处理流程"></p>
+<h3 id="2-2-1、监听处理框架"><a href="#2-2-1、监听处理框架" class="headerlink" title="2.2.1、监听处理框架"></a>2.2.1、监听处理框架</h3><p>初始化之后，进入<code>Connection_acceptor::connection_event_loop</code>, 以下是（<code>sql/conn_handler/connection_acceptor.h</code>）<code>connection_event_loop</code>的代码。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">connection_event_loop</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  Connection_handler_manager *mgr = Connection_handler_manager::<span class="built_in">get_instance</span>();</span><br><span class="line">  <span class="keyword">while</span> (!<span class="built_in">connection_events_loop_aborted</span>()) &#123;</span><br><span class="line">    Channel_info *channel_info = m_listener-&gt;<span class="built_in">listen_for_connection_event</span>();</span><br><span class="line">    <span class="keyword">if</span> (channel_info != <span class="literal">NULL</span>) </span><br><span class="line">      mgr-&gt;<span class="built_in">process_new_connection</span>(channel_info);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>该函数完成的功能就是通过监听客户请求<code>listen_for_connection_event()</code>，然后处理请求<code>process_new_connection()</code>，其中，<code>connection_events_loop_aborted()</code>为一个<code>flag</code>函数表示是否被终止；具体是哪个<code>listener</code>则是由模版填充。这里主要关注<code>Mysqld_socket_listener</code>。</p>
+<h3 id="2-2-2、Mysqld-socket-listener"><a href="#2-2-2、Mysqld-socket-listener" class="headerlink" title="2.2.2、Mysqld_socket_listener"></a>2.2.2、Mysqld_socket_listener</h3><p>在介绍监听之前需要对该<code>listener</code>进行初始化，即<code>setup_listener</code>函数。具体监听的<code>socket</code>列表是在初始化的<code>setup_listener</code>中完成的，在<code>m_socket_map</code>中第一个存的是<code>admin socket</code>，后面跟着是普通的<code>socket</code>，具体函数链为：<code>setup_listener</code> -&gt; 填充<code>socket map</code> -&gt; <code>setup_connection_events</code> -&gt; <code>add_socket_to_listener</code>。所以<code>listener</code>会监听多个<code>socket</code>，且<code>admin</code>是列表中的第一个<code>socket</code>。</p>
+<h4 id="2-2-2-1、获取请求"><a href="#2-2-2-1、获取请求" class="headerlink" title="2.2.2.1、获取请求"></a>2.2.2.1、获取请求</h4><p><code>listen_for_connection_event</code>监听了fd的连接请求，支持了<code>poll</code>或<code>select</code>方式，这里没有采用<code>epoll</code>的方式，但是这个并不会对<code>MySQL</code>的性能有太大的影响，这是因为MySQL的主要瓶颈不在这。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Channel_info* <span class="title">Mysqld_socket_listener::listen_for_connection_event</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="comment">//通过poll() 或 Select() 等多路复用机制，等待 TCP/IP 套接字或UNIX套接字的 POLLIN 事件</span></span><br><span class="line"><span class="type">int</span> retval= <span class="built_in">select</span>((<span class="type">int</span>) m_select_info.m_max_used_connection,&amp;m_select_info.m_read_fds, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">connect_sock= <span class="built_in">mysql_socket_accept</span>(key_socket_client_connection, listen_sock,</span><br><span class="line">                                      (<span class="keyword">struct</span> sockaddr *)(&amp;cAddr), &amp;length);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在监听到有新请求之后，调用<code>Mysqld_socket_listener::get_ready_socket</code>获得已经<code>ready</code>的<code>socket</code>，具体逻辑如下（对于采用<code>poll</code>或<code>select</code>均是如是逻辑）：</p>
+<p>检查是否有<code>admin</code>的<code>socket</code>请求，如果有将<code>admin</code>的<code>socket</code>返回；<br>否则返回第一个<code>ready</code>的<code>MySQL socket</code>；</p>
+<h4 id="2-2-2-2、接收请求"><a href="#2-2-2-2、接收请求" class="headerlink" title="2.2.2.2、接收请求"></a>2.2.2.2、接收请求</h4><p>在获得有效的<code>socket</code>之后，进入<code>accept_connection</code>，进入<code>(inline_)mysql_socket_accept</code>，调用<code>accept</code>接收请求。</p>
+<p>接到<code>connect socket</code>之后，构造一个<code>Channel_info</code>，为<code>Channel_info_local_socket</code>（为<code>unix_socket</code>时，同一机器访问时）或<code>Channel_info_tcpip_socket（tcp socket时）</code>，将该对象作为<code>listen_for_connection_event</code>的返回值。并且所有与连接的相关的信息都保存在<code>Channel_info</code>中。</p>
+<p>当然在以上阶段的任一个时候出现错误，那么都将关闭该socket。</p>
+<h3 id="2-2-3、处理新连接-process-new-connection"><a href="#2-2-3、处理新连接-process-new-connection" class="headerlink" title="2.2.3、处理新连接(process_new_connection)"></a>2.2.3、处理新连接(process_new_connection)</h3><p>处理新连接的代码逻辑如下：</p>
+<ul>
+<li>首先检查服务是否已经停止，然后<code>check_and_incr_conn_count</code>增加连接计数，如果超过连接上限，那么将拒绝连接，并关闭连接；</li>
+<li>如果通过，则将该连接请求加到<code>Connection_handler(Per_thread_connection_handler)</code>中<code>add_connection</code>函数；<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">Connection_handler_manager::process_new_connection</span><span class="params">(Channel_info *channel_info)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">connection_events_loop_aborted</span>() ||</span><br><span class="line">  !<span class="built_in">check_and_incr_conn_count</span>(channel_info-&gt;<span class="built_in">is_admin_connection</span>())) &#123;</span><br><span class="line">    channel_info-&gt;<span class="built_in">send_error_and_close_channel</span>(ER_CON_COUNT_ERROR, <span class="number">0</span>, <span class="literal">true</span>);</span><br><span class="line">    <span class="keyword">delete</span> channel_info;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (m_connection_handler-&gt;<span class="built_in">add_connection</span>(channel_info)) &#123;</span><br><span class="line">    <span class="built_in">inc_aborted_connects</span>();</span><br><span class="line">    <span class="keyword">delete</span> channel_info;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+下面是两个函数的具体逻辑。</li>
+</ul>
+<h4 id="2-2-3-1、判断连接上限"><a href="#2-2-3-1、判断连接上限" class="headerlink" title="2.2.3.1、判断连接上限"></a>2.2.3.1、判断连接上限</h4><p><code>check_and_incr_conn_count</code>中做一个简单的判断，即：</p>
+<ul>
+<li>当前连接数如果大于设置的最大连接数，并且当前请求不是管理员连接，那么将拒绝；</li>
+<li>如果没有超过上限，或者是管理员连接，那么将运行连接。也就是说，当连接满了之后，管理员还是可以登陆的。</li>
+</ul>
+<p>个人感觉这里存在一个问题，就是假如一开始将最大连接数设置得比较大，如<code>10000</code>，并且并发请求量也到达了该数量，但是后续请求量下降了，那么还是会存在<code>10000</code>个线程，并不会自动缩小线程个数。</p>
+<h4 id="2-2-3-2、add-connection"><a href="#2-2-3-2、add-connection" class="headerlink" title="2.2.3.2、add_connection"></a>2.2.3.2、add_connection</h4><p><code>connection_handler_per_thread.cc</code>文件，<code>add_connection</code> 是将连接放置线程中，如果有空闲的线程，那么将直接利用空闲的线程；否则将创建一个新的线程来处理新连接。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">Per_thread_connection_handler::add_connection</span><span class="params">(Channel_info *channel_info)</span> </span>&#123;</span><br><span class="line">  <span class="type">int</span> error = <span class="number">0</span>;</span><br><span class="line">  my_thread_handle id;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (!<span class="built_in">check_idle_thread_and_enqueue_connection</span>(channel_info)) <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">  There are no idle threads avaliable to take up the new</span></span><br><span class="line"><span class="comment">  connection. Create a new thread to handle the connection</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  channel_info-&gt;<span class="built_in">set_prior_thr_create_utime</span>();</span><br><span class="line">  <span class="comment">// 创建线程</span></span><br><span class="line">  error = <span class="built_in">mysql_thread_create</span>(</span><br><span class="line">    key_thread_one_connection, </span><br><span class="line">    &amp;id, </span><br><span class="line">    &amp;connection_attrib,</span><br><span class="line">    handle_connection, </span><br><span class="line">    (<span class="type">void</span> *)channel_info</span><br><span class="line">  );</span><br><span class="line">  <span class="keyword">if</span> (error) &#123;</span><br><span class="line">  <span class="comment">// 错误处理...</span></span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  Global_THD_manager::<span class="built_in">get_instance</span>()-&gt;<span class="built_in">inc_thread_created</span>();</span><br><span class="line">  <span class="built_in">DBUG_PRINT</span>(<span class="string">&quot;info&quot;</span>, (<span class="string">&quot;Thread created&quot;</span>));</span><br><span class="line">  <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h5 id="2-2-3-2-1、check-idle-thread-and-enqueue-connection"><a href="#2-2-3-2-1、check-idle-thread-and-enqueue-connection" class="headerlink" title="2.2.3.2.1、check_idle_thread_and_enqueue_connection"></a>2.2.3.2.1、<code>check_idle_thread_and_enqueue_connection</code></h5><p>做的事情就是检查当前是否有空闲状态的线程；有的话，则将<code>channel_info</code>加入到队列中，并向空闲线程发送信号；否则创建新线程，并执行<code>handle_connection</code>函数。</p>
+<h5 id="2-2-3-2-2、handle-connection函数逻辑如下："><a href="#2-2-3-2-2、handle-connection函数逻辑如下：" class="headerlink" title="2.2.3.2.2、handle_connection函数逻辑如下："></a>2.2.3.2.2、<code>handle_connection</code>函数逻辑如下：</h5><ul>
+<li>首先是初始化线程需要的内存；</li>
+<li>然后创建一个<code>THD</code>对象<code>init_new_thd；</code></li>
+<li>创建&#x2F;或重用<code>psi</code>对象，并加到thd对象；</li>
+<li>将<code>thd</code>对象加到<code>thd manager</code>中；</li>
+<li>调用<code>thd_prepare_connection</code>做验证：<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">extern</span> <span class="string">&quot;C&quot;</span> &#123;</span><br><span class="line">  <span class="function"><span class="type">static</span> <span class="type">void</span> *<span class="title">handle_connection</span><span class="params">(<span class="type">void</span> *arg)</span> </span>&#123;</span><br><span class="line">    Global_THD_manager *thd_manager = Global_THD_manager::<span class="built_in">get_instance</span>();</span><br><span class="line">    Connection_handler_manager *handler_manager = Connection_handler_manager::<span class="built_in">get_instance</span>();</span><br><span class="line">    Channel_info *channel_info = <span class="built_in">static_cast</span>&lt;Channel_info *&gt;(arg);</span><br><span class="line">    <span class="function"><span class="type">bool</span> pthread_reused <span class="title">MY_ATTRIBUTE</span><span class="params">((unused))</span> </span>= <span class="literal">false</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">my_thread_init</span>()) &#123; <span class="comment">//初始化需要的内存</span></span><br><span class="line">      <span class="comment">// 错误处理</span></span><br><span class="line">      <span class="built_in">my_thread_exit</span>(<span class="number">0</span>);</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">      THD *thd = <span class="built_in">init_new_thd</span>(channel_info);</span><br><span class="line">      <span class="keyword">if</span> (thd == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="comment">// 错误处理...</span></span><br><span class="line">        <span class="keyword">break</span>;  <span class="comment">// We are out of resources, no sense in continuing.</span></span><br><span class="line">      &#125;</span><br><span class="line">    </span><br><span class="line">      <span class="meta">#<span class="keyword">ifdef</span> HAVE_PSI_THREAD_INTERFACE</span></span><br><span class="line">        <span class="keyword">if</span> (pthread_reused) &#123;</span><br><span class="line">          <span class="comment">/*</span></span><br><span class="line"><span class="comment">          Reusing existing pthread:</span></span><br><span class="line"><span class="comment">          Create new instrumentation for the new THD job,</span></span><br><span class="line"><span class="comment">          and attach it to this running pthread.</span></span><br><span class="line"><span class="comment">          */</span></span><br><span class="line">          PSI_thread *psi = <span class="built_in">PSI_THREAD_CALL</span>(new_thread)(key_thread_one_connection,</span><br><span class="line">          thd, thd-&gt;<span class="built_in">thread_id</span>());</span><br><span class="line">          <span class="built_in">PSI_THREAD_CALL</span>(set_thread_os_id)(psi);</span><br><span class="line">          <span class="built_in">PSI_THREAD_CALL</span>(set_thread)(psi);</span><br><span class="line">        &#125;</span><br><span class="line">      </span><br><span class="line">        <span class="comment">/* Find the instrumented thread */</span></span><br><span class="line">        PSI_thread *psi = <span class="built_in">PSI_THREAD_CALL</span>(get_thread)();</span><br><span class="line">        <span class="comment">/* Save it within THD, so it can be inspected */</span></span><br><span class="line">        thd-&gt;<span class="built_in">set_psi</span>(psi);</span><br><span class="line">      <span class="meta">#<span class="keyword">endif</span> <span class="comment">/* HAVE_PSI_THREAD_INTERFACE */</span></span></span><br><span class="line">      <span class="built_in">mysql_thread_set_psi_id</span>(thd-&gt;<span class="built_in">thread_id</span>());</span><br><span class="line">      <span class="built_in">mysql_thread_set_psi_THD</span>(thd);</span><br><span class="line">      <span class="built_in">mysql_socket_set_thread_owner</span>(</span><br><span class="line">      thd-&gt;<span class="built_in">get_protocol_classic</span>()-&gt;<span class="built_in">get_vio</span>()-&gt;mysql_socket);</span><br><span class="line">      </span><br><span class="line">      thd_manager-&gt;<span class="built_in">add_thd</span>(thd);</span><br><span class="line">  </span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">thd_prepare_connection</span>(thd))</span><br><span class="line">        handler_manager-&gt;<span class="built_in">inc_aborted_connects</span>();</span><br><span class="line">      <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">while</span> (<span class="built_in">thd_connection_alive</span>(thd)) &#123;</span><br><span class="line">          <span class="keyword">if</span> (<span class="built_in">do_command</span>(thd)) <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">end_connection</span>(thd);</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="built_in">close_connection</span>(thd, <span class="number">0</span>, <span class="literal">false</span>, <span class="literal">false</span>);</span><br><span class="line">  </span><br><span class="line">      thd-&gt;<span class="built_in">get_stmt_da</span>()-&gt;<span class="built_in">reset_diagnostics_area</span>();</span><br><span class="line">      thd-&gt;<span class="built_in">release_resources</span>();</span><br><span class="line">      </span><br><span class="line">          <span class="comment">// Clean up errors now, before possibly waiting for a new connection.</span></span><br><span class="line">      <span class="meta">#<span class="keyword">if</span> OPENSSL_VERSION_NUMBER &lt; 0x10100000L</span></span><br><span class="line">        <span class="built_in">ERR_remove_thread_state</span>(<span class="number">0</span>);</span><br><span class="line">      <span class="meta">#<span class="keyword">endif</span> <span class="comment">/* OPENSSL_VERSION_NUMBER &lt; 0x10100000L */</span></span></span><br><span class="line">      thd_manager-&gt;<span class="built_in">remove_thd</span>(thd);</span><br><span class="line">      Connection_handler_manager::<span class="built_in">dec_connection_count</span>();</span><br><span class="line">      </span><br><span class="line">      <span class="meta">#<span class="keyword">ifdef</span> HAVE_PSI_THREAD_INTERFACE</span></span><br><span class="line">      <span class="comment">/*</span></span><br><span class="line"><span class="comment">      Delete the instrumentation for the job that just completed.</span></span><br><span class="line"><span class="comment">      */</span></span><br><span class="line">      thd-&gt;<span class="built_in">set_psi</span>(<span class="literal">NULL</span>);</span><br><span class="line">      <span class="built_in">PSI_THREAD_CALL</span>(delete_current_thread)();</span><br><span class="line">      <span class="meta">#<span class="keyword">endif</span> <span class="comment">/* HAVE_PSI_THREAD_INTERFACE */</span></span></span><br><span class="line">      </span><br><span class="line">      <span class="keyword">delete</span> thd;</span><br><span class="line">      </span><br><span class="line">      <span class="comment">// Server is shutting down so end the pthread.</span></span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">connection_events_loop_aborted</span>()) <span class="keyword">break</span>;</span><br><span class="line">  </span><br><span class="line">      channel_info = Per_thread_connection_handler::<span class="built_in">block_until_new_connection</span>();</span><br><span class="line">      <span class="keyword">if</span> (channel_info == <span class="literal">NULL</span>) <span class="keyword">break</span>;</span><br><span class="line">      pthread_reused = <span class="literal">true</span>;</span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">connection_events_loop_aborted</span>()) &#123;</span><br><span class="line">        <span class="comment">// 错误处理</span></span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="built_in">my_thread_end</span>();</span><br><span class="line">    <span class="built_in">my_thread_exit</span>(<span class="number">0</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;  <span class="comment">// extern &quot;C&quot;</span></span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>调用<code>thd_prepare_connection-&gt;login_connection-&gt;check_connection</code>，验证登陆用户，通过获得客户端ip，做<code>acl</code>检查客户主机（<code>acl_check_host</code>），通过<code>vio_keepalive</code>设置保活；<br><code>acl_authenticate</code>校验客户端，并且更新thd的上下文，包括了字符集和用户名（<code>parse_com_change_user_packet</code>）；<br><code>do_auth_once</code>：用指定的<code>plugin</code>名去检验用户的权限；并且后面会更新<code>thd</code>的用户和账号；检查用户的<code>acl</code>，并更新密码锁（<code>check_and_update_password_lock_state</code>）；<br>检查该用户是否能够作为代理用户与其他相关授权检查（<code>acl_find_proxy_user</code>）；<code>ssl</code>检查；密码是否超时等；检查单个用户是否超过最大连接；</p>
+</blockquote>
+</li>
+<li>如果以上检查全部通过，那么将执行<code>prepare_new_connection_state</code>（在<code>thd_prepare_connection()</code>方法内部）准备处理用户请求；<blockquote>
+<p>检查是否有压缩配置，有的话准备压缩相关上下文；<br>申请内存，并将动态系统变量复制到线程独享，如字符集&#x2F;事务设置&#x2F;最大包等变量；<br>执行初始化的命令，并处理错误</p>
+</blockquote>
+</li>
+<li>下面便是<code>do_command(thd)；</code>执行单条<code>query</code>或者<code>command</code>，后续会详细介绍该函数的调用栈；</li>
+<li><code>end_connection</code>，关闭一个已经建立的连接，<ul>
+<li><blockquote>
+<p>release_user_connection释放用户连接，并且释放线程回线程池；</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li><code>close_connection</code>，<code>disconnect</code>关闭当前会话的vio；<ul>
+<li><blockquote>
+<p>退出当前用户，db的限制，acl等上下文</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li>释放资源thd中的资源，处理其他信息。</li>
+<li>最后会等待下一个连接，<code>Per_thread_connection_handler::block_until_new_connection</code>，监听接收前面提到的<code>check_idle_thread_and_enqueue_connection</code>发过来的信号；</li>
+</ul>
+<p>以上便是整个线程和连接的管理流程。</p>
+<p>参考文章：<br><a href="https://www.cnblogs.com/juanmaofeifei/p/16111523.html">MySQL启动过程详解二：核心模块启动 init_server_components()</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16129144.html">MySQL启动过程详解三：Innodb存储引擎的启动</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16146201.html">MySQL连接的建立与使用</a><br><a href="http://ilongda.com/knowledge/mysql/source_code_reading/server/connection.html">MySQL 源码解读 – 连接管理</a><br><a href="http://mysql.taobao.org/monthly/2017/09/10/">MySQL · 源码分析 · 一条insert语句的执行过程</a><br><a href="https://www.aneasystone.com/archives/2018/06/insert-locks-via-mysql-source-code.html">读 MySQL 源码再看 INSERT 加锁流程</a><br><a href="http://mysql.taobao.org/monthly/2021/09/03/">MySQL · 源码分析 · Performance Schema 初始化过程</a><br><a href="https://zhuanlan.zhihu.com/p/114149600">MySQL源码阅读1-启动初始化</a><br><a href="https://zhuanlan.zhihu.com/p/114343815">https://zhuanlan.zhihu.com/p/114343815</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mysql%E6%BA%90%E7%A0%81/" rel="tag"># mysql源码</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/08/09/2020-08-09-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-Server%E5%90%AF%E5%8A%A8/" rel="prev" title="《mysql-源码分析》mysql server启动">
+      <i class="fa fa-chevron-left"></i> 《mysql-源码分析》mysql server启动
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/08/11/2020-08-11-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-innodb%E5%90%AF%E5%8A%A8/" rel="next" title="《mysql-源码分析》Innodb启动">
+      《mysql-源码分析》Innodb启动 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81mysql"><span class="nav-text">一、mysql</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E8%BF%9E%E6%8E%A5%E4%B8%8E%E7%BA%BF%E7%A8%8B%E7%AE%A1%E7%90%86"><span class="nav-text">二、连接与线程管理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E7%B1%BB%E5%9B%BE%E4%B8%8E%E7%B1%BB%E4%B9%8B%E9%97%B4%E5%85%B3%E7%B3%BB"><span class="nav-text">2.1、类图与类之间关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E4%B8%8B%E5%9B%BE%E6%98%AF%E8%BF%9E%E6%8E%A5%E5%A4%84%E7%90%86%E7%9A%84%E6%B5%81%E7%A8%8B%E5%9B%BE%E3%80%82"><span class="nav-text">2.2、下图是连接处理的流程图。</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1%E3%80%81%E7%9B%91%E5%90%AC%E5%A4%84%E7%90%86%E6%A1%86%E6%9E%B6"><span class="nav-text">2.2.1、监听处理框架</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-2%E3%80%81Mysqld-socket-listener"><span class="nav-text">2.2.2、Mysqld_socket_listener</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-2-1%E3%80%81%E8%8E%B7%E5%8F%96%E8%AF%B7%E6%B1%82"><span class="nav-text">2.2.2.1、获取请求</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-2-2%E3%80%81%E6%8E%A5%E6%94%B6%E8%AF%B7%E6%B1%82"><span class="nav-text">2.2.2.2、接收请求</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-3%E3%80%81%E5%A4%84%E7%90%86%E6%96%B0%E8%BF%9E%E6%8E%A5-process-new-connection"><span class="nav-text">2.2.3、处理新连接(process_new_connection)</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-3-1%E3%80%81%E5%88%A4%E6%96%AD%E8%BF%9E%E6%8E%A5%E4%B8%8A%E9%99%90"><span class="nav-text">2.2.3.1、判断连接上限</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-2-3-2%E3%80%81add-connection"><span class="nav-text">2.2.3.2、add_connection</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#2-2-3-2-1%E3%80%81check-idle-thread-and-enqueue-connection"><span class="nav-text">2.2.3.2.1、check_idle_thread_and_enqueue_connection</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-2-3-2-2%E3%80%81handle-connection%E5%87%BD%E6%95%B0%E9%80%BB%E8%BE%91%E5%A6%82%E4%B8%8B%EF%BC%9A"><span class="nav-text">2.2.3.2.2、handle_connection函数逻辑如下：</span></a></li></ol></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">217</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">72</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

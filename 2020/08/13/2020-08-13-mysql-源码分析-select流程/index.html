@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   这是“mysql”系列的第五篇文章，主要介绍的是select流程部分源码。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《mysql-源码分析》select流程">
+<meta property="og:url" content="http://yoursite.com/2020/08/13/2020-08-13-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-select%E6%B5%81%E7%A8%8B/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   这是“mysql”系列的第五篇文章，主要介绍的是select流程部分源码。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-08-13T05:00:00.000Z">
+<meta property="article:modified_time" content="2025-06-03T08:50:01.215Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="mysql源码">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2020/08/13/2020-08-13-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-select%E6%B5%81%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《mysql-源码分析》select流程 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/08/13/2020-08-13-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-select%E6%B5%81%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《mysql-源码分析》select流程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-08-13 13:00:00" itemprop="dateCreated datePublished" datetime="2020-08-13T13:00:00+08:00">2020-08-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-06-03 16:50:01" itemprop="dateModified" datetime="2025-06-03T16:50:01+08:00">2025-06-03</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>13k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>31 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.orange {
+   color: orange
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<pre><code>这是“mysql”系列的第五篇文章，主要介绍的是select流程部分源码。
+</code></pre>
+<h1 id="一、mysql"><a href="#一、mysql" class="headerlink" title="一、mysql"></a>一、mysql</h1><p><code>MySQL</code> 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）</p>
+<span id="more"></span>
+
+
+<h1 id="二、一条select语句的执行过程"><a href="#二、一条select语句的执行过程" class="headerlink" title="二、一条select语句的执行过程"></a>二、一条select语句的执行过程</h1><p>SQL的执行过程如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">连接器 -&gt; 分析器 -&gt; 优化器（负责生成执行计划）  -&gt; 执行器 -&gt; innodb</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-1、命令执行"><a href="#2-1、命令执行" class="headerlink" title="2.1、命令执行"></a>2.1、命令执行</h2><p>命令执行<code>mysql_execute_command</code>：（<code>sql/sql_parse.cc</code>）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span></span></span><br><span class="line"><span class="function"><span class="title">mysql_execute_command</span><span class="params">(THD *thd, <span class="type">bool</span> first_level)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">switch</span> (lex-&gt;sql_command) &#123;</span><br><span class="line">      <span class="comment">/* ...... */</span></span><br><span class="line">      <span class="keyword">case</span> SQLCOM_SELECT: <span class="comment">//查询</span></span><br><span class="line">      &#123;</span><br><span class="line">        <span class="built_in">DBUG_EXECUTE_IF</span>(<span class="string">&quot;use_attachable_trx&quot;</span>,</span><br><span class="line">                        thd-&gt;<span class="built_in">begin_attachable_ro_transaction</span>(););</span><br><span class="line">        <span class="comment">// 重置查询成本统计</span></span><br><span class="line">        thd-&gt;<span class="built_in">clear_current_query_costs</span>();</span><br><span class="line">        <span class="comment">// 执行预检查：权限检查、视图权限检查、表结构验证</span></span><br><span class="line">        res= <span class="built_in">select_precheck</span>(thd, lex, all_tables, first_table);</span><br><span class="line">        <span class="comment">// 执行查询</span></span><br><span class="line">        <span class="keyword">if</span> (!res)</span><br><span class="line">          res= <span class="built_in">execute_sqlcom_select</span>(thd, all_tables);</span><br><span class="line">        <span class="comment">// 保存查询成本</span></span><br><span class="line">        thd-&gt;<span class="built_in">save_current_query_costs</span>();</span><br><span class="line">        <span class="built_in">DBUG_EXECUTE_IF</span>(<span class="string">&quot;use_attachable_trx&quot;</span>,</span><br><span class="line">                        thd-&gt;<span class="built_in">end_attachable_transaction</span>(););</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">case</span> SQLCOM_INSERT: <span class="comment">//插入</span></span><br><span class="line">      <span class="keyword">case</span> SQLCOM_REPLACE_SELECT:</span><br><span class="line">      <span class="keyword">case</span> SQLCOM_INSERT_SELECT:</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="built_in">assert</span>(first_table == all_tables &amp;&amp; first_table != <span class="number">0</span>);</span><br><span class="line">        <span class="built_in">assert</span>(lex-&gt;m_sql_cmd != <span class="literal">NULL</span>);</span><br><span class="line">        res= lex-&gt;m_sql_cmd-&gt;<span class="built_in">execute</span>(thd);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-2、执行SQL查询语句（execute-sqlcom-select）"><a href="#2-2、执行SQL查询语句（execute-sqlcom-select）" class="headerlink" title="2.2、执行SQL查询语句（execute_sqlcom_select）"></a>2.2、执行SQL查询语句（execute_sqlcom_select）</h2><p><code>execute_sqlcom_select(thd, all_tables);</code>是处理SELECT查询的核心函数之一，负责执行SQL查询语句并返回结果。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//sql/sql_parse.cc</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">execute_sqlcom_select</span><span class="params">(THD *thd, TABLE_LIST *all_tables)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (lex-&gt;<span class="built_in">is_explain</span>()) <span class="comment">//如果是explain语句</span></span><br><span class="line">    &#123; </span><br><span class="line">      Query_result *<span class="type">const</span> result= <span class="keyword">new</span> Query_result_send; <span class="comment">//Query_result_send标准结果集处理类，负责将数据发送到客户端</span></span><br><span class="line">      <span class="keyword">if</span> (!result)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>; <span class="comment">/* purecov: inspected */</span></span><br><span class="line">      res= <span class="built_in">handle_query</span>(thd, lex, result, <span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      Query_result *result= lex-&gt;result;</span><br><span class="line">      <span class="keyword">if</span> (!result &amp;&amp; !(result= <span class="keyword">new</span> <span class="built_in">Query_result_send</span>()))</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;                            <span class="comment">/* purecov: inspected */</span></span><br><span class="line">      Query_result *save_result= result;</span><br><span class="line">      Query_result *analyse_result= <span class="literal">NULL</span>;</span><br><span class="line">      <span class="keyword">if</span> (lex-&gt;proc_analyse)</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="keyword">if</span> ((result= analyse_result= <span class="keyword">new</span> <span class="built_in">Query_result_analyse</span>(result, lex-&gt;proc_analyse)) == <span class="literal">NULL</span>)</span><br><span class="line">          <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">      &#125;</span><br><span class="line">      res= <span class="built_in">handle_query</span>(thd, lex, result, <span class="number">0</span>, <span class="number">0</span>); <span class="comment">//执行查询，并传入结果集对象</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-3、执行查询（handle-query）"><a href="#2-3、执行查询（handle-query）" class="headerlink" title="2.3、执行查询（handle_query）"></a>2.3、执行查询（handle_query）</h2><p><code>handle_query</code>是<code>MYSQL</code>处理 <code>SQL</code> 查询的核心函数，其执行流程涵盖上下文分析、元数据准备、查询优化、执行计划生成及结果返回。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/sql_select.cc</span></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">handle_query</span><span class="params">(THD *thd, LEX *lex, Query_result *result,</span></span></span><br><span class="line"><span class="params"><span class="function">                  ulonglong added_options, ulonglong removed_options)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">//</span></span><br><span class="line">    SELECT_LEX *<span class="type">const</span> select= unit-&gt;<span class="built_in">first_select</span>();</span><br><span class="line">    <span class="comment">// 判断当前SQL查询单元（unit）是否为简单查询（不包含子查询、union、派生表等复杂结构）</span></span><br><span class="line">    <span class="type">const</span> <span class="type">bool</span> single_query= unit-&gt;<span class="built_in">is_simple</span>(); </span><br><span class="line">    <span class="comment">// 1. 负责验证语法树的合法性、绑定字段、扩展通配符，为优化器生成执行计划提供基础。</span></span><br><span class="line">    <span class="keyword">if</span> (select-&gt;<span class="built_in">prepare</span>(thd)) </span><br><span class="line">    <span class="comment">// 2. 锁定表，</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">lock_tables</span>(thd, lex-&gt;query_tables, lex-&gt;table_count, <span class="number">0</span>))</span><br><span class="line">    <span class="comment">// 3. 存储查询结果到缓存（MYSQL 8.0+ 已移除）</span></span><br><span class="line">    query_cache.<span class="built_in">store_query</span>(thd, lex-&gt;query_tables);</span><br><span class="line">    <span class="comment">// 4. 优化器 生成执行计划，选择最优的查询执行路径</span></span><br><span class="line">    <span class="keyword">if</span> (select-&gt;<span class="built_in">optimize</span>(thd))</span><br><span class="line">    <span class="comment">// 5. 根据优化后的执行计划，从存储引擎读取数据并返回结果</span></span><br><span class="line">    select-&gt;join-&gt;<span class="built_in">exec</span>();</span><br><span class="line">&#125;                  </span><br><span class="line">                  </span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>SELECT_LEX</code>：表示一个查询块（<code>query block</code>），即一个完整的<code>SELECT</code>语句。</li>
+</ul>
+<p>可以分成3个执行阶段：</p>
+<ol>
+<li>准备阶段</li>
+<li>优化阶段</li>
+<li>执行阶段</li>
+</ol>
+<h3 id="2-3-1、准备阶段"><a href="#2-3-1、准备阶段" class="headerlink" title="2.3.1、准备阶段"></a>2.3.1、准备阶段</h3><p><code>SELECT_LEX::prepare(THD *thd)</code>是SELECT查询块的准备阶段，负责：</p>
+<ul>
+<li>名称解析（解析表名、列名、函数等）</li>
+<li>语义检查（验证语法树是否合法）</li>
+<li>权限检查（用户是否有权限访问表或列）</li>
+<li>视图展开（如果查询涉及视图，展开视图为底层表）</li>
+<li>子查询优化（处理子查询的关联上下文）</li>
+<li>派生表物化（为派生表生成临时表结构）</li>
+</ul>
+<p><code>prepare(thd)</code>方法的执行，在<code>sql/sql_resolver.cc</code>文件内。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql_resolver.cc</span></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">SELECT_LEX::prepare</span><span class="params">(THD *thd)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 1. 解析表名、列名、函数名</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">resolve_derived</span>(thd, <span class="keyword">this</span>)) <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 2. 处理 WHERE 子句的条件</span></span><br><span class="line">  <span class="keyword">if</span> (where &amp;&amp; where-&gt;<span class="built_in">fix_fields</span>(thd, &amp;where)) <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 3. 处理 SELECT 列表的列</span></span><br><span class="line">  <span class="keyword">for</span> (Item *item : item_list) &#123;</span><br><span class="line">    <span class="keyword">if</span> (item-&gt;<span class="built_in">fix_fields</span>(thd, &amp;item)) <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 4. 处理 GROUP BY、HAVING 等子句</span></span><br><span class="line">  <span class="comment">// ... 其他逻辑</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-2、优化阶段"><a href="#2-3-2、优化阶段" class="headerlink" title="2.3.2、优化阶段"></a>2.3.2、优化阶段</h3><p><code>optimize(thd)</code>方法是查询处理的<strong>核心优化阶段</strong>，负责生成高效的执行计划，分为以下步骤：</p>
+<ul>
+<li><strong>逻辑优化</strong><ul>
+<li>条件简化：去除冗余表达式（如1&#x3D;1），合并相同条件。</li>
+<li>子查询优化：将 <code>in</code> 子查询转换为半连接（semi-join）或物化临时表。</li>
+<li>视图合并：将视图展开为基表查询。</li>
+<li>连接顺序调整：通过代价模型选择最优的表连接顺序。</li>
+</ul>
+</li>
+<li><strong>物理优化</strong><ul>
+<li>访问路径选择：决定使用全表扫描还是索引扫描，基于统计信息（如索引基数）估算代价。</li>
+<li>临时表策略：处理 <code>group by distinct</code>或排序时，选择内存临时表或磁盘临时表。</li>
+</ul>
+</li>
+<li><strong>代价估算</strong><ul>
+<li>使用存储引擎（如Innodb）提供的统计信息</li>
+</ul>
+</li>
+</ul>
+<p>关键源码判断示例：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/sql_select.cc</span></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">SELECT_LEX::optimize</span><span class="params">(THD *thd)</span> </span>&#123;</span><br><span class="line">  JOIN *join = <span class="keyword">new</span> <span class="built_in">JOIN</span>(thd, <span class="keyword">this</span>, ...);</span><br><span class="line">  <span class="keyword">if</span> (join-&gt;<span class="built_in">optimize</span>()) &#123;  <span class="comment">// 调用 JOIN 的优化逻辑</span></span><br><span class="line">    <span class="keyword">delete</span> join;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;  <span class="comment">// 优化失败</span></span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="literal">false</span>;  <span class="comment">// 优化成功</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// sql/sql_optimizer.cc</span></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">JOIN::optimize</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 逻辑优化（如子查询转换）</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">optimize_cond</span>()) <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 物理优化（如索引选择）</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">make_join_plan</span>()) <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 代价估算与执行计划生成</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">estimate_rowcount</span>()) <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-3、执行阶段"><a href="#2-3-3、执行阶段" class="headerlink" title="2.3.3、执行阶段"></a>2.3.3、执行阶段</h3><p><code>select-&gt;join-&gt;exec();</code>是查询执行阶段的核心入口，负责将优化后的执行计划转换为实际的数据操作。<code>JOIN::exec()</code>源码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/sql_executor.cc</span></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">JOIN::exec</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (error) <span class="keyword">return</span> <span class="literal">true</span>; <span class="comment">// 已存在错误则直接返回</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// 初始化执行环境</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">init_execution</span>()) <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 执行主循环：读取数据并处理</span></span><br><span class="line">  List&lt;Item&gt; *columns = &amp;fields_list;</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">do_select</span>(<span class="keyword">this</span>, columns, <span class="literal">NULL</span>, <span class="number">0</span>)) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>; <span class="comment">// 执行失败</span></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 清理资源</span></span><br><span class="line">  <span class="built_in">cleanup</span>();</span><br><span class="line">  <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>核心逻辑</p>
+<ul>
+<li>（1）<strong>初始化执行环境</strong><ul>
+<li>分配内存缓存（如排序缓冲区、连接缓冲区）</li>
+<li>初始化临时表（处理group by , distinct或子查询物化）</li>
+</ul>
+</li>
+<li>（2）<strong>数据读取与处理</strong><ul>
+<li>通过存储引擎接口（如Innodb的ha_innobase）读取数据</li>
+<li>执行表扫描、索引扫描或连接操作。</li>
+<li>处理过滤条件（WHERE、HAVING）和聚合（SUM、COUNT）</li>
+</ul>
+</li>
+<li>（3）<strong>结果返回</strong><ul>
+<li>将最终结果写入网络缓冲区或临时表。</li>
+</ul>
+</li>
+<li>（4）<strong>清理资源</strong><ul>
+<li>释放临时表、缓存内存。</li>
+<li>关闭存储引擎游标。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<p>因为真正的执行内容较多，所以在第三章节具体说明。</p>
+<h1 id="三、【执行阶段】do-select-真正的执行"><a href="#三、【执行阶段】do-select-真正的执行" class="headerlink" title="三、【执行阶段】do_select 真正的执行"></a>三、【执行阶段】do_select 真正的执行</h1><p>MySQL的<code>join</code>是采用<code>nested loop join</code>（嵌套循环查询）。在<code>do_select</code>函数中，通过调用<code>sub_select</code>函数来具体实现<code>join</code>功能。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/sql_executor.cc</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span></span></span><br><span class="line"><span class="function"><span class="title">do_select</span><span class="params">(JOIN *join)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="comment">// 1. 定位第一个非常量表的起始位置</span></span><br><span class="line">  QEP_TAB *qep_tab= join-&gt;qep_tab + join-&gt;const_tables;</span><br><span class="line">  <span class="comment">// 2. 断言确保存在需要处理的表</span></span><br><span class="line">  <span class="built_in">assert</span>(join-&gt;primary_tables);</span><br><span class="line">  <span class="comment">// 3. 第一次调用：执行嵌套循环连接</span></span><br><span class="line">  error= join-&gt;<span class="built_in">first_select</span>(join,qep_tab,<span class="number">0</span>);</span><br><span class="line">  <span class="comment">// 4. 第二次调用：清理资源</span></span><br><span class="line">  <span class="keyword">if</span> (error &gt;= NESTED_LOOP_OK)</span><br><span class="line">    error= join-&gt;<span class="built_in">first_select</span>(join,qep_tab,<span class="number">1</span>);</span><br><span class="line">&#125;      </span><br></pre></td></tr></table></figure>
+<p>首先来解析一下<code>first_select</code>，源码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/sql_optimizer.h</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">JOIN</span> :<span class="keyword">public</span> Sql_alloc</span><br><span class="line">&#123;</span><br><span class="line">  <span class="built_in">JOIN</span>(<span class="type">const</span> JOIN &amp;rhs);                        <span class="comment">/**&lt; not implemented */</span></span><br><span class="line">  JOIN&amp; <span class="keyword">operator</span>=(<span class="type">const</span> JOIN &amp;rhs);             <span class="comment">/**&lt; not implemented */</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">  <span class="built_in">JOIN</span>(THD *thd_arg, SELECT_LEX *select)</span><br><span class="line">    : <span class="built_in">select_lex</span>(select),</span><br><span class="line">    <span class="built_in">first_select</span>(sub_select), JOIN类的成员变量</span><br><span class="line">    ...</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>JOIN</code>类中的<code>first_select</code>是一个成员变量，它是一个函数指针（通常是 <code>Next_select_func</code> 类型），用于指向执行查询的函数。</li>
+<li><code>sub_select</code>是一个函数，通常被赋值给<code>first_select</code>，作为嵌套循环连接的执行函数。</li>
+</ul>
+<p>所以接下来解析<code>sub_select</code>函数，其是嵌套循环连接（<code>Nested Loop JOIN</code>）的核心逻辑，简化后代码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/sql_executor.cc</span></span><br><span class="line"><span class="function">enum_nested_loop_state</span></span><br><span class="line"><span class="function"><span class="title">sub_select</span><span class="params">(JOIN *join, QEP_TAB *<span class="type">const</span> qep_tab,<span class="type">bool</span> end_of_records)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  ...</span><br><span class="line">  <span class="comment">// 1. 获取当前表的记录读取器</span></span><br><span class="line">  READ_RECORD *info= &amp;qep_tab-&gt;read_record;</span><br><span class="line">  <span class="comment">// 2. 获取当前表在执行计划中的索引位置</span></span><br><span class="line">  <span class="type">const</span> plan_idx qep_tab_idx= qep_tab-&gt;<span class="built_in">idx</span>();</span><br><span class="line">  <span class="comment">// 3. 设置返回位置（用于控制嵌套层级）</span></span><br><span class="line">  join-&gt;return_tab= qep_tab_idx;</span><br><span class="line">  <span class="comment">// 4. 标记是否为首次读取</span></span><br><span class="line">  <span class="type">bool</span> in_first_read= <span class="literal">true</span>;</span><br><span class="line">  <span class="comment">// 5. 主循环：处理当前表的所有记录</span></span><br><span class="line">  <span class="keyword">while</span> (rc == NESTED_LOOP_OK &amp;&amp; join-&gt;return_tab &gt;= qep_tab_idx)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="type">int</span> error;</span><br><span class="line">    <span class="comment">// 6. 首次读取使用特殊函数（初始化扫描）</span></span><br><span class="line">    <span class="keyword">if</span> (in_first_read)</span><br><span class="line">    &#123;</span><br><span class="line">      in_first_read= <span class="literal">false</span>;</span><br><span class="line">      error= (*qep_tab-&gt;read_first_record)(qep_tab);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    <span class="comment">// 7. 后续读取使用标准函数</span></span><br><span class="line">      error= info-&gt;<span class="built_in">read_record</span>(info);</span><br><span class="line">    <span class="comment">// 8. 评估当前记录（连接条件检查：即时评估）</span></span><br><span class="line">    rc= <span class="built_in">evaluate_join_record</span>(join, qep_tab);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>关键函数说明：</p>
+<ul>
+<li><code>read_first_record</code>函数指针：<ul>
+<li>根据访问方法动态绑定<ul>
+<li><strong>全表扫描</strong>：<code>rr_sequential()</code></li>
+<li><strong>索引扫描</strong>：<code>rr_index_first()</code></li>
+<li><strong>范围扫描</strong>：<code>rr_quick()</code></li>
+</ul>
+</li>
+<li>负责初始化扫描状态并获取第一条记录</li>
+</ul>
+</li>
+<li><code>read_record</code>：获取下一条记录<ul>
+<li><strong>全表扫描</strong>：<code>rr_sequential_next()</code></li>
+<li><strong>索引扫描</strong>：<code>rr_index_next()</code></li>
+<li>可能返回HA_ERR_END_OF_FILE表示结束</li>
+</ul>
+</li>
+<li><code>evaluate_join_record()</code><ul>
+<li>检查连接条件是否满足</li>
+<li>如果满足<ul>
+<li>递归调用下一层表的<code>next_select</code>函数</li>
+<li>处理内层表的连接</li>
+</ul>
+</li>
+<li>返回状态控制循环继续或中断</li>
+</ul>
+</li>
+</ul>
+<h2 id="3-1、read-first-record"><a href="#3-1、read-first-record" class="headerlink" title="3.1、read_first_record"></a>3.1、read_first_record</h2><p><code>read_first_record</code>这个函数指针通常指向一个用于读取表中第一条记录的函数。具体的实现取决于表达访问方法（例如：全表扫描、索引扫描等）。在MySQL中，<code>read_first_record</code>是在优化阶段根据执行计划设置的。</p>
+<p>几种常见的实现：</p>
+<ol>
+<li>全表扫描– <code>rr_sequential()</code></li>
+<li>索引扫描– <code>rr_index_first()</code></li>
+</ol>
+<h3 id="3-1-1、read-first-record设置时机"><a href="#3-1-1、read-first-record设置时机" class="headerlink" title="3.1.1、read_first_record设置时机"></a>3.1.1、read_first_record设置时机</h3><p>在优化阶段，当确定表的访问方式后，会设置<code>read_first_record</code>函数指针。例如在<code>make_join_queryplan</code>函数中，优化器根据选择的访问方式设置该指针。</p>
+<h3 id="3-1-2、全表扫描–-rr-sequential"><a href="#3-1-2、全表扫描–-rr-sequential" class="headerlink" title="3.1.2、全表扫描– rr_sequential()"></a>3.1.2、全表扫描– rr_sequential()</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/records.cc</span></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">rr_sequential</span><span class="params">(READ_RECORD *info)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="type">int</span> tmp;</span><br><span class="line">  <span class="comment">// 读取第一条数据</span></span><br><span class="line">  <span class="keyword">while</span> ((tmp=info-&gt;table-&gt;file-&gt;<span class="built_in">ha_rnd_next</span>(info-&gt;record)))</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">if</span> (info-&gt;thd-&gt;killed || (tmp != HA_ERR_RECORD_DELETED))</span><br><span class="line">    &#123;</span><br><span class="line">      tmp= <span class="built_in">rr_handle_error</span>(info, tmp);</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> tmp;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>调用 <code>ha_rnd_next</code> 获取第一条记录</li>
+</ul>
+<h3 id="3-1-3、索引扫描–rr-index-first"><a href="#3-1-3、索引扫描–rr-index-first" class="headerlink" title="3.1.3、索引扫描–rr_index_first()"></a>3.1.3、索引扫描–rr_index_first()</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/record.cc</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">rr_index_first</span><span class="params">(READ_RECORD *info)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="type">int</span> tmp= info-&gt;table-&gt;file-&gt;<span class="built_in">ha_index_first</span>(info-&gt;record);</span><br><span class="line">  info-&gt;read_record= rr_index;</span><br><span class="line">  <span class="keyword">if</span> (tmp)</span><br><span class="line">    tmp= <span class="built_in">rr_handle_error</span>(info, tmp);</span><br><span class="line">  <span class="keyword">return</span> tmp;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>ha_index_first</code>的实现是索引扫描的入口函数，它负责定位并读取索引中的第一条记录。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/handler.cc</span></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">handler::ha_index_first</span><span class="params">(uchar * buf)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="type">int</span> result;</span><br><span class="line">  <span class="built_in">DBUG_ENTER</span>(<span class="string">&quot;handler::ha_index_first&quot;</span>);</span><br><span class="line">  <span class="comment">//1. 前置条件断言</span></span><br><span class="line">  <span class="built_in">assert</span>(table_share-&gt;tmp_table != NO_TMP_TABLE ||</span><br><span class="line">         m_lock_type != F_UNLCK); <span class="comment">// 确保已加锁（临时表除外）</span></span><br><span class="line">  <span class="built_in">assert</span>(inited == INDEX); <span class="comment">// 确保索引已初始化</span></span><br><span class="line">  <span class="built_in">assert</span>(!pushed_idx_cond || buf == table-&gt;record[<span class="number">0</span>]);<span class="comment">// 确保条件推送缓冲区正确</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// 生成列处理标记</span></span><br><span class="line">  m_update_generated_read_fields= table-&gt;<span class="built_in">has_gcol</span>(); <span class="comment">// 标记是否需要更新生成列</span></span><br><span class="line">  <span class="comment">// 核心操作：带性能监控的索引扫描</span></span><br><span class="line">  <span class="built_in">MYSQL_TABLE_IO_WAIT</span>(PSI_TABLE_FETCH_ROW, active_index, result,</span><br><span class="line">    &#123; result= <span class="built_in">index_first</span>(buf); &#125;)<span class="comment">// 调用引擎具体实现</span></span><br><span class="line">  <span class="keyword">if</span> (!result &amp;&amp; m_update_generated_read_fields)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">// 生成列值更新</span></span><br><span class="line">    result= <span class="built_in">update_generated_read_fields</span>(buf, table, active_index);</span><br><span class="line">    m_update_generated_read_fields= <span class="literal">false</span>;<span class="comment">// 重置标记</span></span><br><span class="line">  &#125;</span><br><span class="line">  <span class="built_in">DBUG_RETURN</span>(result);<span class="comment">// 返回结果</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>进入Innodb的具体实现：<code>index_first</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// storage/innobase/handler/ha_innodb.cc</span></span><br><span class="line"><span class="function"><span class="type">int</span></span></span><br><span class="line"><span class="function"><span class="title">ha_innobase::index_first</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function"><span class="comment">/*=====================*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">	uchar*	buf)</span>	<span class="comment">/*!&lt; in/out: buffer for the row */</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="built_in">DBUG_ENTER</span>(<span class="string">&quot;index_first&quot;</span>);</span><br><span class="line"></span><br><span class="line">	<span class="built_in">ha_statistic_increment</span>(&amp;SSV::ha_read_first_count);</span><br><span class="line">    <span class="comment">// 设置搜索模式</span></span><br><span class="line">	<span class="type">int</span>	error = <span class="built_in">index_read</span>(buf, <span class="literal">NULL</span>, <span class="number">0</span>, HA_READ_AFTER_KEY);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* MySQL does not seem to allow this to return HA_ERR_KEY_NOT_FOUND */</span></span><br><span class="line">	<span class="keyword">if</span> (error == HA_ERR_KEY_NOT_FOUND) &#123;</span><br><span class="line">		error = HA_ERR_END_OF_FILE;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">DBUG_RETURN</span>(error);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><code>index_read</code>是Innodb的索引扫描的核心实现。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// storage/innobase/handler/ha_innodb.cc</span></span><br><span class="line"><span class="function"><span class="type">int</span></span></span><br><span class="line"><span class="function"><span class="title">ha_innobase::index_read</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (mode != PAGE_CUR_UNSUPP) &#123;</span><br><span class="line">    <span class="comment">// 进入 InnoDB 并发控制</span></span><br><span class="line">    <span class="built_in">innobase_srv_conc_enter_innodb</span>(m_prebuilt);</span><br><span class="line">    <span class="comment">// 检查是否为普通表（非内建表）</span></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">dict_table_is_intrinsic</span>(m_prebuilt-&gt;table)) &#123;</span><br><span class="line">        <span class="comment">// 检查事务是否被中止</span></span><br><span class="line">        <span class="keyword">if</span> (TrxInInnoDB::<span class="built_in">is_aborted</span>(m_prebuilt-&gt;trx)) &#123;</span><br><span class="line">            <span class="comment">// 回滚事务并返回错误码</span></span><br><span class="line">            <span class="built_in">innobase_rollback</span>(ht, m_user_thd, <span class="literal">false</span>);</span><br><span class="line">            <span class="built_in">DBUG_RETURN</span>(<span class="built_in">convert_error_code_to_mysql</span>(...));</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 标记是否为 INSERT ... SELECT 语句</span></span><br><span class="line">        m_prebuilt-&gt;ins_sel_stmt = <span class="built_in">thd_is_ins_sel_stmt</span>(m_user_thd);</span><br><span class="line">        <span class="comment">// 调用 MVCC 行搜索</span></span><br><span class="line">        ret = <span class="built_in">row_search_mvcc</span>(...);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// 内建表处理（无需 MVCC）</span></span><br><span class="line">        ret = <span class="built_in">row_search_no_mvcc</span>(...);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 退出 InnoDB 并发控制</span></span><br><span class="line">    <span class="built_in">innobase_srv_conc_exit_innodb</span>(m_prebuilt);</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里可以看到<code>row_search_mvcc()</code>，基于MVCC保证事务隔离性。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// storage/innobase/rwo/rowOsel.cc</span></span><br><span class="line"><span class="function"><span class="type">dberr_t</span></span></span><br><span class="line"><span class="function"><span class="title">row_search_mvcc</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">	byte*		buf,</span></span></span><br><span class="line"><span class="params"><span class="function">	<span class="type">page_cur_mode_t</span>	mode,</span></span></span><br><span class="line"><span class="params"><span class="function">	<span class="type">row_prebuilt_t</span>*	prebuilt,</span></span></span><br><span class="line"><span class="params"><span class="function">	ulint		match_mode,</span></span></span><br><span class="line"><span class="params"><span class="function">	ulint		direction)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>row_search_mvcc()</code>函数方法贼长，接近<code>2500</code>行代码。</li>
+</ul>
+<h2 id="3-2、read-record"><a href="#3-2、read-record" class="headerlink" title="3.2、read_record"></a>3.2、read_record</h2><h2 id="3-3、evaluate-join-record"><a href="#3-3、evaluate-join-record" class="headerlink" title="3.3、evaluate_join_record"></a>3.3、evaluate_join_record</h2><p>连接条件检查：即时评估</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rc = <span class="built_in">evaluate_join_record</span>(join, qep_tab); <span class="comment">// 评估连接条件 </span></span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>条件检查</strong>：<ul>
+<li>检查<code>where</code>子句条件</li>
+<li>验证表之间的连接条件（如 <code>t1.id = t2.foreign_id</code>）</li>
+</ul>
+</li>
+<li><strong>字段转换</strong>：将存储引擎格式转换为MySQL内部格式</li>
+<li><strong>短路优化</strong>：条件不满足时立即跳过内层表扫描。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> enum_nested_loop_state</span></span><br><span class="line"><span class="function"><span class="title">evaluate_join_record</span><span class="params">(JOIN *join, QEP_TAB *<span class="type">const</span> qep_tab)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  Item *condition= qep_tab-&gt;<span class="built_in">condition</span>();</span><br><span class="line">  <span class="type">const</span> plan_idx qep_tab_idx= qep_tab-&gt;<span class="built_in">idx</span>();</span><br><span class="line">  <span class="type">bool</span> found= TRUE;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (condition)</span><br><span class="line">  &#123;</span><br><span class="line">    found= <span class="built_in">MY_TEST</span>(condition-&gt;<span class="built_in">val_int</span>());</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (found)</span><br><span class="line">  &#123; </span><br><span class="line">    plan_idx return_tab= join-&gt;return_tab;</span><br><span class="line">    <span class="keyword">if</span> (found)</span><br><span class="line">    &#123;</span><br><span class="line">      qep_tab-&gt;found_match= <span class="literal">true</span>;</span><br><span class="line">      rc= (*qep_tab-&gt;next_select)(join, qep_tab<span class="number">+1</span>, <span class="number">0</span>);</span><br><span class="line">      <span class="keyword">if</span> (qep_tab-&gt;<span class="built_in">do_firstmatch</span>() &amp;&amp;</span><br><span class="line">               <span class="built_in">QEP_AT</span>(qep_tab, match_tab).found_match)</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="built_in">set_if_smaller</span>(return_tab, qep_tab-&gt;firstmatch_return);</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="built_in">set_if_smaller</span>(join-&gt;return_tab, return_tab);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在<code>sub_select</code>函数中，可以看到这样一行代码：<code>(*join_tab-&gt;read_first_record)(join_tab)</code>这个就是读取表A的第一行结果，可以看<code>join_tab</code>里面的信息有表A的名字。接下来就是很关键的一个函数：<code>evaluate_join_record</code>，这个函数主要做2件事：</p>
+<ul>
+<li>将当前已经拿到的信息进行<code>where</code>条件计算，判断是否需要继续往下走；</li>
+<li>递归<code>JOIN</code>；</li>
+</ul>
+<p>实际执行示例，假设三表连接：A、B、C</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">// 处理表A</span><br><span class="line">sub_select(A) &#123;</span><br><span class="line">  while (读取A表记录) &#123;</span><br><span class="line">    evaluate(A记录) &#123;</span><br><span class="line">      // 递归调用表B的处理</span><br><span class="line">      sub_select(B) &#123;</span><br><span class="line">        while (读取B表记录) &#123;</span><br><span class="line">          evaluate(B记录) &#123;</span><br><span class="line">            // 递归调用表C的处理</span><br><span class="line">            sub_select(C) &#123;</span><br><span class="line">              while (读取C表记录) &#123;</span><br><span class="line">                evaluate(C记录) &#123;</span><br><span class="line">                  // 最内层：输出结果</span><br><span class="line">                  end_send();</span><br><span class="line">                &#125;</span><br><span class="line">              &#125;</span><br><span class="line">            &#125;</span><br><span class="line">          &#125;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>MySQL在执行嵌套循环连接时，核心流程就是逐行从存储引擎读取数据，然后进行连接条件检查。</p>
+<ol>
+<li>读取数据：逐行读取<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">error = info-&gt;<span class="built_in">read_record</span>(info);<span class="comment">// 读取下一条记录 </span></span><br></pre></td></tr></table></figure></li>
+</ol>
+<ul>
+<li><strong>存储引擎接口</strong>：通过<code>handler</code>类的方法（如<code>ha_rnd_next</code>或<code>ha_index_next</code>）从存储引擎获取单行记数据。</li>
+<li><strong>物流读取</strong>：每次调用可能导致磁盘I&#x2F;O</li>
+<li><strong>记录格式</strong>：读取的存储引擎的原始格式（如Innodb的紧凑格式）</li>
+</ul>
+<h2 id="3-1、READ-RECORD"><a href="#3-1、READ-RECORD" class="headerlink" title="3.1、READ_RECORD"></a>3.1、READ_RECORD</h2><p><code>READ_RECORD</code>是一个核心数据结构，用于管理从存储引擎中读取记录的逻辑。是执行器与存储引擎交互的关键桥梁。</p>
+<p><strong>结构</strong>：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">READ_RECORD</span> &#123;</span><br><span class="line">  TABLE *table;                  <span class="comment">// 关联的表对象</span></span><br><span class="line">  uint index;                    <span class="comment">// 使用的索引号</span></span><br><span class="line">  uchar *key;                    <span class="comment">// 索引键值</span></span><br><span class="line">  uint key_length;               <span class="comment">// 索引键长度</span></span><br><span class="line">  Setup_func setup_func;         <span class="comment">// 初始化读取的函数（如 read_first_record）</span></span><br><span class="line">  Read_func read_next_func;      <span class="comment">// 迭代读取的函数（如 read_next）</span></span><br><span class="line">  uchar *record;                 <span class="comment">// 缓存读取的记录</span></span><br><span class="line">  <span class="type">int</span> status;                    <span class="comment">// 读取状态（如 RR_OK、RR_END）</span></span><br><span class="line">  <span class="comment">// ... 其他成员</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><strong>关键函数</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>read_first_record()</td>
+<td>初始化读取操作，调用存储引擎的ha_index_init()或ha_rnd_init()</td>
+</tr>
+<tr>
+<td>read_next_record()</td>
+<td>读取下一条记录，调用存储引擎的ha_index_next() 或 ha_rnd_next()</td>
+</tr>
+<tr>
+<td>ha_index_init()</td>
+<td>存储引擎接口，初始化索引读取</td>
+</tr>
+<tr>
+<td>ha_index_read()</td>
+<td>存储引擎接口，读取索引匹配的第一条记录</td>
+</tr>
+<tr>
+<td>ha_index_next()</td>
+<td>存储引擎接口，读取下一条索引匹配的记录</td>
+</tr>
+</tbody></table>
+<h1 id="四、小结"><a href="#四、小结" class="headerlink" title="四、小结"></a>四、小结</h1><p>数据读取的基本流程：</p>
+<ol>
+<li><strong>初始化读取</strong>：通过 <code>read_first_record</code> 初始化读取操作（如打开索引或全表扫描）</li>
+<li><strong>逐条读取</strong>：通过 <code>read_next</code> 逐行读取数据（或批量读取）。</li>
+<li><strong>条件判断</strong>：对每条记录执行过滤条件（如<code>where</code>子句）。</li>
+<li><strong>循环处理</strong>：直到读取完所有符合条件的记录。</li>
+</ol>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">sub_select</span><span class="params">(...)</span> </span>&#123;</span><br><span class="line">  READ_RECORD *info = &amp;qep_tab-&gt;read_record;</span><br><span class="line">  <span class="keyword">while</span> (rc == NESTED_LOOP_OK) &#123;</span><br><span class="line">    <span class="keyword">if</span> (in_first_read) &#123;</span><br><span class="line">      error = <span class="built_in">read_first_record</span>(qep_tab); <span class="comment">// 初始化读取</span></span><br><span class="line">      in_first_read = <span class="literal">false</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      error = info-&gt;<span class="built_in">read_record</span>(info);    <span class="comment">// 逐条读取</span></span><br><span class="line">    &#125;</span><br><span class="line">    rc = <span class="built_in">evaluate_join_record</span>(...);       <span class="comment">// 条件判断与结果处理</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>参考文章：<br><a href="https://juejin.cn/post/6844904114489393160">https://juejin.cn/post/6844904114489393160</a><br><a href="https://github.com/astrophor/astrophor.github.io/blob/master/_posts/2013-6-1-MySQL_select%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86.md">https://github.com/astrophor/astrophor.github.io/blob/master/_posts/2013-6-1-MySQL_select%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86.md</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mysql%E6%BA%90%E7%A0%81/" rel="tag"># mysql源码</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/08/12/2020-08-12-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E5%A4%84%E7%90%86%E7%94%A8%E6%88%B7%E5%91%BD%E4%BB%A4/" rel="prev" title="《mysql-源码分析》处理用户命令">
+      <i class="fa fa-chevron-left"></i> 《mysql-源码分析》处理用户命令
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/08/13/2020-08-13-mysql-select%E6%B5%81%E7%A8%8B/" rel="next" title="《mysql》SQL执行过程">
+      《mysql》SQL执行过程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81mysql"><span class="nav-text">一、mysql</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E4%B8%80%E6%9D%A1select%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B"><span class="nav-text">二、一条select语句的执行过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C"><span class="nav-text">2.1、命令执行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E6%89%A7%E8%A1%8CSQL%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5%EF%BC%88execute-sqlcom-select%EF%BC%89"><span class="nav-text">2.2、执行SQL查询语句（execute_sqlcom_select）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3%E3%80%81%E6%89%A7%E8%A1%8C%E6%9F%A5%E8%AF%A2%EF%BC%88handle-query%EF%BC%89"><span class="nav-text">2.3、执行查询（handle_query）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-1%E3%80%81%E5%87%86%E5%A4%87%E9%98%B6%E6%AE%B5"><span class="nav-text">2.3.1、准备阶段</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-2%E3%80%81%E4%BC%98%E5%8C%96%E9%98%B6%E6%AE%B5"><span class="nav-text">2.3.2、优化阶段</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-3%E3%80%81%E6%89%A7%E8%A1%8C%E9%98%B6%E6%AE%B5"><span class="nav-text">2.3.3、执行阶段</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E3%80%90%E6%89%A7%E8%A1%8C%E9%98%B6%E6%AE%B5%E3%80%91do-select-%E7%9C%9F%E6%AD%A3%E7%9A%84%E6%89%A7%E8%A1%8C"><span class="nav-text">三、【执行阶段】do_select 真正的执行</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81read-first-record"><span class="nav-text">3.1、read_first_record</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81read-first-record%E8%AE%BE%E7%BD%AE%E6%97%B6%E6%9C%BA"><span class="nav-text">3.1.1、read_first_record设置时机</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-2%E3%80%81%E5%85%A8%E8%A1%A8%E6%89%AB%E6%8F%8F%E2%80%93-rr-sequential"><span class="nav-text">3.1.2、全表扫描– rr_sequential()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-3%E3%80%81%E7%B4%A2%E5%BC%95%E6%89%AB%E6%8F%8F%E2%80%93rr-index-first"><span class="nav-text">3.1.3、索引扫描–rr_index_first()</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2%E3%80%81read-record"><span class="nav-text">3.2、read_record</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3%E3%80%81evaluate-join-record"><span class="nav-text">3.3、evaluate_join_record</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81READ-RECORD"><span class="nav-text">3.1、READ_RECORD</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%B0%8F%E7%BB%93"><span class="nav-text">四、小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">217</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">72</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

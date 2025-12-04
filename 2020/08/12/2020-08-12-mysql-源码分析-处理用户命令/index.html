@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《mysql-源码分析》处理用户命令">
+<meta property="og:url" content="http://yoursite.com/2020/08/12/2020-08-12-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E5%A4%84%E7%90%86%E7%94%A8%E6%88%B7%E5%91%BD%E4%BB%A4/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/08/12/2020-08-12-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E5%A4%84%E7%90%86%E7%94%A8%E6%88%B7%E5%91%BD%E4%BB%A4/parse_sql.png">
+<meta property="article:published_time" content="2020-08-12T00:00:00.000Z">
+<meta property="article:modified_time" content="2025-05-23T07:45:39.111Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="mysql源码">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/08/12/2020-08-12-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E5%A4%84%E7%90%86%E7%94%A8%E6%88%B7%E5%91%BD%E4%BB%A4/parse_sql.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/08/12/2020-08-12-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E5%A4%84%E7%90%86%E7%94%A8%E6%88%B7%E5%91%BD%E4%BB%A4/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《mysql-源码分析》处理用户命令 | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/08/12/2020-08-12-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E5%A4%84%E7%90%86%E7%94%A8%E6%88%B7%E5%91%BD%E4%BB%A4/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《mysql-源码分析》处理用户命令
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-08-12 08:00:00" itemprop="dateCreated datePublished" datetime="2020-08-12T08:00:00+08:00">2020-08-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-05-23 15:45:39" itemprop="dateModified" datetime="2025-05-23T15:45:39+08:00">2025-05-23</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.5k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>14 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.orange {
+   color: orange
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<pre><code>这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。
+</code></pre>
+<h1 id="一、mysql"><a href="#一、mysql" class="headerlink" title="一、mysql"></a>一、mysql</h1><p><code>MySQL</code> 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）</p>
+<span id="more"></span>
+
+<pre><code>前文回顾
+</code></pre>
+<p>在 MYSQL的启动过程文章中，可以看到在 <code>mysqld_main()</code> 函数的最后调用了 <code>mysqld_socket_acceptor-&gt;connection_event_loop()</code> 函数用来处理MySQL的连接，这里通过源码分析一下MySQL连接的建立与使用过程：</p>
+<ol>
+<li>在死循环中调用 <code>m_listener-&gt;listen_for_connection_event()</code> 等待连接进入</li>
+<li>如果有连接进入，则调用 <code>precess_new_connection()</code> 处理连接</li>
+<li>调用 <code>check_and_incr_conn_count()</code> 检查是否有空余连接[当前连接数是否大于 max_connections], 如果没有空余连接, 结束处理流程；<ul>
+<li>注意：这里允许 <code>max_connections + 1</code> 个连接，最后一个连接是为 <code>super user</code>保留的。</li>
+</ul>
+</li>
+<li>如果存在空余连接，则对连接进行处理</li>
+<li>查看 <code>thread cache</code> 中是否有空闲 <code>thread</code>，如果有，使用 <code>cached thread</code></li>
+<li>如果不存在，则创建一个新的线程来处理这个连接</li>
+<li>线程调用 <code>handle_connection()</code> 线程处理函数，初始化一个 <code>thd</code> 对象，并将其加入 <code>thd list</code>; 并初始化 <code>lex</code> 词法解析器，进行连接身份验证，初始化 <code>thd</code>，准备执行语句。</li>
+<li>调用 <code>do_command()</code>. 处理用户命令。</li>
+</ol>
+<h1 id="二、do-command函数"><a href="#二、do-command函数" class="headerlink" title="二、do_command函数"></a>二、do_command函数</h1><p>调用 <code>do_command()</code>. 处理用户命令。</p>
+<p>主要可以分成两个部分，</p>
+<ul>
+<li>首先从连接中读取命令</li>
+<li>然后执行命令。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// /sql/sql_parse.cc文件中</span></span><br><span class="line"><span class="comment">//继续分发</span></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">do_command</span><span class="params">(THD *thd)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">//1. 读取命令</span></span><br><span class="line">    rc= thd-&gt;<span class="built_in">get_protocol</span>()-&gt;<span class="built_in">get_command</span>(&amp;com_data, &amp;command);</span><br><span class="line">    <span class="comment">//2. 执行命令</span></span><br><span class="line">    return_value= <span class="built_in">dispatch_command</span>(command, thd, packet<span class="number">+1</span>, (uint) (packet_length<span class="number">-1</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="2-1、读取命令"><a href="#2-1、读取命令" class="headerlink" title="2.1、读取命令"></a>2.1、读取命令</h2><p>调用<code>Protocol_classic::get_command：</code>分成两个内容，一个是从<code>vio</code>中读取命令，通过调用<code>my_net_read-&gt;net_read_packet</code>读取数据包（如果有多个包，则需要读取多次）。对于该过程，先读取包头，然后再根据包头大小去读取数据，同时会检查是否超过最大包上限。另外，如果包是被压缩过的，则需要解压，有两种解压方式：<code>zstd_uncompress</code>和<code>zlib_uncompress</code>。</p>
+<p>具体的函数调用栈如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">my_net_set_read_timeout-&gt;vio_timeout</span><br><span class="line"></span><br><span class="line">Protocol_classic::get_command,</span><br><span class="line">	Protocol_classic::read_packet</span><br><span class="line">		my_net_read</span><br><span class="line">			vio_set_blocking_flag</span><br><span class="line">				vio_set_blocking</span><br><span class="line">			net_read_packet, [multi-call if necessary]</span><br><span class="line">				net_read_packet_header: read header of packet</span><br><span class="line">					net_read_raw_loop: Read something from server/clinet</span><br><span class="line">						vio_read</span><br><span class="line">							inline_mysql_socket_recv(mysql_socket.h) -&gt; recv</span><br><span class="line">							error handling</span><br><span class="line">						error handler (by timeout/error)</span><br><span class="line">				net_realloc: Expand packet buffer if necessary</span><br><span class="line">					check whether exceed the max_allow_packet</span><br><span class="line">				net_read_raw_loop</span><br><span class="line">			my_uncompress [to uncompress package]</span><br><span class="line">				zstd_uncompress</span><br><span class="line">				zlib_uncompress</span><br><span class="line">		error handling</span><br><span class="line">	get command, from first byte enum_server_command.</span><br><span class="line">	Protocol_classic::parse_packet</span><br><span class="line">		validate and parse for different command.</span><br><span class="line">		对于COM_STMT_EXECUTE命令: 需要解释Prepared Statement的参数类型，然后读取真实数据，</span><br><span class="line">		对于其他命令，按照mysql协议把数据指针指向buf；</span><br><span class="line"></span><br><span class="line">// error handling.</span><br><span class="line">	THD::send_statement_status</span><br><span class="line">	return</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="2-2、分发并执行命令"><a href="#2-2、分发并执行命令" class="headerlink" title="2.2、分发并执行命令"></a>2.2、分发并执行命令</h2><p>进入<code>dispatch_command</code>函数，先执行以下逻辑：</p>
+<ul>
+<li>更新<code>performance schema</code>接口指标；</li>
+<li>检查当前时间，如果超过了2038年，则停止该MySQL服务；</li>
+<li>如果请求协议类型是<code>PROTOCOL_PLUGIN</code>，但该命令不允许<code>PROTOCOL_PLUGIN</code>，那么将断开该连接；</li>
+<li>检查密码是否过期；</li>
+<li>将该命令通知到相关的审计中<code>audit</code>；<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">dispatch_command</span><span class="params">(<span class="keyword">enum</span> enum_server_command command, THD *thd, <span class="type">char</span>* packet, uint packet_length)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="comment">// 进入dispatch，即执行switch ... case ...，命令分成三类：功能类、数据操作类、未实现 </span></span><br><span class="line">      <span class="keyword">switch</span> (command) &#123;</span><br><span class="line">         <span class="keyword">case</span> COM_INIT_DB: ....  <span class="keyword">break</span>; <span class="comment">//功能类</span></span><br><span class="line">         ...</span><br><span class="line">         <span class="keyword">case</span> COM_QUERY:   <span class="comment">//数据操作类：如select, insert update等。 </span></span><br><span class="line">             <span class="built_in">mysql_parse</span>(thd, thd-&gt;<span class="built_in">query</span>(), thd-&gt;<span class="built_in">query_length</span>(), &amp;parser_state);  <span class="comment">//sql解析</span></span><br><span class="line">           <span class="keyword">break</span>;</span><br><span class="line">      &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+进行sql语句解析：（<code>sql/sql_parse.cc</code>）<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">mysql_parse</span><span class="params">(THD *thd, <span class="type">char</span> *rawbuf, uint length,</span></span></span><br><span class="line"><span class="params"><span class="function">                 Parser_state *parser_state)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="comment">/* ...... */</span></span><br><span class="line">	</span><br><span class="line">  <span class="comment">/* 检查query_cache，如果结果存在于cache中，直接返回 */</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">query_cache_send_result_to_client</span>(thd, rawbuf, length) &lt;= <span class="number">0</span>)   </span><br><span class="line">  &#123;</span><br><span class="line">     LEX *lex= thd-&gt;lex;</span><br><span class="line"> 	 </span><br><span class="line"> 	 <span class="comment">/* 解析语句 */</span></span><br><span class="line">     <span class="type">bool</span> err= <span class="built_in">parse_sql</span>(thd, parser_state, <span class="literal">NULL</span>);</span><br><span class="line">		</span><br><span class="line">	 <span class="comment">/* 整理语句格式，记录 general log */</span></span><br><span class="line">	 <span class="comment">/* ...... */</span></span><br><span class="line">      <span class="comment">/* 执行语句 */</span></span><br><span class="line">     error= <span class="built_in">mysql_execute_command</span>(thd);</span><br><span class="line">     <span class="comment">/* 提交或回滚没结束的事务（事务可能在mysql_execute_command中提交，用trx_end_by_hint标记事务是否已经提交） */</span></span><br><span class="line">     <span class="keyword">if</span> (!thd-&gt;trx_end_by_hint)         </span><br><span class="line">     &#123;</span><br><span class="line">       <span class="keyword">if</span> (!error &amp;&amp; lex-&gt;ci_on_success)</span><br><span class="line">         <span class="built_in">trans_commit</span>(thd);</span><br><span class="line">    </span><br><span class="line">       <span class="keyword">if</span> (error &amp;&amp; lex-&gt;rb_on_fail)</span><br><span class="line">         <span class="built_in">trans_rollback</span>(thd);</span><br><span class="line">     &#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="2-2-1、sql解析"><a href="#2-2-1、sql解析" class="headerlink" title="2.2.1、sql解析"></a>2.2.1、sql解析</h3><p><code>parse_sql()</code>的作用（<code>sql/sql_parse.cc</code>）：调用 <code>Bison</code> 生成的语法解析器 <code>MYSQLparse()</code>（定义在 <code>sql/sql_yacc.cc</code>），将SQL语句解析为抽象语法树（<code>AST</code>），并填充到<code>LEX</code>的结构体中。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">parse_sql</span><span class="params">(THD *thd,</span></span></span><br><span class="line"><span class="params"><span class="function">               Parser_state *parser_state,</span></span></span><br><span class="line"><span class="params"><span class="function">               Object_creation_ctx *creation_ctx)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">bool</span> mysql_parse_status= <span class="built_in">MYSQLparse</span>(thd) != <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>解析过程如下：<br><img src="/2020/08/12/2020-08-12-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E5%A4%84%E7%90%86%E7%94%A8%E6%88%B7%E5%91%BD%E4%BB%A4/parse_sql.png" alt="parse_sql"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">---parse_sql（sql/sql_parse.cc）：使用提供的解析器状态和对象创建上下文，将一个 SQL 语句转换成一个准备解决的抽象语法树（AST）。</span><br><span class="line">------THD::sql_parser（sql/sql_class.cc）：首先调用解析器将语句转换为解析树；然后，进一步将解析树转换为抽象语法树（AST），以备解析（resolve）之用。</span><br><span class="line">---------my_sql_parser_parse：Bison 解析器生成的语法解析入口函数</span><br><span class="line">---------LEX::make_sql_cmd（sql/sql_lex.cc）：使用解析树（parse_tree）实例化一个 Sql_cmd 对象，并将其赋值给 Lex。</span><br><span class="line">------------Parse_tree_root::make_cmd（sql/parse_tree_nodes.h）：各个语句根据自身抽象语法树（AST）构造 Sql_cmt 对象。</span><br></pre></td></tr></table></figure>
+
+
+<h4 id="分析器"><a href="#分析器" class="headerlink" title="分析器"></a>分析器</h4><p>解析器的工作流程</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">词法分析 -&gt; 语法分析 -&gt; 语义分析 -&gt; 生成语法树</span><br></pre></td></tr></table></figure>
+<ol>
+<li>词法分析<ul>
+<li><code>sql_lex.cc</code> 将 <code>SQL</code> 拆分为 <code>Token</code> （如<code>select</code>, <code>*</code> ,<code>FROM</code>, <code>users</code>）</li>
+</ul>
+</li>
+<li>语法分析<ul>
+<li><code>sql_yacc.yy</code>根据语法规则构建语法树（如<code>select</code>节点、 <code>FROM子</code>句节点）</li>
+</ul>
+</li>
+<li>语言分析<ul>
+<li>验证表是否存储，字段是否合法。</li>
+</ul>
+</li>
+<li>返回语法树<ul>
+<li>语法树传递给优化器 （<code>Optimizer</code>）生成执行计划。</li>
+</ul>
+</li>
+</ol>
+<p>解析器的核心文件：</p>
+<ul>
+<li>词法分析器：<code>sql/sql_lex.cc</code>和<code>sql/sql_yacc.cc</code></li>
+<li>语法分析器：<code>sql/sql_yacc.yy</code></li>
+</ul>
+<blockquote>
+<p>THD ： 是MYSQL线程上下文，包含当前连接的SQL语句、词法分析器状态等信息。</p>
+</blockquote>
+<h3 id="2-2-2、命令执行"><a href="#2-2-2、命令执行" class="headerlink" title="2.2.2、命令执行"></a>2.2.2、命令执行</h3><p>继续执行<code>mysql_execute_command</code>：（<code>sql/sql_parse.cc</code>）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span></span></span><br><span class="line"><span class="function"><span class="title">mysql_execute_command</span><span class="params">(THD *thd, <span class="type">bool</span> first_level)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">   <span class="keyword">switch</span> (lex-&gt;sql_command) &#123;</span><br><span class="line">     <span class="comment">/* ...... */</span></span><br><span class="line">     <span class="keyword">case</span> SQLCOM_SELECT: <span class="comment">//查询</span></span><br><span class="line">     &#123;</span><br><span class="line">       <span class="built_in">DBUG_EXECUTE_IF</span>(<span class="string">&quot;use_attachable_trx&quot;</span>,</span><br><span class="line">                       thd-&gt;<span class="built_in">begin_attachable_ro_transaction</span>(););</span><br><span class="line">   </span><br><span class="line">       thd-&gt;<span class="built_in">clear_current_query_costs</span>();</span><br><span class="line">   </span><br><span class="line">       res= <span class="built_in">select_precheck</span>(thd, lex, all_tables, first_table);</span><br><span class="line">   </span><br><span class="line">       <span class="keyword">if</span> (!res)</span><br><span class="line">         res= <span class="built_in">execute_sqlcom_select</span>(thd, all_tables);</span><br><span class="line">   </span><br><span class="line">       thd-&gt;<span class="built_in">save_current_query_costs</span>();</span><br><span class="line">   </span><br><span class="line">       <span class="built_in">DBUG_EXECUTE_IF</span>(<span class="string">&quot;use_attachable_trx&quot;</span>,</span><br><span class="line">                       thd-&gt;<span class="built_in">end_attachable_transaction</span>(););</span><br><span class="line">   </span><br><span class="line">       <span class="keyword">break</span>;</span><br><span class="line">     &#125;</span><br><span class="line">     <span class="keyword">case</span> SQLCOM_INSERT: <span class="comment">//插入</span></span><br><span class="line">     <span class="keyword">case</span> SQLCOM_REPLACE_SELECT:</span><br><span class="line">     <span class="keyword">case</span> SQLCOM_INSERT_SELECT:</span><br><span class="line">     &#123;</span><br><span class="line">       <span class="built_in">assert</span>(first_table == all_tables &amp;&amp; first_table != <span class="number">0</span>);</span><br><span class="line">       <span class="built_in">assert</span>(lex-&gt;m_sql_cmd != <span class="literal">NULL</span>);</span><br><span class="line">       res= lex-&gt;m_sql_cmd-&gt;<span class="built_in">execute</span>(thd);</span><br><span class="line">       <span class="keyword">break</span>;</span><br><span class="line">     &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>处理用户命令的源码解析暂时到此为止，更具体的内容后面单独的文章进行解析。</p>
+<p>参考文章：<br><a href="https://www.cnblogs.com/juanmaofeifei/p/16111523.html">MySQL启动过程详解二：核心模块启动 init_server_components()</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16129144.html">MySQL启动过程详解三：Innodb存储引擎的启动</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16146201.html">MySQL连接的建立与使用</a><br><a href="http://ilongda.com/knowledge/mysql/source_code_reading/server/connection.html">MySQL 源码解读 – 连接管理</a><br><a href="https://www.aneasystone.com/archives/2018/06/insert-locks-via-mysql-source-code.html">读 MySQL 源码再看 INSERT 加锁流程</a><br><a href="https://www.ctyun.cn/developer/article/403942519849029">MySQL二阶段提交及组提交简析</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16040614.html">MySQL事务提交流程详解</a><br><a href="https://opensource.actionsky.com/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-mysql-%E7%9A%84-commit-%E6%98%AF%E6%80%8E%E4%B9%88-commit-%E7%9A%84%EF%BC%9F/">源码分析 | MySQL 的 commit 是怎么 commit 的？</a><br><a href="https://blog.csdn.net/bohu83/article/details/82903976">MySQL · 源码分析 · 一条insert语句的执行过程</a><br><a href="https://zhuanlan.zhihu.com/p/451690418">MySQL 引擎特性 · InnoDB Redo Log 解析</a><br><a href="http://mysql.taobao.org/monthly/2017/09/10/">MySQL · 源码分析 · 一条insert语句的执行过程</a><br><a href="http://mysql.taobao.org/monthly/2021/09/04/">MySQL · 源码详解 · mini transaction详解</a><br><a href="http://mysql.taobao.org/monthly/2019/03/03/">MySQL · InnoDB · Redo log</a><br><a href="https://www.pagefault.info/2019/04/18/mtr-minitransaction-design-and-implementation.html">MTR(mini-transaction)设计与实现</a><br><a href="https://zhuanlan.zhihu.com/p/121772222">MySQL源码阅读4-do_command函数&#x2F;功能类命令</a><br><a href="https://blog.csdn.net/vipshop_fin_dev/article/details/79688717">从Mysql源代码角度分析一句简单sql的查询过程</a><br><a href="http://mysql.taobao.org/monthly/2017/02/04/">MySQL · 源码分析 · 词法分析及其性能优化</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mysql%E6%BA%90%E7%A0%81/" rel="tag"># mysql源码</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/08/11/2020-08-11-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-innodb%E5%90%AF%E5%8A%A8/" rel="prev" title="《mysql-源码分析》Innodb启动">
+      <i class="fa fa-chevron-left"></i> 《mysql-源码分析》Innodb启动
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/08/13/2020-08-13-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-select%E6%B5%81%E7%A8%8B/" rel="next" title="《mysql-源码分析》select流程">
+      《mysql-源码分析》select流程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81mysql"><span class="nav-text">一、mysql</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81do-command%E5%87%BD%E6%95%B0"><span class="nav-text">二、do_command函数</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E8%AF%BB%E5%8F%96%E5%91%BD%E4%BB%A4"><span class="nav-text">2.1、读取命令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81%E5%88%86%E5%8F%91%E5%B9%B6%E6%89%A7%E8%A1%8C%E5%91%BD%E4%BB%A4"><span class="nav-text">2.2、分发并执行命令</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-1%E3%80%81sql%E8%A7%A3%E6%9E%90"><span class="nav-text">2.2.1、sql解析</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%88%86%E6%9E%90%E5%99%A8"><span class="nav-text">分析器</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-2%E3%80%81%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C"><span class="nav-text">2.2.2、命令执行</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">217</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">72</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

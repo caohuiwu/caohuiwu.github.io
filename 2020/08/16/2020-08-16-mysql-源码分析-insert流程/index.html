@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《mysql-源码分析》Insert流程（事务执行阶段）">
+<meta property="og:url" content="http://yoursite.com/2020/08/16/2020-08-16-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B/index.html">
+<meta property="og:site_name" content="CHW&#39;s Notes">
+<meta property="og:description" content=".orange {    color: orange } .red {    color: red } code {    color: #0ABF5B; }   这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。  一、mysqlMySQL 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/08/16/2020-08-16-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B/insert_%E8%B0%83%E7%94%A8%E5%A0%86%E6%A0%88.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/16/2020-08-16-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B/insert_%E7%81%AB%E7%84%B0%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2020/08/16/2020-08-16-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B/innodb_insert%E6%B5%81%E7%A8%8B%E5%9B%BE.png">
+<meta property="article:published_time" content="2020-08-16T05:00:00.000Z">
+<meta property="article:modified_time" content="2025-05-30T02:42:47.866Z">
+<meta property="article:author" content="chw">
+<meta property="article:tag" content="mysql源码">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/08/16/2020-08-16-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B/insert_%E8%B0%83%E7%94%A8%E5%A0%86%E6%A0%88.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/08/16/2020-08-16-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>《mysql-源码分析》Insert流程（事务执行阶段） | CHW's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">CHW's Notes</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/08/16/2020-08-16-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/touxiang.jpg">
+      <meta itemprop="name" content="chw">
+      <meta itemprop="description" content="do somthing">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CHW's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          《mysql-源码分析》Insert流程（事务执行阶段）
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-08-16 13:00:00" itemprop="dateCreated datePublished" datetime="2020-08-16T13:00:00+08:00">2020-08-16</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-05-30 10:42:47" itemprop="dateModified" datetime="2025-05-30T10:42:47+08:00">2025-05-30</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>24k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>1:01</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <style>
+.orange {
+   color: orange
+}
+.red {
+   color: red
+}
+code {
+   color: #0ABF5B;
+}
+</style>
+
+<pre><code>这是“mysql”系列的第五篇文章，主要介绍的是Insert流程部分源码。
+</code></pre>
+<h1 id="一、mysql"><a href="#一、mysql" class="headerlink" title="一、mysql"></a>一、mysql</h1><p><code>MySQL</code> 是一种广泛使用的开源关系型数据库管理系统（RDBMS–Relational Database Management System）</p>
+<span id="more"></span>
+
+<h1 id="二、一条Insert语句的执行过程"><a href="#二、一条Insert语句的执行过程" class="headerlink" title="二、一条Insert语句的执行过程"></a>二、一条Insert语句的执行过程</h1><p>一条INSERT语句的执行过程堆栈总结如下，主要是两个步骤：</p>
+<ul>
+<li><strong>事务执行阶段</strong>（<code>execute</code>方法）<ul>
+<li>undo log生成</li>
+<li>redo log生成</li>
+<li>binlog 生成</li>
+</ul>
+</li>
+<li><strong>事务提交阶段</strong>（<code>trans_commit_stmt(thd)</code>）<ul>
+<li>prepare阶段</li>
+<li>commit阶段<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">mysql_execute_command</span><br><span class="line">    -&gt; Sql_cmd_insert::execute（事务执行阶段）</span><br><span class="line">        -&gt; mysql_insert</span><br><span class="line">            -&gt; write_record</span><br><span class="line">                -&gt; ha_write_row</span><br><span class="line">                    -&gt; write_row：存储引擎的具体实现</span><br><span class="line">                    -&gt; binlog_log_row(table, 0, buf, log_func)：写binlog</span><br><span class="line">    -&gt; trans_commit_stmt(thd);（事务提交阶段）</span><br><span class="line">        -&gt; ha_commit_trans  </span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ul>
+<h2 id="2-1、命令执行"><a href="#2-1、命令执行" class="headerlink" title="2.1、命令执行"></a>2.1、命令执行</h2><p>命令执行<code>mysql_execute_command</code>：（<code>sql/sql_parse.cc</code>）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span></span></span><br><span class="line"><span class="function"><span class="title">mysql_execute_command</span><span class="params">(THD *thd, <span class="type">bool</span> first_level)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">switch</span> (lex-&gt;sql_command) &#123;</span><br><span class="line">      <span class="comment">/* ...... */</span></span><br><span class="line">      <span class="keyword">case</span> SQLCOM_INSERT: <span class="comment">//插入</span></span><br><span class="line">      <span class="keyword">case</span> SQLCOM_REPLACE_SELECT:</span><br><span class="line">      <span class="keyword">case</span> SQLCOM_INSERT_SELECT:</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="built_in">assert</span>(first_table == all_tables &amp;&amp; first_table != <span class="number">0</span>);</span><br><span class="line">        <span class="built_in">assert</span>(lex-&gt;m_sql_cmd != <span class="literal">NULL</span>);</span><br><span class="line">        res= lex-&gt;m_sql_cmd-&gt;<span class="built_in">execute</span>(thd); <span class="comment">// 插入语句的核心执行入口</span></span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">trans_commit_stmt</span>(thd);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>lex-&gt;m_sql_cmd-&gt;execute(thd);</code></p>
+<ul>
+<li><code>lex</code>：词法分析器对象（<code>LEX</code>），保存了解析后的SQL语句信息。</li>
+<li><code>m_sql_cmd</code>：指向具体 <code>SQL</code> 命令的处理对象（如 <code>Sql_cmd_insert, Sql_cmd_insert_select</code>）</li>
+<li><code>execute(thd)</code>：<ul>
+<li>根据 <code>SQL</code> 命令类型调用对应的执行函数。</li>
+<li><code>thd</code>：线程上下文（<code>THD</code>），包含当前会话的元信息（如连接、事务、临时表等）</li>
+</ul>
+</li>
+</ul>
+<h2 id="2-2、execute-thd"><a href="#2-2、execute-thd" class="headerlink" title="2.2、execute(thd)"></a>2.2、execute(thd)</h2><p>在 <code>sql/sql_insert.cc</code> 文件中，执行逻辑如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">Sql_cmd_insert::execute</span><span class="params">(THD *thd)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">insert_precheck</span>(thd, all_tables)) <span class="comment">//检查，</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    res= <span class="built_in">mysql_insert</span>(thd, all_tables);<span class="comment">//插入</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>进入 <code>mysql_insert()</code>，源码在<code>sql/sql_insert.cc</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">mysql_insert</span><span class="params">(THD *thd,TABLE_LIST *table_list,</span></span></span><br><span class="line"><span class="params"><span class="function">                  List&lt;Item&gt; &amp;fields, <span class="comment">/* insert 的字段 */</span></span></span></span><br><span class="line"><span class="params"><span class="function">                  List&lt;List_item&gt; &amp;values_list, <span class="comment">/* insert 的值 */</span></span></span></span><br><span class="line"><span class="params"><span class="function">                  List&lt;Item&gt; &amp;update_fields,</span></span></span><br><span class="line"><span class="params"><span class="function">                  List&lt;Item&gt; &amp;update_values,</span></span></span><br><span class="line"><span class="params"><span class="function">                  enum_duplicates duplic,</span></span></span><br><span class="line"><span class="params"><span class="function">                  <span class="type">bool</span> ignore)</span></span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">  <span class="comment">/*对每条记录调用 write_record */</span></span><br><span class="line">  <span class="keyword">while</span> ((values= its++))</span><br><span class="line">  &#123;</span><br><span class="line">	<span class="keyword">if</span> (lock_type == TL_WRITE_DELAYED)</span><br><span class="line">    &#123;</span><br><span class="line">      LEX_STRING <span class="type">const</span> st_query = &#123; query, thd-&gt;<span class="built_in">query_length</span>() &#125;;</span><br><span class="line">      <span class="built_in">DEBUG_SYNC</span>(thd, <span class="string">&quot;before_write_delayed&quot;</span>);</span><br><span class="line">      <span class="comment">/* insert delay */</span></span><br><span class="line">      error= <span class="built_in">write_delayed</span>(thd, table, st_query, log_on, &amp;info);</span><br><span class="line">      <span class="built_in">DEBUG_SYNC</span>(thd, <span class="string">&quot;after_write_delayed&quot;</span>);</span><br><span class="line">      query=<span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> </span><br><span class="line">      <span class="comment">/* normal insert */</span></span><br><span class="line">      error= <span class="built_in">write_record</span>(thd, table, &amp;info, &amp;update);</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">    这里还有</span></span><br><span class="line"><span class="comment">    thd-&gt;binlog_query()写binlog</span></span><br><span class="line"><span class="comment">    my_ok()返回ok报文，ok报文中包含影响行数</span></span><br><span class="line"><span class="comment">  */</span></span><br></pre></td></tr></table></figure>
+<p>进入 <code>write_record</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">  COPY_INFO *info 用来处理唯一键冲突，记录影响行数</span></span><br><span class="line"><span class="comment">  COPY_INFO *update 处理 INSERT ON DUPLICATE KEY UPDATE 相关信息</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">write_record</span><span class="params">(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (duplicate_handling == DUP_REPLACE || duplicate_handling == DUP_UPDATE)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">/* 处理 INSERT ON DUPLICATE KEY UPDATE 等复杂情况 */</span></span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">/* 调用存储引擎的接口 */</span></span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span> ((error=table-&gt;file-&gt;<span class="built_in">ha_write_row</span>(table-&gt;record[<span class="number">0</span>])))</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="built_in">DEBUG_SYNC</span>(thd, <span class="string">&quot;write_row_noreplace&quot;</span>);</span><br><span class="line">    <span class="keyword">if</span> (!ignore_errors ||</span><br><span class="line">        table-&gt;file-&gt;<span class="built_in">is_fatal_error</span>(error, HA_CHECK_DUP))</span><br><span class="line">      <span class="keyword">goto</span> err; </span><br><span class="line">    table-&gt;file-&gt;<span class="built_in">restore_auto_increment</span>(prev_insert_id);</span><br><span class="line">    <span class="keyword">goto</span> ok_or_after_trg_err;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>ha_write_row</code>，存储引擎抽象的<code>Handler API</code> !, 源码在<code>sql/handler.cc</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* handler 是各个存储引擎的基类，这里我们使用InnoDB引擎*/</span></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">handler::ha_write_row</span><span class="params">(uchar *buf)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="comment">/* 指定log_event类型*/</span></span><br><span class="line">  Log_func *log_func= Write_rows_log_event::binlog_row_logging_function;</span><br><span class="line">  <span class="built_in">MYSQL_TABLE_IO_WAIT</span>(PSI_TABLE_WRITE_ROW, MAX_KEY, error,</span><br><span class="line">    &#123; error= <span class="built_in">write_row</span>(buf); &#125;)</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">unlikely</span>((error= <span class="built_in">binlog_log_row</span>(table, <span class="number">0</span>, buf, log_func))))</span><br><span class="line">  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>handler</code> 是各个存储引擎的基类，这里我们使用InnoDB引擎。可以看到，调用链还是挺深的，追到 <code>ha_write_row</code> 方法基本上算是追到头了，再往下的话就是 <code>MySql Server</code> 给 <code>Storage Engine</code>提供的接口实现了（进入引擎层，这里是<code>innodb</code>引擎，<code>handler</code>对应<code>ha_innobase</code> 插入的表信息保存在<code>handler</code>中）</p>
+<ul>
+<li><code>MYSQL_TABLE_IO_WAIT</code>：性能监控中的一个关键机制，用于跟踪和记录表基本的I&#x2F;O订单事件，帮助分析数据库的I&#x2F;O性能瓶颈。</li>
+<li><code>write_row</code>：具体存储引擎实现。</li>
+<li><code>binlog_log_row</code>：将行数据变更记录到二进制日志。</li>
+</ul>
+<blockquote>
+<p><code class="red">handler</code>是MySQL存储引擎接口的核心类，定义了存储引擎需要实现的方法。每个存储引擎都必须实现handler类的方法。</p>
+<ul>
+<li><code>ha_write_row</code>：插入数据</li>
+<li><code>ha_update_row</code>：更新数据</li>
+<li><code>ha_delete_row</code>：删除数据</li>
+<li><code>ha_index_read</code>：读取索引数据</li>
+<li><code>ha_commit_low</code>：提交事务<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//handler.h文件</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">handler</span> :<span class="keyword">public</span> Sql_alloc</span><br><span class="line">&#123;</span><br><span class="line">  <span class="function"><span class="type">int</span> <span class="title">ha_write_row</span><span class="params">(uchar * buf)</span></span>;</span><br><span class="line">  <span class="function"><span class="type">int</span> <span class="title">ha_update_row</span><span class="params">(<span class="type">const</span> uchar * old_data, uchar * new_data)</span></span>;</span><br><span class="line">  <span class="function"><span class="type">int</span> <span class="title">ha_delete_row</span><span class="params">(<span class="type">const</span> uchar * buf)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+</blockquote>
+<p>这么多方法，看起来有点懵懵的吧，我来画一张图，帮助大家理解下这个调用堆栈。<br><img src="/2020/08/16/2020-08-16-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B/insert_%E8%B0%83%E7%94%A8%E5%A0%86%E6%A0%88.png" alt="调用堆栈"><br>如下火焰图，也能很清晰的了解执行过程：<br><img src="/2020/08/16/2020-08-16-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B/insert_%E7%81%AB%E7%84%B0%E5%9B%BE.png" alt="insert_火焰图"></p>
+<h1 id="三、【事务执行阶段】innodb执行插入"><a href="#三、【事务执行阶段】innodb执行插入" class="headerlink" title="三、【事务执行阶段】innodb执行插入"></a>三、【事务执行阶段】innodb执行插入</h1><p>先看一下整体的流程：<br><img src="/2020/08/16/2020-08-16-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B/innodb_insert%E6%B5%81%E7%A8%8B%E5%9B%BE.png" alt="基本结构"><br>再分析具体的源码，源码路径：<code>storage/innobase/handler/ha_innodb.cc</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span></span></span><br><span class="line"><span class="function"><span class="title">ha_innobase::write_row</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function"><span class="comment">/*===================*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">    uchar*  record)</span> <span class="comment">/*!&lt; in: a row in MySQL format */</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">// 隐式事务</span></span><br><span class="line">    trx = <span class="built_in">thd_to_trx</span>(thd); <span class="comment">// 获取事务对象</span></span><br><span class="line">    <span class="function">TrxInInnoDB <span class="title">trx_in_innodb</span><span class="params">(trx)</span></span>; <span class="comment">// 隐式开启事务（若未启动）</span></span><br><span class="line">    sql_command = <span class="built_in">thd_sql_command</span>(m_user_thd);</span><br><span class="line">	<span class="keyword">if</span> ((sql_command == SQLCOM_ALTER_TABLE</span><br><span class="line">	     || sql_command == SQLCOM_OPTIMIZE</span><br><span class="line">	     || sql_command == SQLCOM_CREATE_INDEX</span><br><span class="line">	     || sql_command == SQLCOM_DROP_INDEX)</span><br><span class="line">	    &amp;&amp; m_num_write_row &gt;= <span class="number">10000</span>) </span><br><span class="line">	&#123;</span><br><span class="line">	    <span class="comment">//涉及大量数据重写或索引重建，直接锁表</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">//实际执行插入逻辑，涉及事务和索引操作</span></span><br><span class="line">        error = <span class="built_in">row_insert_for_mysql</span>((byte*) record, prebuilt);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>当数据量少时，执行 <code>storage/innobase/row/row0mysql.cc</code>文件的<code>row_insert_for_mysql()</code>函数，实际执行插入逻辑，涉及<strong>事务和索引</strong>操作。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">dberr_t</span></span></span><br><span class="line"><span class="function"><span class="title">row_insert_for_mysql</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">	<span class="type">const</span> byte*		mysql_rec,</span></span></span><br><span class="line"><span class="params"><span class="function">	<span class="type">row_prebuilt_t</span>*		prebuilt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="comment">// 表是intrinsic table（一种特殊的内存临时表）</span></span><br><span class="line">	<span class="keyword">if</span> (<span class="built_in">dict_table_is_intrinsic</span>(prebuilt-&gt;table)) &#123;</span><br><span class="line">	    <span class="comment">// 游标的方式插入</span></span><br><span class="line">		<span class="keyword">return</span>(<span class="built_in">row_insert_for_mysql_using_cursor</span>(mysql_rec, prebuilt));</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	    <span class="comment">// 普通表</span></span><br><span class="line">		<span class="built_in">return</span>(<span class="built_in">row_insert_for_mysql_using_ins_graph</span>(</span><br><span class="line">			mysql_rec, prebuilt));</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>普通表：调用<code>row_insert_for_mysql_using_ins_graph</code>，构建完整的插入执行路径，处理以下复杂逻辑：</p>
+<ul>
+<li>事务的 <code>undo/redo</code> 日志记录（保证原子性和持久性）</li>
+<li>行级锁的获取（如 <code>FOR update</code> 或 隔离级别要求的锁）</li>
+<li>索引维护（更新所有相关索引的B+树结构）</li>
+<li>约束检查（如唯一键、外键约束）</li>
+<li>触发器的调用（如有定义）</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span></span></span><br><span class="line"><span class="function"><span class="type">dberr_t</span></span></span><br><span class="line"><span class="function"><span class="title">row_insert_for_mysql_using_ins_graph</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">	<span class="type">const</span> byte*	mysql_rec,</span></span></span><br><span class="line"><span class="params"><span class="function">	<span class="type">row_prebuilt_t</span>*	prebuilt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">// 插入数据</span></span><br><span class="line">    <span class="built_in">row_ins_step</span>(thr);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>继续解析插入数据的流程：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">UNIV_INTERN</span></span><br><span class="line"><span class="function"><span class="type">que_thr_t</span>*</span></span><br><span class="line"><span class="function"><span class="title">row_ins_step</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function"><span class="comment">/*=========*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">que_thr_t</span>*      thr)</span>    <span class="comment">/*!&lt; in: query thread */</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">// 获取事务，判断事务状态</span></span><br><span class="line">    trx = <span class="built_in">thr_get_trx</span>(thr);</span><br><span class="line">    <span class="comment">// 事务ID</span></span><br><span class="line">    <span class="built_in">trx_write_trx_id</span>(node-&gt;trx_id_buf, trx-&gt;id);</span><br><span class="line">    <span class="comment">/*给表加IX锁*/</span></span><br><span class="line">    err = <span class="built_in">lock_table</span>(<span class="number">0</span>, node-&gt;table, LOCK_IX, thr);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">/*插入记录*/</span></span><br><span class="line">    err = <span class="built_in">row_ins</span>(node, thr);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>InnoDB表是基于<code>B+</code>树的索引组织表，如果InnoDB表没有主键和唯一键，需要分配隐含的<code>row_id</code>组织聚集索引，<code>row_id</code>分配逻辑在<code>row_ins</code>中，这里不详细展开</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> __attribute__((nonnull, warn_unused_result))</span><br><span class="line"><span class="function"><span class="type">dberr_t</span></span></span><br><span class="line"><span class="function"><span class="title">row_ins</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function"><span class="comment">/*====*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">ins_node_t</span>*     node,   <span class="comment">/*!&lt; in: row insert node */</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">que_thr_t</span>*      thr)</span>    <span class="comment">/*!&lt; in: query thread */</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (node-&gt;state == INS_NODE_ALLOC_ROW_ID) &#123;</span><br><span class="line">        <span class="comment">/*若innodb表没有主键和唯一键，用row_id组织索引*/</span></span><br><span class="line">        <span class="built_in">row_ins_alloc_row_id_step</span>(node);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">/*获取row_id的索引*/</span></span><br><span class="line">        node-&gt;index = <span class="built_in">dict_table_get_first_index</span>(node-&gt;table);</span><br><span class="line">        node-&gt;entry = <span class="built_in">UT_LIST_GET_FIRST</span>(node-&gt;entry_list);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">/*遍历所有索引，向每个索引中插入记录*/</span></span><br><span class="line">    <span class="keyword">while</span> (node-&gt;index != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (node-&gt;index-&gt;type != DICT_FTS) &#123;</span><br><span class="line">                <span class="comment">/* 向索引中插入记录 */</span></span><br><span class="line">                err = <span class="built_in">row_ins_index_entry_step</span>(node, thr);</span><br><span class="line">                <span class="keyword">if</span> (err != DB_SUCCESS) &#123;</span><br><span class="line">                        <span class="keyword">return</span>(err);</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;                                                                                                                                                                                           </span><br><span class="line">        <span class="comment">/*获取下一个索引*/</span></span><br><span class="line">        node-&gt;index = <span class="built_in">dict_table_get_next_index</span>(node-&gt;index);</span><br><span class="line">        node-&gt;entry = <span class="built_in">UT_LIST_GET_NEXT</span>(tuple_list, node-&gt;entry);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>插入单个索引项</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> __attribute__((nonnull, warn_unused_result))</span><br><span class="line"><span class="function"><span class="type">dberr_t</span></span></span><br><span class="line"><span class="function"><span class="title">row_ins_index_entry_step</span><span class="params">(                                                                                                                                                                                   </span></span></span><br><span class="line"><span class="params"><span class="function"><span class="comment">/*=====================*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">ins_node_t</span>*     node,   <span class="comment">/*!&lt; in: row insert node */</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">que_thr_t</span>*      thr)</span>    <span class="comment">/*!&lt; in: query thread */</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">dberr_t</span> err;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*给索引项赋值*/</span></span><br><span class="line">    <span class="built_in">row_ins_index_entry_set_vals</span>(node-&gt;index, node-&gt;entry, node-&gt;row);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*插入索引项*/</span></span><br><span class="line">    err = <span class="built_in">row_ins_index_entry</span>(node-&gt;index, node-&gt;entry, thr);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span>(err);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="3-1、插入索引记录"><a href="#3-1、插入索引记录" class="headerlink" title="3.1、插入索引记录"></a>3.1、插入索引记录</h2><p><code>row_ins_index_entry</code> 函数的主要功能是将一条新的<strong>索引记录</strong>插入到 InnoDB 存储引擎的索引结构（主键或二级索引）中，并处理相关约束（如唯一性检查、锁冲突等）执行的 具体源码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span></span></span><br><span class="line"><span class="function"><span class="type">dberr_t</span></span></span><br><span class="line"><span class="function"><span class="title">row_ins_index_entry</span><span class="params">(                                                                                                                                                                                        </span></span></span><br><span class="line"><span class="params"><span class="function"><span class="comment">/*================*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">dict_index_t</span>*   index,  <span class="comment">/*!&lt; in: index */</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">dtuple_t</span>*       entry,  <span class="comment">/*!&lt; in/out: index entry to insert */</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">que_thr_t</span>*      thr)</span>    <span class="comment">/*!&lt; in: query thread */</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">dict_index_is_clust</span>(index)) &#123;</span><br><span class="line">        <span class="comment">/* 插入聚集索引 */</span></span><br><span class="line">        <span class="keyword">return</span>(<span class="built_in">row_ins_clust_index_entry</span>(index, entry, thr, <span class="number">0</span>));</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">/* 插入二级索引 */</span></span><br><span class="line">        <span class="built_in">return</span>(<span class="built_in">row_ins_sec_index_entry</span>(index, entry, thr));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>索引分为：聚合索引、二级索引。</p>
+<ul>
+<li>逻辑都会先尝试page不分离的插入方式，需要定位到记录插入的位置，完成mlog的数据更新，在mtr提交过程中，<ul>
+<li>1、redo写入公共buffer；</li>
+<li>2、把更新的page加到buffer pool的flush list，脏页上记录的lsn为当前mtr写入的结束点lsn，基于加锁逻辑，能够保证flush list上的脏页总是以LSN排序。</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-1-1、聚合索引-Insert-Record流程"><a href="#3-1-1、聚合索引-Insert-Record流程" class="headerlink" title="3.1.1、聚合索引 Insert Record流程"></a>3.1.1、聚合索引 Insert Record流程</h3><p><code>row_ins_clust_index_entry</code> 和 <code>row_ins_sec_index_entry</code> 函数结构类似，只分析插入聚集索引，源码如下：</p>
+<ul>
+<li>主要是判断乐观、悲观方式进行插入入。<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">UNIV_INTERN</span></span><br><span class="line"><span class="function"><span class="type">dberr_t</span></span></span><br><span class="line"><span class="function"><span class="title">row_ins_clust_index_entry</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function"><span class="comment">/*======================*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">dict_index_t</span>*   index,  <span class="comment">/*!&lt; in: clustered index */</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">dtuple_t</span>*       entry,  <span class="comment">/*!&lt; in/out: index entry to insert */</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">que_thr_t</span>*      thr,    <span class="comment">/*!&lt; in: query thread */</span></span></span></span><br><span class="line"><span class="params"><span class="function">        ulint           n_ext)</span>  <span class="comment">/*!&lt; in: number of externally stored columns */</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">UT_LIST_GET_FIRST</span>(index-&gt;table-&gt;foreign_list)) &#123;</span><br><span class="line">        err = <span class="built_in">row_ins_check_foreign_constraints</span>(</span><br><span class="line">                index-&gt;table, index, entry, thr);</span><br><span class="line">        <span class="keyword">if</span> (err != DB_SUCCESS) &#123;</span><br><span class="line">                <span class="keyword">return</span>(err);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">/* flush log，make checkpoint（如果需要） */</span></span><br><span class="line">    <span class="built_in">log_free_check</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* 先尝试乐观插入，修改叶子节点 BTR_MODIFY_LEAF */</span></span><br><span class="line">    err = <span class="built_in">row_ins_clust_index_entry_low</span>(</span><br><span class="line">            <span class="number">0</span>, BTR_MODIFY_LEAF, index, n_uniq, entry, n_ext, thr, </span><br><span class="line">            &amp;page_no, &amp;modify_clock);</span><br><span class="line">            </span><br><span class="line">    <span class="keyword">if</span> (err != DB_FAIL) &#123;</span><br><span class="line">            <span class="built_in">DEBUG_SYNC_C</span>(<span class="string">&quot;row_ins_clust_index_entry_leaf_after&quot;</span>);</span><br><span class="line">            <span class="keyword">return</span>(err);</span><br><span class="line">    &#125;    </span><br><span class="line">    </span><br><span class="line">    <span class="comment">/* flush log，make checkpoint（如果需要） */</span></span><br><span class="line">    <span class="built_in">log_free_check</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* 乐观插入失败，尝试悲观插入 BTR_MODIFY_TREE */</span></span><br><span class="line">    <span class="keyword">return</span>(<span class="built_in">row_ins_clust_index_entry_low</span>(</span><br><span class="line">        <span class="number">0</span>, BTR_MODIFY_TREE, index, n_uniq, entry, n_ext, thr,</span><br><span class="line">        &amp;page_no, &amp;modify_clock));</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p><code>row_ins_clust_index_entry_low</code>是<strong>插入主键索引记录</strong>的核心函数，负责处理主键唯一性校验、锁机制、乐观&#x2F;悲观插入策略以及页面分裂等逻辑。关键点包括：</p>
+<ul>
+<li><strong>主键唯一性校验</strong>：通过<code>S/X Record Lock</code>防止重复插入。</li>
+<li><strong>锁机制</strong>：隐式锁转换、<code>SX Lock</code> 和 <code>Non-leaf Page Lock</code>优化。</li>
+<li><strong>死锁处理</strong>：检查并回滚冲突事务</li>
+<li><strong>版本优化</strong>：MySQL 8.0引入的SX Lock显著提升了并发性能。<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">UNIV_INTERN</span></span><br><span class="line"><span class="function"><span class="type">dberr_t</span></span></span><br><span class="line"><span class="function"><span class="title">row_ins_clust_index_entry_low</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">&#123;</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">/*启动mini transaction*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">    mtr_start(&amp;mtr); <span class="comment">// 初始化 `MTR` 结构体 （`mtr_t`）、分配锁栈 （`Lock Stack`）和日志栈（`Log Stack`）</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">// 定位插入位置</span></span></span></span><br><span class="line"><span class="params"><span class="function">    btr_pcur_open(index, entry, PAGE_CUR_LE, mode, &amp;pcur, &amp;mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">	cursor = btr_pcur_get_btr_cur(&amp;pcur);</span></span></span><br><span class="line"><span class="params"><span class="function">	cursor-&gt;thr = thr;</span></span></span><br><span class="line"><span class="params"><span class="function">    </span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">/*根据不同的flag检查主键冲突*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">    err = row_ins_duplicate_error_in_clust_online(</span></span></span><br><span class="line"><span class="params"><span class="function">            n_uniq, entry, &amp;cursor,</span></span></span><br><span class="line"><span class="params"><span class="function">            &amp;offsets, &amp;offsets_heap);</span></span></span><br><span class="line"><span class="params"><span class="function">    err = row_ins_duplicate_error_in_clust(</span></span></span><br><span class="line"><span class="params"><span class="function">            flags, &amp;cursor, entry, thr, &amp;mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">/*</span></span></span></span><br><span class="line"><span class="comment"><span class="params"><span class="function">      如果要插入的索引项已存在，则把insert操作改为update操作</span></span></span></span><br><span class="line"><span class="comment"><span class="params"><span class="function">      索引项已存在，且没有主键冲突，是因为之前的索引项对应的数据被标记为已删除</span></span></span></span><br><span class="line"><span class="comment"><span class="params"><span class="function">      本次插入的数据和上次删除的一样，而索引项并未删除，所以变为update操作		</span></span></span></span><br><span class="line"><span class="comment"><span class="params"><span class="function">    */</span></span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="keyword">if</span> (row_ins_must_modify_rec(&amp;cursor)) &#123;</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="comment">/* There is already an index entry with a long enough common</span></span></span></span><br><span class="line"><span class="comment"><span class="params"><span class="function">        prefix, we must convert the insert into a modify of an</span></span></span></span><br><span class="line"><span class="comment"><span class="params"><span class="function">        existing record */</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">mem_heap_t</span>*     entry_heap      = mem_heap_create(<span class="number">1024</span>);</span></span></span><br><span class="line"><span class="params"><span class="function">        </span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="comment">/* 更新数据到存在的索引项 */</span></span></span></span><br><span class="line"><span class="params"><span class="function">        err = row_ins_clust_index_entry_by_modify(</span></span></span><br><span class="line"><span class="params"><span class="function">                flags, mode, &amp;cursor, &amp;offsets, &amp;offsets_heap,</span></span></span><br><span class="line"><span class="params"><span class="function">                entry_heap, &amp;big_rec, entry, thr, &amp;mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">        </span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="comment">/*如果索引正在online_ddl，先记录insert*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="keyword">if</span> (err == DB_SUCCESS &amp;&amp; dict_index_is_online_ddl(index)) &#123;</span></span></span><br><span class="line"><span class="params"><span class="function">                row_log_table_insert(rec, index, offsets);</span></span></span><br><span class="line"><span class="params"><span class="function">        &#125;</span></span></span><br><span class="line"><span class="params"><span class="function"></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="comment">/*提交mini transaction*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">        mtr_commit(&amp;mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">        mem_heap_free(entry_heap);</span></span></span><br><span class="line"><span class="params"><span class="function">    &#125; <span class="keyword">else</span> &#123;</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">rec_t</span>*  insert_rec;</span></span></span><br><span class="line"><span class="params"><span class="function"></span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="keyword">if</span> (mode != BTR_MODIFY_TREE) &#123;</span></span></span><br><span class="line"><span class="params"><span class="function">            <span class="comment">/*进行一次乐观插入*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">            err = btr_cur_optimistic_insert(</span></span></span><br><span class="line"><span class="params"><span class="function">                    flags, &amp;cursor, &amp;offsets, &amp;offsets_heap,</span></span></span><br><span class="line"><span class="params"><span class="function">                    entry, &amp;insert_rec, &amp;big_rec,</span></span></span><br><span class="line"><span class="params"><span class="function">                    n_ext, thr, &amp;mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">        &#125; <span class="keyword">else</span> &#123;</span></span></span><br><span class="line"><span class="params"><span class="function">            <span class="comment">/*</span></span></span></span><br><span class="line"><span class="comment"><span class="params"><span class="function">              如果buffer pool余量不足25%，插入失败，返回DB_LOCK_TABLE_FULL</span></span></span></span><br><span class="line"><span class="comment"><span class="params"><span class="function">              处理DB_LOCK_TABLE_FULL错误时，会回滚事务</span></span></span></span><br><span class="line"><span class="comment"><span class="params"><span class="function">              防止大事务的锁占满buffer pool(注释里写的)</span></span></span></span><br><span class="line"><span class="comment"><span class="params"><span class="function">            */</span></span></span></span><br><span class="line"><span class="params"><span class="function">            <span class="keyword">if</span> (buf_LRU_buf_pool_running_out()) &#123;</span></span></span><br><span class="line"><span class="params"><span class="function"></span></span></span><br><span class="line"><span class="params"><span class="function">                err = DB_LOCK_TABLE_FULL;</span></span></span><br><span class="line"><span class="params"><span class="function">                <span class="keyword">goto</span> err_exit;</span></span></span><br><span class="line"><span class="params"><span class="function">            &#125;</span></span></span><br><span class="line"><span class="params"><span class="function"></span></span></span><br><span class="line"><span class="params"><span class="function">            <span class="keyword">if</span> (<span class="comment">/*太长了，略*/</span>) &#123;</span></span></span><br><span class="line"><span class="params"><span class="function">                 <span class="comment">/*进行一次乐观插入*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">                err = btr_cur_optimistic_insert(</span></span></span><br><span class="line"><span class="params"><span class="function">                        flags, &amp;cursor,</span></span></span><br><span class="line"><span class="params"><span class="function">                        &amp;offsets, &amp;offsets_heap,</span></span></span><br><span class="line"><span class="params"><span class="function">                        entry, &amp;insert_rec, &amp;big_rec,</span></span></span><br><span class="line"><span class="params"><span class="function">                        n_ext, thr, &amp;mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">            &#125; <span class="keyword">else</span> &#123;</span></span></span><br><span class="line"><span class="params"><span class="function">                    err = DB_FAIL;</span></span></span><br><span class="line"><span class="params"><span class="function">            &#125;</span></span></span><br><span class="line"><span class="params"><span class="function"></span></span></span><br><span class="line"><span class="params"><span class="function">            <span class="keyword">if</span> (err == DB_FAIL) &#123;</span></span></span><br><span class="line"><span class="params"><span class="function">                 <span class="comment">/*乐观插入失败，进行悲观插入*/</span></span></span></span><br><span class="line"><span class="params"><span class="function">                err = btr_cur_pessimistic_insert(</span></span></span><br><span class="line"><span class="params"><span class="function">                        flags, &amp;cursor,</span></span></span><br><span class="line"><span class="params"><span class="function">                        &amp;offsets, &amp;offsets_heap,</span></span></span><br><span class="line"><span class="params"><span class="function">                        entry, &amp;insert_rec, &amp;big_rec,</span></span></span><br><span class="line"><span class="params"><span class="function">                        n_ext, thr, &amp;mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">            &#125;</span></span></span><br><span class="line"><span class="params"><span class="function">        &#125;</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="keyword">if</span> (big_rec != <span class="literal">NULL</span>) &#123;</span></span></span><br><span class="line"><span class="params"><span class="function">            mtr_commit(&amp;mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">        &#125;</span></span></span><br><span class="line"><span class="params"><span class="function">    &#125;</span></span></span><br><span class="line"><span class="params"><span class="function">&#125;</span></span></span><br></pre></td></tr></table></figure>
+总结流程如下：</li>
+<li>开启 mini transaction</li>
+<li>获取游标</li>
+<li>数据插入<ul>
+<li><strong>乐观插入</strong>：<code>btr_cur_optimistic_insert</code></li>
+<li><strong>悲观插入</strong>：<code>btr_cur_pessimistic_insert</code></li>
+</ul>
+</li>
+<li>提交 mini transaction</li>
+</ul>
+<h4 id="3-1-1-1、开启mini-transaction"><a href="#3-1-1-1、开启mini-transaction" class="headerlink" title="3.1.1.1、开启mini transaction"></a>3.1.1.1、开启mini transaction</h4><p><code>Mini transaction</code>(简称mtr)是<code>InnoDB</code>对物理数据文件操作的<strong>最小事务单元</strong>，用于管理对<code>Page</code>加锁、修改、释放、以及日志提交到公共<code>buffer</code>等工作。一个<code>mtr</code>操作必须是原子的，一个事务可以包含多个<code>mtr</code>。每个<code>mtr</code>完成后需要将本地产生的日志拷贝到公共缓冲区，将修改的脏页放到<code>flush list</code>上。</p>
+<blockquote>
+<p>innodb存储引擎中的一个很重要的用来<strong>保证持久性</strong>的机制就是mini事务（<code>Mini transaction</code>(简称mtr)），本书把它称做“物理事务”，这样叫是相对逻辑事务而言的，</p>
+<ul>
+<li>对于逻辑事务，做熟悉数据库的人都很清楚，它是数据库区别于文件系统的最重要特性之一，它具有四个特性ACID，用来保证数据库的完整性——要么都做修改，要么什么都没有做。</li>
+<li>物理事务从名字来看，是物理的，因为在innodb存储引擎中，只要是涉及到文件修改，文件读取等物理操作的，都离不开这个物理事务，可以说物理事务是<strong>内存与文件</strong>之间的一个桥梁。</li>
+</ul>
+</blockquote>
+<p>开启<code>MTR</code>，执行如下代码块：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">mtr_start</span>(&amp;mtr);</span><br><span class="line">mtr.<span class="built_in">set_named_space</span>(index-&gt;space);</span><br></pre></td></tr></table></figure>
+<p><code>mtr_start</code>主要包括：</p>
+<ul>
+<li>初始化<code>mtr</code>的各个状态变量</li>
+<li>默认模式为<code>MTR_LOG_ALL</code>，表示记录所有的数据变更</li>
+<li><code>mtr</code>状态设置为<code>ACTIVE</code>状态（<code>MTR_STATE_ACTIVE</code>）</li>
+<li>为锁管理对象和日志管理对象初始化内存（<code>mtr_buf_t</code>）,初始化对象链表<blockquote>
+<p><strong>MTR 结构体（mtr_t）</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> mtr_start(m)		(m)-&gt;start()</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> mtr_commit(m)		(m)-&gt;commit()</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">mtr_t</span> &#123;</span></span><br><span class="line">    <span class="comment">/** State variables of the mtr */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">Impl</span> &#123;</span></span><br><span class="line">		<span class="type">mtr_buf_t</span>	m_memo;<span class="comment">// 锁栈（记录锁信息）</span></span><br><span class="line">		<span class="type">mtr_buf_t</span>	m_log;<span class="comment">// 日志栈（记录 Redo/Undo 日志）</span></span><br><span class="line">		<span class="type">bool</span>		m_made_dirty;<span class="comment">// 是否修改了 Buffer Pool 页面</span></span><br><span class="line">		<span class="type">bool</span>		m_inside_ibuf;</span><br><span class="line">		<span class="type">bool</span>		m_modifications;</span><br><span class="line">		<span class="type">ib_uint32_t</span>	m_n_log_recs; <span class="comment">// 日志记录数量</span></span><br><span class="line">		<span class="type">mtr_log_t</span>	m_log_mode;<span class="comment">// 日志模式（如 MTR_LOG_ALL）</span></span><br><span class="line">		<span class="type">mtr_state_t</span>	m_state;<span class="comment">// MTR 状态（ACTIVE/COMMITTING/COMMITTED）</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="type">void</span> <span class="title function_">commit</span><span class="params">()</span>;</span><br><span class="line">    <span class="type">void</span> <span class="title function_">start</span><span class="params">(<span class="type">bool</span> sync = <span class="literal">true</span>, <span class="type">bool</span> read_only = <span class="literal">false</span>)</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></blockquote>
+</li>
+</ul>
+<h4 id="3-1-1-2、定位插入位置"><a href="#3-1-1-2、定位插入位置" class="headerlink" title="3.1.1.2、定位插入位置"></a>3.1.1.2、定位插入位置</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 定位插入位置</span></span><br><span class="line"><span class="built_in">btr_pcur_open</span>(index, entry, PAGE_CUR_LE, mode, &amp;pcur, &amp;mtr);</span><br><span class="line">cursor = <span class="built_in">btr_pcur_get_btr_cur</span>(&amp;pcur);</span><br><span class="line">cursor-&gt;thr = thr;</span><br></pre></td></tr></table></figure>
+<p><code>btr_pcur_open</code>方法，获取到插入的位置。这个位置，由cursor游标来标记</p>
+<h4 id="3-1-1-3、乐观插入btr-cur-optimistic-insert"><a href="#3-1-1-3、乐观插入btr-cur-optimistic-insert" class="headerlink" title="3.1.1.3、乐观插入btr_cur_optimistic_insert"></a>3.1.1.3、乐观插入<code>btr_cur_optimistic_insert</code></h4><p><code>btr_cur_optimistic_insert</code>乐观插入的核心思想是：假设插入操作不会与现有数据发生冲突，从而避免显式加锁，以提高并发性能。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta"># storage/innobase/btr/btr0cur.cc</span></span><br><span class="line"><span class="function"><span class="type">dberr_t</span></span></span><br><span class="line"><span class="function"><span class="title">btr_cur_optimistic_insert</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">&#123;</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">// 写undolog</span></span></span></span><br><span class="line"><span class="params"><span class="function">    btr_cur_ins_lock_and_undo(flags, cursor, entry,</span></span></span><br><span class="line"><span class="params"><span class="function">							thr, mtr, &amp;inherit);</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">// 在Page游标的下一个位置点Insert数据</span></span></span></span><br><span class="line"><span class="params"><span class="function">    page_cur_tuple_insert(</span></span></span><br><span class="line"><span class="params"><span class="function">				page_cursor, entry, index, offsets, heap,</span></span></span><br><span class="line"><span class="params"><span class="function">				n_ext, mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">				</span></span></span><br><span class="line"><span class="params"><span class="function">&#125;</span></span></span><br></pre></td></tr></table></figure>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">btr_cur_optimistic_insert</span><br><span class="line">    │</span><br><span class="line">    ├─ btr_cur_ins_lock_and_undo()</span><br><span class="line">    │   │</span><br><span class="line">    │   ├─ mtr_start()   // 开始 Mini-Transaction（复用 MTR）</span><br><span class="line">    │   │</span><br><span class="line">    │   ├─ lock_rec_insert_check_and_lock()   // 锁检查</span><br><span class="line">    │   │</span><br><span class="line">    │   ├─ trx_undo_report_row_operation()    // 生成 Undo 日志（记录到 mtr）</span><br><span class="line">    │   │</span><br><span class="line">    │   └─ mtr_commit()                    // 提交 mtr，写入 Redo 日志缓冲区</span><br><span class="line">    │</span><br><span class="line">    ├─ page_cur_tuple_insert       </span><br><span class="line">    │   │</span><br><span class="line">    │   └─ page_cur_insert_rec_low()    // 插入记录（记录到 mtr）</span><br><span class="line">    │</span><br><span class="line">    └─ </span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>page_cur_tuple_insert函数本身不会主动调用mtr_start()。依赖上层的调用者传递的MTR 上下文，所有数据页和undo页的修改会共享同一个MTR的作用域，从而保证原子性和Redo日志的正确性。</p>
+</blockquote>
+<h5 id="undo-log生成"><a href="#undo-log生成" class="headerlink" title="undo log生成"></a>undo log生成</h5><p>在<code>btr_cur_ins_lock_and_undo()</code>函数中，</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">dberr_t</span></span></span><br><span class="line"><span class="function"><span class="title">trx_undo_report_row_operation</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">// 开启一个 MTR管理 undo 页的修改</span></span></span></span><br><span class="line"><span class="params"><span class="function">    mtr_start(&amp;mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">// 为插入操作分配 Undo 页面并记录日志（记录到MTR的本地日志缓存）</span></span></span></span><br><span class="line"><span class="params"><span class="function">    trx_undo_page_report_insert()</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">// 提交mtr，将本地 redo 日志写入全局缓冲区</span></span></span></span><br><span class="line"><span class="params"><span class="function">    mtr_commit(&amp;mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">&#125;</span></span></span><br></pre></td></tr></table></figure>
+<ul>
+<li>undo 页修改，变成脏页，暂存于缓冲区</li>
+<li>为什么undo log也需要redo log？<ul>
+<li><strong>undo 页的修改也需要持久化</strong>：undo 页存储事务的undo 日志，用于回滚未提交的事务或实现MVCC，如果undo 页本身未持久化，事务的原子性和隔离性将无法保证。</li>
+</ul>
+</li>
+</ul>
+<h5 id="插入记录（插入数据页）"><a href="#插入记录（插入数据页）" class="headerlink" title="插入记录（插入数据页）"></a>插入记录（插入数据页）</h5><p>插入数据页的核心入口函数<code>page_cur_insert_rec_low</code>。简化后源码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**Writes the log record of a record insert on a page. */</span></span><br><span class="line"><span class="function"><span class="type">rec_t</span>*</span></span><br><span class="line"><span class="function"><span class="title">page_cur_insert_rec_low</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">/* 1. Get the size of the physical record in the page */</span></span><br><span class="line">	rec_size = <span class="built_in">rec_offs_size</span>(offsets);</span><br><span class="line">	<span class="comment">/* 2. Try to find suitable space from page memory management */</span></span><br><span class="line"></span><br><span class="line">	free_rec = <span class="built_in">page_header_get_ptr</span>(page, PAGE_FREE);</span><br><span class="line">	<span class="comment">/* 3. Create the record */</span></span><br><span class="line">	insert_rec = <span class="built_in">rec_copy</span>(insert_buf, rec, offsets);</span><br><span class="line">	<span class="built_in">rec_offs_make_valid</span>(insert_rec, index, offsets);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* 4. Insert the record in the linked list of records */</span></span><br><span class="line">	<span class="built_in">ut_ad</span>(current_rec != insert_rec);</span><br><span class="line">	<span class="comment">/* 5. Set the n_owned field in the inserted record to zero,</span></span><br><span class="line"><span class="comment">	and set the heap_no field */</span></span><br><span class="line">	<span class="keyword">if</span> (<span class="built_in">page_is_comp</span>(page)) &#123;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/* 6. Update the last insertion info in page header */</span></span><br><span class="line"></span><br><span class="line">	last_insert = <span class="built_in">page_header_get_ptr</span>(page, PAGE_LAST_INSERT);</span><br><span class="line">	<span class="comment">/* 7. It remains to update the owner record. */</span></span><br><span class="line">	&#123;</span><br><span class="line">		<span class="type">rec_t</span>*	owner_rec	= <span class="built_in">page_rec_find_owner_rec</span>(insert_rec);</span><br><span class="line">		<span class="comment">/* 8. Now we have incremented the n_owned field of the owner</span></span><br><span class="line"><span class="comment">		record. If the number exceeds PAGE_DIR_SLOT_MAX_N_OWNED,</span></span><br><span class="line"><span class="comment">		we have to split the corresponding directory slot in two. */</span></span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (<span class="built_in">UNIV_UNLIKELY</span>(n_owned == PAGE_DIR_SLOT_MAX_N_OWNED)) &#123;</span><br><span class="line">			<span class="built_in">page_dir_split_slot</span>(</span><br><span class="line">				page, <span class="literal">NULL</span>,</span><br><span class="line">				<span class="built_in">page_dir_find_owner_slot</span>(owner_rec));</span><br><span class="line">		&#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/* 9. 生成redo 日志 */</span></span><br><span class="line">	<span class="keyword">if</span> (<span class="built_in">UNIV_LIKELY</span>(mtr != <span class="literal">NULL</span>)) &#123;</span><br><span class="line">		<span class="built_in">page_cur_insert_rec_write_log</span>(insert_rec, rec_size,</span><br><span class="line">					      current_rec, index, mtr);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>总结核心步骤如下：</p>
+<ol>
+<li>获取记录的长度。函数传入参数就有已经组合好的完整记录，所以只需要从记录的元数据中获取即可。</li>
+<li>首先从<code>PAGE_FREE</code>链表中尝试获取足够的空间。仅仅比较链表头的一个记录，如果这个记录的空间大于需要插入的记录的空间，则复用这块空间(包括<code>heap_no</code>)，否则就从<code>PAGE_HEAP_TOP</code>分配空间。如果这两个地方都没有，则返回空。这里注意一下，由于只判断<code>Free</code>链表的第一个头元素，所以算法对空间的利用率不是很高，估计也是为了操作方便。假设，某个数据页首先删除了几条大的记录，但是最后一条删除的是比较小的记录A，那么后续插入的记录大小只有比记录A还小，才能把<code>Free</code>链表利用起来。举个例子，假设先后删除记录的大小为<code>4K, 3K, 5K, 2K</code>，那么只有当插入的记录小于<code>2K</code>时候，这些被删除的空间才会被利用起来，假设新插入的记录是<code>0.5K</code>，那么<code>Free</code>链表头的<code>2K</code>，可以被重用，但是只是用了前面的<code>0.5K</code>，剩下的<code>1.5K</code>依然会被浪费，下次插入只能利用5K记录所占的空间，并不会把剩下的<code>1.5K</code>也利用起来。这些特性，<strong>从底层解释了，为什么InnoDB那么容易产生碎片，经常需要进行空间整理</strong>。</li>
+<li>如果<code>Free</code>链表不够，就从<code>PAGE_HEAP_TOP</code>分配，如果分配成功，需要递增<code>PAGE_N_HEAP</code>。</li>
+<li>如果这个数据页有足够的空间，则拷贝记录到指定的空间。</li>
+<li>修改新插入记录前驱上的<code>next</code>指针，同时修改这条新插入记录的指针<code>next</code>指针。这两步主要是保证记录上链表的连续性。</li>
+<li>递增<code>PAGE_N_RECS</code>。设置<code>heap_no</code>。设置<code>owned</code>值为<code>0</code>。</li>
+<li>更新<code>PAGE_LAST_INSERT，PAGE_DIRECTION，PAGE_N_DIRECTION</code>，设置这些参数后，可以一定程度上提高连续插入的性能，因为插入前需要先定位插入的位置，有了这些信息可以加快查找。详见查找记录代码分析。</li>
+<li>修改数据目录。因为增加了一条新的记录，可能有些目录<code>own</code>的记录数量超过了最大值(目前是8条)，需要重新整理一下这个数据页的目录(<code>page_dir_split_slot</code>)。算法比较简单，就是找到中间节点，然后用这个中间节点重新构建一个新的目录，为了给这个新的目录腾空间，需要把后续的所有目录都平移，这个涉及一次<code>momove</code>操作(<code>page_dir_split_slot和page_dir_add_slot</code>)。</li>
+<li>写<code>redolog</code>日志，持久化操作。</li>
+<li>如果有<code>blob</code>字段，则处理独立的<code>off-page</code>。</li>
+</ol>
+<p>插入数据页函数<code>page_cur_insert_rec_low</code>总结如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">page_cur_insert_rec_low ②</span><br><span class="line">  |--&gt; 1-8: //为Record分配内存，并添加到B+Tree上</span><br><span class="line">  |--&gt; 9. page_cur_insert_rec_write_log // 为Redo Record of Insert Record分配内存（自定义的heap）</span><br><span class="line">                                        // 并记录在Page上</span><br><span class="line">  |  |--&gt; 先寻找 insert_record的第一个字节</span><br><span class="line">  |  |--&gt; 计算mlog大小; mlog_open //为mlog分配内存</span><br><span class="line">  |  |--&gt; mlog_write_initial_log_record_fast //初始化mlog,这里的mlog类型 MLOG_COMP_REC_INSERT</span><br><span class="line">  //|  |--&gt; dict_index_get_n_unique_in_tree </span><br><span class="line">          // 计算行Record上决定唯一性的列(field)数，也就是聚合索引=主键数，二级索引=主键+二级索引数</span><br><span class="line">  |  |--&gt; memcpy(log_ptr, ins_ptr, rec_size); // 把insert指针拷贝给redolog指针 </span><br><span class="line">  |  |--&gt; mlog_close // 关闭mlog</span><br></pre></td></tr></table></figure>
+
+
+<h5 id="redo-log-生成"><a href="#redo-log-生成" class="headerlink" title="redo  log 生成"></a>redo  log 生成</h5><p><code>page_cur_insert_rec_write_log</code>函数负责为数据页中记录的插入生成<code>redo log</code>，并将<code>redo log</code>写入到mtr的<code>mlog</code>栈中，简化后源码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span></span></span><br><span class="line"><span class="function"><span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">page_cur_insert_rec_write_log</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">// 计算大小（mlog，mtr的内部结构）</span></span></span></span><br><span class="line"><span class="params"><span class="function">    byte*	log_ptr = mlog_open(mtr, <span class="number">0</span>);</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">// 初始化mlog</span></span></span></span><br><span class="line"><span class="params"><span class="function">    log_ptr = mlog_write_initial_log_record_fast(</span></span></span><br><span class="line"><span class="params"><span class="function">				insert_rec, MLOG_REC_INSERT, log_ptr, mtr);</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="comment">// 把insert指针拷贝给redo log指针</span></span></span></span><br><span class="line"><span class="params"><span class="function">    memcpy(log_ptr, ins_ptr, rec_size);</span></span></span><br><span class="line"><span class="params"><span class="function">    mlog_close(mtr, log_ptr + rec_size);</span></span></span><br><span class="line"><span class="params"><span class="function">&#125;</span></span></span><br></pre></td></tr></table></figure>
+
+
+
+
+<h4 id="3-1-1-4、提交mini-transaction"><a href="#3-1-1-4、提交mini-transaction" class="headerlink" title="3.1.1.4、提交mini transaction"></a>3.1.1.4、提交mini transaction</h4><p><code>mtr_commit(&amp;mtr);</code>核心作用</p>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>redo日志持久化</strong></td>
+<td>将MTR本地缓存的redo 日志写入全局redo 日志缓冲区，可能触发刷盘</td>
+</tr>
+<tr>
+<td><strong>释放资源</strong></td>
+<td>释放MTR持有的页锁（如x-Latch），并将脏页加入缓冲池的Flush List</td>
+</tr>
+<tr>
+<td><strong>原子性保证</strong></td>
+<td>确保MTR内的所有操作（如数据页和Undo页的修改）要么全部生效，要么全部回滚</td>
+</tr>
+</tbody></table>
+<p>接下来再解析<code>mtr_commit(&amp;mtr);</code>函数的实现，在<code>mtr0mtr.cc</code>文件中，源码如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/** Commit a mini-transaction. */</span></span><br><span class="line"><span class="function"><span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">mtr_t::commit</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="built_in">ut_ad</span>(<span class="built_in">is_active</span>());</span><br><span class="line">	<span class="built_in">ut_ad</span>(!<span class="built_in">is_inside_ibuf</span>());</span><br><span class="line">	<span class="built_in">ut_ad</span>(m_impl.m_magic_n == MTR_MAGIC_N);</span><br><span class="line">	m_impl.m_state = MTR_STATE_COMMITTING;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* This is a dirty read, for debugging. */</span></span><br><span class="line">	<span class="built_in">ut_ad</span>(!recv_no_log_write);</span><br><span class="line">	<span class="function">Command	<span class="title">cmd</span><span class="params">(<span class="keyword">this</span>)</span></span>;</span><br><span class="line">	<span class="keyword">if</span> (m_impl.m_modifications</span><br><span class="line">	    &amp;&amp; (m_impl.m_n_log_recs &gt; <span class="number">0</span></span><br><span class="line">		|| m_impl.m_log_mode == MTR_LOG_NO_REDO)) &#123;</span><br><span class="line"></span><br><span class="line">		<span class="built_in">ut_ad</span>(!srv_read_only_mode</span><br><span class="line">		      || m_impl.m_log_mode == MTR_LOG_NO_REDO);</span><br><span class="line"></span><br><span class="line">		cmd.<span class="built_in">execute</span>();</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		cmd.<span class="built_in">release_all</span>();</span><br><span class="line">		cmd.<span class="built_in">release_resources</span>();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后进入MTR提交的核心实现：<code>mtr_t::Command::execute()</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">mtr_t</span>::Command::<span class="built_in">execute</span>()</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 1. 前置条件校验</span></span><br><span class="line">	<span class="built_in">ut_ad</span>(m_impl-&gt;m_log_mode != MTR_LOG_NONE);</span><br><span class="line">    <span class="comment">// 2. 准备并写入Redo日志</span></span><br><span class="line">	<span class="keyword">if</span> (<span class="type">const</span> ulint len = <span class="built_in">prepare_write</span>()) &#123;</span><br><span class="line">	    <span class="comment">// 将本地日志内容写入全局redo 日志缓冲区，并更新全局日志序列号（LSN）</span></span><br><span class="line">		<span class="built_in">finish_write</span>(len);</span><br><span class="line">	&#125;</span><br><span class="line">    <span class="comment">// 3. 管理刷盘顺序锁，若MTR修改了数据页（m_made_dirty=true）</span></span><br><span class="line">	<span class="keyword">if</span> (m_impl-&gt;m_made_dirty) &#123;</span><br><span class="line">		<span class="built_in">log_flush_order_mutex_enter</span>();</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">/* It is now safe to release the log mutex because the</span></span><br><span class="line"><span class="comment">	flush_order mutex will ensure that we are the first one</span></span><br><span class="line"><span class="comment">	to insert into the flush list. */</span></span><br><span class="line">	<span class="comment">// 4. 释放日志系统互斥锁</span></span><br><span class="line">	<span class="built_in">log_mutex_exit</span>();</span><br><span class="line">    <span class="comment">// 5. 更新提交LSN</span></span><br><span class="line">	m_impl-&gt;m_mtr-&gt;m_commit_lsn = m_end_lsn;</span><br><span class="line">    <span class="comment">// 6. 释放数据页资源</span></span><br><span class="line">	<span class="built_in">release_blocks</span>();</span><br><span class="line">    <span class="comment">// 7. 释放刷盘顺序锁</span></span><br><span class="line">	<span class="keyword">if</span> (m_impl-&gt;m_made_dirty) &#123;</span><br><span class="line">		<span class="built_in">log_flush_order_mutex_exit</span>();</span><br><span class="line">	&#125;</span><br><span class="line">    <span class="comment">// 8. 清理 MTR 内部状态</span></span><br><span class="line">	<span class="built_in">release_all</span>();</span><br><span class="line">	<span class="built_in">release_resources</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="Step-1-mtr-t-Command-prepare-write-（准备并写入Redo日志）"><a href="#Step-1-mtr-t-Command-prepare-write-（准备并写入Redo日志）" class="headerlink" title="Step 1: mtr_t::Command::prepare_write()（准备并写入Redo日志）"></a>Step 1: mtr_t::Command::prepare_write()（准备并写入Redo日志）</h5><p>函数作用：</p>
+<ul>
+<li>获取日志系统的锁（<code>log_sys-&gt;mutex</code>）：确保 <code>Redo Log</code> 写入的原子性和一致性。</li>
+<li>执行写入前的检查：验证当前 <code>mtr</code> 是否需要写入 <code>Redo Log</code>（例如是否为临时表），并预留日志空间。<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/** Prepare to write the mini-transaction log to the redo log buffer.</span></span><br><span class="line"><span class="comment">@return number of bytes to write in finish_write() */</span></span><br><span class="line">ulint</span><br><span class="line"><span class="type">mtr_t</span>::Command::<span class="built_in">prepare_write</span>()</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 1. 动态扩展 Redo Log Buffer</span></span><br><span class="line">    <span class="keyword">if</span> (len &gt; log_sys-&gt;buf_size / <span class="number">2</span>) &#123; <span class="comment">//如果当前日志长度超过 Redo Log Buffer的一半</span></span><br><span class="line">		<span class="built_in">log_buffer_extend</span>((len + <span class="number">1</span>) * <span class="number">2</span>);</span><br><span class="line">	&#125;</span><br><span class="line">    <span class="comment">// 2. 持有log_sys-&gt;mutex（日志系统互斥锁）</span></span><br><span class="line">    <span class="built_in">log_mutex_enter</span>();</span><br><span class="line">    <span class="comment">// 3. 检查点触发（检查当前日志LSN是否接近检查点，若接近则触发检查点，避免 Redo Log 文件过大）</span></span><br><span class="line">    <span class="keyword">if</span> (len &gt; log_sys-&gt;buf_size / <span class="number">2</span>) &#123;</span><br><span class="line">		<span class="built_in">log_buffer_extend</span>((len + <span class="number">1</span>) * <span class="number">2</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h5 id="Step-2-mtr-t-Command-finish-write（本地日志内容写入全局redo-日志缓冲区）"><a href="#Step-2-mtr-t-Command-finish-write（本地日志内容写入全局redo-日志缓冲区）" class="headerlink" title="Step 2: mtr_t::Command::finish_write（本地日志内容写入全局redo 日志缓冲区）"></a>Step 2: mtr_t::Command::finish_write（本地日志内容写入全局redo 日志缓冲区）</h5><p>主要负责</p>
+<ul>
+<li>将 <code>redo log</code> 从 <code>mtr</code> 的内部缓存写入全局<code>Redo log buffer</code>。</li>
+<li>更新<code>LSN</code>。</li>
+<li>处理小日志块的快速写入路径。</li>
+<li>确保<code>redo log</code>的顺序性和一致性。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line"><span class="type">mtr_t</span>::Command::<span class="built_in">finish_write</span>(</span><br><span class="line">	ulint	len)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 1. 断言检查</span></span><br><span class="line">	<span class="built_in">ut_ad</span>(m_impl-&gt;m_log_mode == MTR_LOG_ALL); <span class="comment">//确保当前 MTR 需要写 redo log</span></span><br><span class="line">	<span class="built_in">ut_ad</span>(<span class="built_in">log_mutex_own</span>()); <span class="comment">// 确保当前线程持有 log_sys-&gt;mutex 日志系统锁</span></span><br><span class="line">	<span class="built_in">ut_ad</span>(m_impl-&gt;m_log.<span class="built_in">size</span>() == len);</span><br><span class="line">	<span class="built_in">ut_ad</span>(len &gt; <span class="number">0</span>);</span><br><span class="line">    <span class="comment">// 2. 小日志块的快速写入</span></span><br><span class="line">	<span class="keyword">if</span> (m_impl-&gt;m_log.<span class="built_in">is_small</span>()) &#123;</span><br><span class="line">		<span class="type">const</span> <span class="type">mtr_buf_t</span>::<span class="type">block_t</span>*	front = m_impl-&gt;m_log.<span class="built_in">front</span>();</span><br><span class="line">		<span class="built_in">ut_ad</span>(len &lt;= front-&gt;<span class="built_in">used</span>());</span><br><span class="line">        <span class="comment">// 快速预留 redo log buffer 空间并写入日志 </span></span><br><span class="line">        <span class="comment">// 直接将日志从 mtr-&gt;mlog 拷贝到全局 redo log buffer</span></span><br><span class="line">		m_end_lsn = <span class="built_in">log_reserve_and_write_fast</span>(</span><br><span class="line">			front-&gt;<span class="built_in">begin</span>(), len, &amp;m_start_lsn);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (m_end_lsn &gt; <span class="number">0</span>) &#123;</span><br><span class="line">			<span class="keyword">return</span>;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">    <span class="comment">// 3. 大日志块的通用写入</span></span><br><span class="line">	<span class="comment">/* Open the database log for log_write_low */</span></span><br><span class="line">	m_start_lsn = <span class="built_in">log_reserve_and_open</span>(len); <span class="comment">// 预留 redo log buffer 空间</span></span><br><span class="line"></span><br><span class="line">	<span class="type">mtr_write_log_t</span>	write_log;</span><br><span class="line">	m_impl-&gt;m_log.for_each_block(write_log); <span class="comment">// 遍历 mtr-&gt;mlog的所有日志块，写入 redo log buffer</span></span><br><span class="line"></span><br><span class="line">	m_end_lsn = <span class="built_in">log_close</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>总结如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">分支1： </span><br><span class="line">  |--&gt; row_ins_clust_index_entry // 聚合索引insert</span><br><span class="line">  |  |--&gt; row_ins_clust_index_entry_low(BTR_MODIFY_LEAF) // 尝试乐观方式更新B+Tree叶子节点，加x-latch锁[展开]</span><br><span class="line">  |  |--&gt; row_ins_clust_index_entry_low(BTR_MODIFY_TREE) // 悲观方式更新整体B+Tree </span><br><span class="line"></span><br><span class="line">row_ins_clust_index_entry_low ①</span><br><span class="line">  |--&gt; mtr.start();     // 做一些初始化。</span><br><span class="line">  |--&gt; btr_cur_optimistic_insert // 假设已经获得该Page的x-latch锁，尝试在游标的下一个位置插入Row。</span><br><span class="line">  |  |--&gt; btr_cur_ins_lock_and_undo // 写undolog</span><br><span class="line">  |  |  |--&gt; trx_undo_report_row_operation // 在undo记录insert、update、聚合索引删除标记 这些信息。内含 mtr_start/mtr_commit </span><br><span class="line">  |  |  |  |--&gt; trx_undo_assign_undo // 创建或者复用一个undo_log, 内含 mtr_start/mtr_commit </span><br><span class="line">  |  |--&gt; page_cur_tuple_insert // 在Page游标的下一个位置点Insert数据</span><br><span class="line">  |  |  |--&gt; page_cur_insert_rec_low // [见下文] ②</span><br><span class="line">  |  |  |--&gt; page_cur_insert_rec_zip //  if 压缩页的情况 </span><br><span class="line">  |--&gt; btr_cur_pessimistic_insert // 如果乐观情况失败，调用悲观Insert接口</span><br><span class="line">  |--&gt; mtr.commit();  // [见下文] ③</span><br><span class="line"></span><br><span class="line"> page_cur_insert_rec_low ②</span><br><span class="line">  |--&gt; 1-8: //为Record分配内存，并添加到B+Tree上</span><br><span class="line">  |--&gt; 9. page_cur_insert_rec_write_log // 为Redo Record of Insert Record分配内存（自定义的heap）</span><br><span class="line">                                        // 并记录在Page上</span><br><span class="line">  |  |--&gt; 先寻找 insert_record的第一个字节</span><br><span class="line">  |  |--&gt; 计算mlog大小; mlog_open //为mlog分配内存</span><br><span class="line">  |  |--&gt; mlog_write_initial_log_record_fast //初始化mlog,这里的mlog类型 MLOG_COMP_REC_INSERT</span><br><span class="line">  //|  |--&gt; dict_index_get_n_unique_in_tree </span><br><span class="line">          // 计算行Record上决定唯一性的列(field)数，也就是聚合索引=主键数，二级索引=主键+二级索引数</span><br><span class="line">  |  |--&gt; memcpy(log_ptr, ins_ptr, rec_size); // 把insert指针拷贝给redolog指针 </span><br><span class="line">  |  |--&gt; mlog_close // 关闭mlog</span><br></pre></td></tr></table></figure>
+<ol>
+<li>写<code>undo log</code>（写入到undo log buffer）</li>
+<li>写<code>redo log</code>（写入到redo log buffer，此时还没写入到文件？）</li>
+</ol>
+<h1 id="四、【事务执行阶段】binlog生成-写入缓存"><a href="#四、【事务执行阶段】binlog生成-写入缓存" class="headerlink" title="四、【事务执行阶段】binlog生成 &amp; 写入缓存"></a>四、【事务执行阶段】binlog生成 &amp; 写入缓存</h1><p>执行入口如下：<code>sql/handler.cc</code>文件</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">handler::ha_write_row</span><span class="params">(uchar *buf)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="type">int</span> error;</span><br><span class="line">  Log_func *log_func= Write_rows_log_event::binlog_row_logging_function;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">MYSQL_TABLE_IO_WAIT</span>(PSI_TABLE_WRITE_ROW, MAX_KEY, error,</span><br><span class="line">    &#123; error= <span class="built_in">write_row</span>(buf); &#125;)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">unlikely</span>((error= <span class="built_in">binlog_log_row</span>(table, <span class="number">0</span>, buf, log_func))))</span><br><span class="line">    <span class="built_in">DBUG_RETURN</span>(error); <span class="comment">/* purecov: inspected */</span></span><br><span class="line"></span><br><span class="line">  <span class="built_in">DEBUG_SYNC_C</span>(<span class="string">&quot;ha_write_row_end&quot;</span>);</span><br><span class="line">  <span class="built_in">DBUG_RETURN</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>binlog_log_row</code>在存储引擎成功写入一行数据后被调用。<code>SQL</code>层调用 <code>binlog_log_row</code> 记录 <code>Binlog</code>。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">binlog_log_row</span><span class="params">(TABLE* table, <span class="comment">// 操作的表对象</span></span></span></span><br><span class="line"><span class="params"><span class="function">                          <span class="type">const</span> uchar *before_record, <span class="comment">// 更新前的行数据</span></span></span></span><br><span class="line"><span class="params"><span class="function">                          <span class="type">const</span> uchar *after_record, <span class="comment">//更新后的行数据</span></span></span></span><br><span class="line"><span class="params"><span class="function">                          Log_func *log_func)</span> <span class="comment">//日志函数指针</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="comment">// 状态检查，Binlog是否开启</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">check_table_binlog_row_based</span>(thd, table))</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="type">bool</span> <span class="type">const</span> has_trans= thd-&gt;lex-&gt;sql_command == SQLCOM_CREATE_TABLE ||</span><br><span class="line">                           table-&gt;file-&gt;<span class="built_in">has_transactions</span>();</span><br><span class="line">      error=  (*log_func)(thd, table, has_trans, before_record, after_record);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>最后执行<code>Write_rows_log_event::binlog_row_logging_function;</code>，用于处理行级<code>Binlog</code>记录的关键函数指针。</p>
+<ul>
+<li><code>Write_rows_log_event</code>：用于记录行插入操作的核心事件类型。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/log_event.cc</span></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">Write_rows_log_event::binlog_row_logging_function</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    THD *thd, TABLE *table, </span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> uchar *before_record, <span class="type">const</span> uchar *after_record)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> thd-&gt;<span class="built_in">binlog_write_row</span>(table, before_record, after_record);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sql/binlog.cc</span></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">THD::binlog_write_row</span><span class="params">(TABLE* table, <span class="type">bool</span> is_trans, </span></span></span><br><span class="line"><span class="params"><span class="function">                          uchar <span class="type">const</span> *record,</span></span></span><br><span class="line"><span class="params"><span class="function">                          <span class="type">const</span> uchar* extra_row_info)</span></span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">  <span class="built_in">assert</span>(<span class="built_in">is_current_stmt_binlog_format_row</span>() &amp;&amp; mysql_bin_log.<span class="built_in">is_open</span>());</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 分配内存</span></span><br><span class="line">  <span class="function">Row_data_memory <span class="title">memory</span><span class="params">(table, max_row_length(table, record))</span></span>;</span><br><span class="line">  <span class="keyword">if</span> (!memory.<span class="built_in">has_memory</span>())</span><br><span class="line">    <span class="keyword">return</span> HA_ERR_OUT_OF_MEM;</span><br><span class="line">  <span class="comment">// 获取行数据存储位置</span></span><br><span class="line">  uchar *row_data= memory.<span class="built_in">slot</span>(<span class="number">0</span>);</span><br><span class="line">  <span class="comment">// 打包行数据</span></span><br><span class="line">  <span class="type">size_t</span> <span class="type">const</span> len= <span class="built_in">pack_row</span>(table, table-&gt;write_set, row_data, record);</span><br><span class="line">  <span class="comment">// 准备Binlog事件（创建Binlog事件）</span></span><br><span class="line">  Rows_log_event* <span class="type">const</span> ev=</span><br><span class="line">    <span class="built_in">binlog_prepare_pending_rows_event</span>(table, server_id, len, is_trans,</span><br><span class="line">                                      <span class="built_in">static_cast</span>&lt;Write_rows_log_event*&gt;(<span class="number">0</span>),</span><br><span class="line">                                      extra_row_info);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">unlikely</span>(ev == <span class="number">0</span>))</span><br><span class="line">    <span class="keyword">return</span> HA_ERR_OUT_OF_MEM;</span><br><span class="line">  <span class="comment">// 添加行数据到事件</span></span><br><span class="line">  <span class="keyword">return</span> ev-&gt;<span class="built_in">add_row_data</span>(row_data, len);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>将数据追加到内存缓冲区，不会立即写入二进制日志文件。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">Rows_log_event::add_row_data</span><span class="params">(uchar *row_data, <span class="type">size_t</span> length)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="built_in">DBUG_ENTER</span>(<span class="string">&quot;Rows_log_event::add_row_data&quot;</span>);</span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">     If the length is zero, there is nothing to write, so we just</span></span><br><span class="line"><span class="comment">     return. Note that this is not an optimization because the rest of</span></span><br><span class="line"><span class="comment">     the function will not do anything if the length is zero.</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="keyword">if</span> (length == <span class="number">0</span>)</span><br><span class="line">    <span class="built_in">DBUG_RETURN</span>(<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">DBUG_DUMP</span>(<span class="string">&quot;row_data&quot;</span>, row_data, <span class="built_in">min</span>&lt;<span class="type">size_t</span>&gt;(length, <span class="number">32</span>));</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* Insert into the buffer */</span></span><br><span class="line">  <span class="keyword">if</span> (m_rows_buf-&gt;<span class="built_in">append</span>(row_data, length))</span><br><span class="line">    <span class="built_in">DBUG_RETURN</span>(HA_ERR_RBR_LOGGING_FAILED);</span><br><span class="line"></span><br><span class="line">  m_rows_cur_length += length;</span><br><span class="line">  m_row_count++;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">DBUG_RETURN</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="五、小结"><a href="#五、小结" class="headerlink" title="五、小结"></a>五、小结</h1><p><code>Sql_cmd_insert::execute</code>是事务执行阶段，执行SQL语句，修改数据页并生成redo log。关键操作：</p>
+<ul>
+<li>调用 <code>row_insert_for_mysql()</code> 等函数执行数据插入。</li>
+<li><code>Innodb</code> 将事务的变更写入<code>redo log buffer</code>（但未标记为<code>prepare</code>)</li>
+<li>事务此时扔处于“执行中”状态，未提交。</li>
+</ul>
+<p>一条数据的插入流程<strong>事务执行阶段</strong>小结：</p>
+<ol>
+<li>undo log 生成，写入缓冲区。</li>
+<li>插入数据页</li>
+<li>redo log 生成，写入缓冲区。</li>
+<li>binlog 生成，写入缓冲区。</li>
+</ol>
+<p>参考文章：<br><a href="https://www.cnblogs.com/juanmaofeifei/p/16111523.html">MySQL启动过程详解二：核心模块启动 init_server_components()</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16129144.html">MySQL启动过程详解三：Innodb存储引擎的启动</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16146201.html">MySQL连接的建立与使用</a><br><a href="http://ilongda.com/knowledge/mysql/source_code_reading/server/connection.html">MySQL 源码解读 – 连接管理</a><br><a href="https://www.aneasystone.com/archives/2018/06/insert-locks-via-mysql-source-code.html">读 MySQL 源码再看 INSERT 加锁流程</a><br><a href="https://www.ctyun.cn/developer/article/403942519849029">MySQL二阶段提交及组提交简析</a><br><a href="https://www.cnblogs.com/juanmaofeifei/p/16040614.html">MySQL事务提交流程详解</a><br><a href="https://opensource.actionsky.com/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-mysql-%E7%9A%84-commit-%E6%98%AF%E6%80%8E%E4%B9%88-commit-%E7%9A%84%EF%BC%9F/">源码分析 | MySQL 的 commit 是怎么 commit 的？</a><br><a href="https://zhuanlan.zhihu.com/p/451690418">MySQL 引擎特性 · InnoDB Redo Log 解析</a><br><a href="http://mysql.taobao.org/monthly/2017/09/10/">MySQL · 源码分析 · 一条insert语句的执行过程</a><br><a href="http://mysql.taobao.org/monthly/2021/09/04/">MySQL · 源码详解 · mini transaction详解</a><br><a href="http://mysql.taobao.org/monthly/2019/03/03/">MySQL · InnoDB · Redo log</a><br><a href="https://www.pagefault.info/2019/04/18/mtr-minitransaction-design-and-implementation.html">MTR(mini-transaction)设计与实现</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mysql%E6%BA%90%E7%A0%81/" rel="tag"># mysql源码</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/08/15/2020-08-15-mysql-order-by/" rel="prev" title="《mysql》order by">
+      <i class="fa fa-chevron-left"></i> 《mysql》order by
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/08/17/2020-08-17-mysql-%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-insert%E6%B5%81%E7%A8%8B-%E4%BA%8B%E5%8A%A1%E6%8F%90%E4%BA%A4%E9%98%B6%E6%AE%B5/" rel="next" title="《mysql-源码分析》Insert流程（事务提交阶段）">
+      《mysql-源码分析》Insert流程（事务提交阶段） <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81mysql"><span class="nav-text">一、mysql</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E4%B8%80%E6%9D%A1Insert%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B"><span class="nav-text">二、一条Insert语句的执行过程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1%E3%80%81%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C"><span class="nav-text">2.1、命令执行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2%E3%80%81execute-thd"><span class="nav-text">2.2、execute(thd)</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E3%80%90%E4%BA%8B%E5%8A%A1%E6%89%A7%E8%A1%8C%E9%98%B6%E6%AE%B5%E3%80%91innodb%E6%89%A7%E8%A1%8C%E6%8F%92%E5%85%A5"><span class="nav-text">三、【事务执行阶段】innodb执行插入</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1%E3%80%81%E6%8F%92%E5%85%A5%E7%B4%A2%E5%BC%95%E8%AE%B0%E5%BD%95"><span class="nav-text">3.1、插入索引记录</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-1%E3%80%81%E8%81%9A%E5%90%88%E7%B4%A2%E5%BC%95-Insert-Record%E6%B5%81%E7%A8%8B"><span class="nav-text">3.1.1、聚合索引 Insert Record流程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-1%E3%80%81%E5%BC%80%E5%90%AFmini-transaction"><span class="nav-text">3.1.1.1、开启mini transaction</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-2%E3%80%81%E5%AE%9A%E4%BD%8D%E6%8F%92%E5%85%A5%E4%BD%8D%E7%BD%AE"><span class="nav-text">3.1.1.2、定位插入位置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-3%E3%80%81%E4%B9%90%E8%A7%82%E6%8F%92%E5%85%A5btr-cur-optimistic-insert"><span class="nav-text">3.1.1.3、乐观插入btr_cur_optimistic_insert</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#undo-log%E7%94%9F%E6%88%90"><span class="nav-text">undo log生成</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%8F%92%E5%85%A5%E8%AE%B0%E5%BD%95%EF%BC%88%E6%8F%92%E5%85%A5%E6%95%B0%E6%8D%AE%E9%A1%B5%EF%BC%89"><span class="nav-text">插入记录（插入数据页）</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#redo-log-%E7%94%9F%E6%88%90"><span class="nav-text">redo  log 生成</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-4%E3%80%81%E6%8F%90%E4%BA%A4mini-transaction"><span class="nav-text">3.1.1.4、提交mini transaction</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Step-1-mtr-t-Command-prepare-write-%EF%BC%88%E5%87%86%E5%A4%87%E5%B9%B6%E5%86%99%E5%85%A5Redo%E6%97%A5%E5%BF%97%EF%BC%89"><span class="nav-text">Step 1: mtr_t::Command::prepare_write()（准备并写入Redo日志）</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Step-2-mtr-t-Command-finish-write%EF%BC%88%E6%9C%AC%E5%9C%B0%E6%97%A5%E5%BF%97%E5%86%85%E5%AE%B9%E5%86%99%E5%85%A5%E5%85%A8%E5%B1%80redo-%E6%97%A5%E5%BF%97%E7%BC%93%E5%86%B2%E5%8C%BA%EF%BC%89"><span class="nav-text">Step 2: mtr_t::Command::finish_write（本地日志内容写入全局redo 日志缓冲区）</span></a></li></ol></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E3%80%90%E4%BA%8B%E5%8A%A1%E6%89%A7%E8%A1%8C%E9%98%B6%E6%AE%B5%E3%80%91binlog%E7%94%9F%E6%88%90-%E5%86%99%E5%85%A5%E7%BC%93%E5%AD%98"><span class="nav-text">四、【事务执行阶段】binlog生成 &amp; 写入缓存</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%B0%8F%E7%BB%93"><span class="nav-text">五、小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chw"
+      src="/images/touxiang.jpg">
+  <p class="site-author-name" itemprop="name">chw</p>
+  <div class="site-description" itemprop="description">do somthing</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">217</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">72</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
